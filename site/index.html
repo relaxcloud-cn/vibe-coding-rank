@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Vibe Coding Rank: 用真实 Codex / Claude Code 会话记录生成 AI 编程段位报告。" />
+    <title>Vibe Coding Rank</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Airank · AI Work Rank</p>
+          <h1>3 分钟看懂你的 Vibe Coding 段位</h1>
+          <p class="lede">本地扫描 Codex / Claude Code 记录，云端生成可分享报告。测的不是你会不会用 AI，而是系统到底是不是你的。</p>
+          <div class="command-card">
+            <div class="command-head">
+              <span>一条命令</span>
+              <button id="copy-command" type="button">复制</button>
+            </div>
+            <code>npx github:relaxcloud-cn/vibe-coding-rank --source codex --open</code>
+          </div>
+          <div class="hero-actions">
+            <a class="primary" href="#demo">查看样例报告</a>
+            <a class="secondary" href="https://github.com/relaxcloud-cn/vibe-coding-rank">GitHub</a>
+          </div>
+        </div>
+        <section class="report-card" aria-label="Vibe Coding rank report">
+          <div class="report-top">
+            <div>
+              <p class="report-kicker">当前报告</p>
+              <h2 id="rank-label">六品 · 已有大成</h2>
+            </div>
+            <div class="score">
+              <span id="score-value">76</span>
+              <small>AI Rank</small>
+            </div>
+          </div>
+          <div class="meter">
+            <div id="meter-fill"></div>
+          </div>
+          <dl class="stats">
+            <div><dt>置信度</dt><dd id="confidence">high</dd></div>
+            <div><dt>系统归属</dt><dd id="ownership">strong</dd></div>
+            <div><dt>证据数</dt><dd id="signals">56</dd></div>
+          </dl>
+          <div class="rank-rail" id="rank-rail"></div>
+        </section>
+      </section>
+
+      <section class="section split" id="demo">
+        <div>
+          <p class="eyebrow">Product Thesis</p>
+          <h2>强者不是更会写代码，而是仍然拥有系统结果</h2>
+          <p>普通测评问“你用不用 AI”。Vibe Coding Rank 直接看工作痕迹：目标怎么定义，边界怎么控制，AI 输出怎么验证，失败时是继续 patch 还是重设系统。</p>
+        </div>
+        <div class="evidence-grid" id="evidence-grid"></div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <p class="eyebrow">Rank Ladder</p>
+          <h2>从 AI 写代码，到我拥有系统</h2>
+        </div>
+        <div class="ladder" id="ladder"></div>
+      </section>
+
+      <section class="section split">
+        <div>
+          <p class="eyebrow">Rank Caps</p>
+          <h2>不是吹高分，而是讲清楚上限</h2>
+          <p>八品需要团队级复制证据，九品需要公开范式影响证据。私有会话能证明个人能力，但不能伪造行业影响力。</p>
+        </div>
+        <ul class="caps" id="rank-caps"></ul>
+      </section>
+    </main>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "name": "@airank/vibe-coding-rank",
+  "version": "0.1.0",
+  "description": "Evidence-based Vibe Coding rank reports from local Codex and Claude Code sessions.",
+  "type": "module",
+  "bin": {
+    "vibe-rank": "./cli/vibe-rank.mjs",
+    "airank-vibe": "./cli/vibe-rank.mjs"
+  },
+  "scripts": {
+    "check": "node --check cli/vibe-rank.mjs && node --check worker/index.js && python3 -m unittest discover -s tests",
+    "demo": "node cli/vibe-rank.mjs --demo",
+    "site": "python3 -m http.server 4173 -d site"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "SKILL.md",
+    "agents",
+    "assets",
+    "cli",
+    "docs",
+    "references",
+    "scripts",
+    "site",
+    "worker",
+    "wrangler.toml"
+  ],
+  "keywords": [
+    "airank",
+    "codex",
+    "claude-code",
+    "vibe-coding",
+    "ai-assessment",
+    "codex-skill"
+  ],
+  "license": "MIT"
+}
