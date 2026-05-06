@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Local evidence and generated reports should stay private.
+/runs/
+/reports/
+*-evidence.jsonl
+*-summary.json

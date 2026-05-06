@@ -1,0 +1,7 @@
+interface:
+  display_name: "Vibe Coding Rank"
+  short_description: "Rate AI coding ability from real session evidence."
+  default_prompt: "Use $vibe-coding-rank to analyze my local Codex or Claude coding sessions and rate them against the Vibe Coding 九品体系."
+
+policy:
+  allow_implicit_invocation: true
