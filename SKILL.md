@@ -55,6 +55,7 @@ python3 "$SKILL_DIR/scripts/summarize_evidence.py" \
 - `references/vibe-coding-rank.md` for the rank model.
 - `references/evidence-rubric.md` for signal interpretation.
 - `references/output-schema.md` for the expected report shape.
+- `references/infographic-prompt.md` when the user wants a visual infographic.
 
 4. Produce a concise report:
 
@@ -63,6 +64,13 @@ python3 "$SKILL_DIR/scripts/summarize_evidence.py" \
 - Evidence that supports the rank.
 - Evidence that caps the rank.
 - Next-rank upgrade path.
+
+5. If the user asks for an infographic, use an image-generation model path:
+
+- Use Codex image generation / `imagegen` with a raster image model such as `gpt-image-2`.
+- Do not substitute HTML, SVG, Mermaid, canvas, or CSS-generated diagrams.
+- If the runtime exposes model selection, choose `gpt-image-2`; if model selection is hidden, state that the built-in image generation path was used and do not claim an unverified model.
+- Keep raw evidence private; only place summarized, non-sensitive findings in the image prompt.
 
 ## Ranking Rules
 

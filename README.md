@@ -25,7 +25,8 @@
 ├── references/
 │   ├── vibe-coding-rank.md          # 九品体系
 │   ├── evidence-rubric.md           # 证据解释规则
-│   └── output-schema.md             # 报告输出结构
+│   ├── output-schema.md             # 报告输出结构
+│   └── infographic-prompt.md        # imagegen 信息图提示词模板
 ├── scripts/
 │   ├── collect_sessions.py          # 提取并脱敏会话证据
 │   └── summarize_evidence.py        # 生成启发式证据摘要
@@ -58,6 +59,8 @@ python3 scripts/collect_sessions.py \
 ```
 
 之后让 Codex 使用 `$vibe-coding-rank`，读取摘要和 `references/` 中的评级规则，生成最终报告。
+
+如果要生成信息图，让 Codex 继续读取 `references/infographic-prompt.md`，并使用 imagegen / `gpt-image-2` 这类位图生图模型生成。不要让 Codex 写 HTML、SVG、Mermaid、canvas 或 CSS 来伪造信息图。
 
 ## 安装到 Codex
 
