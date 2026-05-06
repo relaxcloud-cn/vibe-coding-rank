@@ -16,8 +16,8 @@ const SAMPLE = {
     level: 6,
     label: "六品 · 已有大成",
     score: 76,
-    confidence: "high",
-    systemOwnership: "strong",
+    confidence: "高",
+    systemOwnership: "强",
   },
   signalCount: 56,
   evidence: [
@@ -76,29 +76,33 @@ function renderEvidence(report) {
   }
 }
 
-function renderCaps(report) {
-  const caps = document.querySelector("#rank-caps");
-  caps.innerHTML = "";
-  const rows = report.rankCaps?.length ? report.rankCaps : SAMPLE.rankCaps;
-  for (const cap of rows) {
-    const item = document.createElement("li");
-    item.textContent = typeof cap === "string" ? cap : cap.cap || JSON.stringify(cap);
-    caps.append(item);
-  }
-}
-
 function render(report) {
   const rank = report.rank || SAMPLE.rank;
   const level = Number(rank.level || 0);
   document.querySelector("#rank-label").textContent = rank.label || RANKS[level][1];
   document.querySelector("#score-value").textContent = rank.score || 0;
-  document.querySelector("#confidence").textContent = rank.confidence || "low";
-  document.querySelector("#ownership").textContent = rank.systemOwnership || "weak";
+  document.querySelector("#confidence").textContent = translateConfidence(rank.confidence || "low");
+  document.querySelector("#ownership").textContent = translateOwnership(rank.systemOwnership || "weak");
   document.querySelector("#signals").textContent = report.signalCount || 0;
-  document.querySelector("#meter-fill").style.width = `${Math.max(4, Math.min(100, rank.score || level * 11))}%`;
   renderRail(level);
   renderEvidence(report);
-  renderCaps(report);
+}
+
+function translateConfidence(value) {
+  return {
+    low: "低",
+    medium: "中",
+    high: "高",
+  }[value] || value;
+}
+
+function translateOwnership(value) {
+  return {
+    weak: "弱",
+    emerging: "形成中",
+    strong: "强",
+    exceptional: "极强",
+  }[value] || value;
 }
 
 document.querySelector("#copy-command").addEventListener("click", async () => {
@@ -106,7 +110,7 @@ document.querySelector("#copy-command").addEventListener("click", async () => {
   await navigator.clipboard.writeText(command);
   const button = document.querySelector("#copy-command");
   const previous = button.innerHTML;
-  button.innerHTML = `<span><span class="prompt">$</span> copied to clipboard</span><span class="copy-icon" aria-hidden="true">OK</span>`;
+  button.innerHTML = `<span><span class="prompt">$</span> 已复制到剪贴板</span><span class="copy-icon" aria-hidden="true">OK</span>`;
   setTimeout(() => {
     button.innerHTML = previous;
   }, 1200);
