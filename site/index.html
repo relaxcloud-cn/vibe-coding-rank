@@ -3,78 +3,181 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Vibe Coding Rank: 用真实 Codex / Claude Code 会话记录生成 AI 编程段位报告。" />
+    <meta name="description" content="Vibe Coding Rank: 本地扫描 Codex / Claude Code 记录，生成可分享的 AI 编程段位报告。" />
     <title>Vibe Coding Rank</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="shell">
+    <div class="site-bg" aria-hidden="true">
+      <pre>VIBE RANK  VIBE RANK  VIBE RANK  VIBE RANK  VIBE RANK  VIBE RANK  VIBE RANK
+SYSTEM OWNER  EVIDENCE GATES  LOCAL FIRST  AI WORK RANK  CODEX  CLAUDE
+GOALS  BOUNDARIES  ACCEPTANCE  ARCHITECTURE  VALIDATION  WORKFLOW
+九品体系  系统归属  真实记录  本地取证  云端报告  下一品路径
+VIBE RANK  VIBE RANK  VIBE RANK  VIBE RANK  VIBE RANK  VIBE RANK  VIBE RANK
+SYSTEM OWNER  EVIDENCE GATES  LOCAL FIRST  AI WORK RANK  CODEX  CLAUDE
+GOALS  BOUNDARIES  ACCEPTANCE  ARCHITECTURE  VALIDATION  WORKFLOW
+九品体系  系统归属  真实记录  本地取证  云端报告  下一品路径</pre>
+    </div>
+
+    <nav class="topbar">
+      <a class="brand" href="#">
+        <span class="brand-mark">九</span>
+        <span>Airank</span>
+        <strong>Vibe</strong>
+      </a>
+      <div class="nav-actions">
+        <a href="#report">Demo</a>
+        <a href="#capabilities">Capabilities</a>
+        <a href="https://github.com/relaxcloud-cn/vibe-coding-rank">GitHub</a>
+        <a class="login" href="https://github.com/relaxcloud-cn/vibe-coding-rank">Star</a>
+      </div>
+    </nav>
+
+    <main>
       <section class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow">Airank · AI Work Rank</p>
-          <h1>3 分钟看懂你的 Vibe Coding 段位</h1>
-          <p class="lede">本地扫描 Codex / Claude Code 记录，云端生成可分享报告。测的不是你会不会用 AI，而是系统到底是不是你的。</p>
-          <div class="command-card">
-            <div class="command-head">
-              <span>一条命令</span>
-              <button id="copy-command" type="button">复制</button>
-            </div>
-            <code>npx github:relaxcloud-cn/vibe-coding-rank --source codex --open</code>
-          </div>
-          <div class="hero-actions">
-            <a class="primary" href="#demo">查看样例报告</a>
-            <a class="secondary" href="https://github.com/relaxcloud-cn/vibe-coding-rank">GitHub</a>
-          </div>
+        <div class="hero-inner">
+          <pre class="ascii" aria-label="Vibe Coding Rank">
+██╗   ██╗██╗██████╗ ███████╗    ██████╗  █████╗ ███╗   ██╗██╗  ██╗
+██║   ██║██║██╔══██╗██╔════╝    ██╔══██╗██╔══██╗████╗  ██║██║ ██╔╝
+██║   ██║██║██████╔╝█████╗      ██████╔╝███████║██╔██╗ ██║█████╔╝
+╚██╗ ██╔╝██║██╔══██╗██╔══╝      ██╔══██╗██╔══██║██║╚██╗██║██╔═██╗
+ ╚████╔╝ ██║██████╔╝███████╗    ██║  ██║██║  ██║██║ ╚████║██║  ██╗
+  ╚═══╝  ╚═╝╚═════╝ ╚══════╝    ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝</pre>
+          <p class="hero-line">AI coding rank, generated from your local Codex / Claude Code traces.</p>
+          <button class="install-command" id="copy-command" type="button">
+            <span><span class="prompt">$</span> npx github:relaxcloud-cn/vibe-coding-rank --source codex --open</span>
+            <span class="copy-icon" aria-hidden="true">⌘C</span>
+          </button>
+          <p class="localhost">opens at <span>vibe.yisec.com/#data</span> · raw logs stay local</p>
         </div>
-        <section class="report-card" aria-label="Vibe Coding rank report">
-          <div class="report-top">
-            <div>
-              <p class="report-kicker">当前报告</p>
-              <h2 id="rank-label">六品 · 已有大成</h2>
-            </div>
-            <div class="score">
-              <span id="score-value">76</span>
-              <small>AI Rank</small>
-            </div>
-          </div>
-          <div class="meter">
-            <div id="meter-fill"></div>
-          </div>
-          <dl class="stats">
-            <div><dt>置信度</dt><dd id="confidence">high</dd></div>
-            <div><dt>系统归属</dt><dd id="ownership">strong</dd></div>
-            <div><dt>证据数</dt><dd id="signals">56</dd></div>
-          </dl>
-          <div class="rank-rail" id="rank-rail"></div>
-        </section>
       </section>
 
-      <section class="section split" id="demo">
+      <section class="workspace-wrap" id="report">
+        <div class="workspace">
+          <div class="window-bar">
+            <div class="traffic">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="crumb">airank / local evidence / vibe report</div>
+            <div class="host">vibe.yisec.com</div>
+          </div>
+          <div class="app-shell">
+            <aside class="sidebar">
+              <div class="side-title">Evidence</div>
+              <button class="side-item active">Overview</button>
+              <button class="side-item">Sessions</button>
+              <button class="side-item">Signals</button>
+              <button class="side-item">Rank caps</button>
+              <button class="side-item">Upgrade path</button>
+              <div class="side-footer">
+                <span>local-first</span>
+                <strong>no raw log upload</strong>
+              </div>
+            </aside>
+            <section class="dashboard">
+              <div class="report-head">
+                <div>
+                  <p class="label">Current Rank</p>
+                  <h1 id="rank-label">六品 · 已有大成</h1>
+                  <p class="rank-copy">系统开始真正属于你。你不是让 AI 乱写代码，而是在用目标、边界、架构和验证 gate 驱动交付。</p>
+                </div>
+                <div class="rank-score">
+                  <span id="score-value">76</span>
+                  <small>AI Rank</small>
+                </div>
+              </div>
+
+              <div class="metrics">
+                <div><span>Confidence</span><strong id="confidence">high</strong></div>
+                <div><span>Ownership</span><strong id="ownership">strong</strong></div>
+                <div><span>Signals</span><strong id="signals">56</strong></div>
+                <div><span>Next</span><strong>七品</strong></div>
+              </div>
+
+              <div class="main-grid">
+                <div class="panel">
+                  <div class="panel-head">
+                    <span>Rank Ladder</span>
+                    <small>0 → 9</small>
+                  </div>
+                  <div class="rank-rail" id="rank-rail"></div>
+                </div>
+                <div class="panel">
+                  <div class="panel-head">
+                    <span>Evidence Feed</span>
+                    <small>real traces</small>
+                  </div>
+                  <div class="evidence-list" id="evidence-grid"></div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="section integrations">
+        <div class="section-kicker">Integrations</div>
+        <h2>Connect the traces developers already create.</h2>
+        <div class="logo-strip">
+          <div>Codex</div>
+          <div>Claude Code</div>
+          <div>Cursor</div>
+          <div>OpenClaw</div>
+          <div>Git</div>
+          <div>Terminal Logs</div>
+        </div>
+      </section>
+
+      <section class="section split-section" id="capabilities">
         <div>
-          <p class="eyebrow">Product Thesis</p>
-          <h2>强者不是更会写代码，而是仍然拥有系统结果</h2>
-          <p>普通测评问“你用不用 AI”。Vibe Coding Rank 直接看工作痕迹：目标怎么定义，边界怎么控制，AI 输出怎么验证，失败时是继续 patch 还是重设系统。</p>
+          <div class="section-kicker">Capabilities</div>
+          <h2>Evidence-based AI work rank, not prompt trivia.</h2>
         </div>
-        <div class="evidence-grid" id="evidence-grid"></div>
+        <div class="capability-grid">
+          <article>
+            <span>01</span>
+            <h3>Local evidence collection</h3>
+            <p>Scan Codex and Claude Code sessions locally, redact secrets, then build a report artifact.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>System ownership scoring</h3>
+            <p>Detect goals, non-goals, architecture boundaries, validation gates, workflows, and rank caps.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Shareable cloud report</h3>
+            <p>Open a report URL immediately. Default mode keeps raw logs local and renders from URL hash.</p>
+          </article>
+          <article>
+            <span>04</span>
+            <h3>Team-ready next step</h3>
+            <p>Use the same rank language to build team diagnostics, training, and Airank enterprise reports.</p>
+          </article>
+        </div>
       </section>
 
-      <section class="section">
-        <div class="section-head">
-          <p class="eyebrow">Rank Ladder</p>
-          <h2>从 AI 写代码，到我拥有系统</h2>
+      <section class="section usecases">
+        <div class="section-kicker">Use Cases</div>
+        <h2>From “I use AI” to “I own the system”.</h2>
+        <div class="usecase-board">
+          <div class="usecase active">个人晒段位</div>
+          <div class="usecase">团队 AI 诊断</div>
+          <div class="usecase">招聘 / 晋升评估</div>
+          <div class="usecase">训练营前后测</div>
+          <div class="usecase">开源社区 Benchmark</div>
         </div>
-        <div class="ladder" id="ladder"></div>
       </section>
 
-      <section class="section split">
-        <div>
-          <p class="eyebrow">Rank Caps</p>
-          <h2>不是吹高分，而是讲清楚上限</h2>
-          <p>八品需要团队级复制证据，九品需要公开范式影响证据。私有会话能证明个人能力，但不能伪造行业影响力。</p>
-        </div>
-        <ul class="caps" id="rank-caps"></ul>
+      <section class="section closing">
+        <pre class="mini-ascii">AI WRITES CODE  ━━━━━━━━▶  I OWN THE SYSTEM</pre>
+        <h2>Run it locally. Share the rank. Upgrade the workflow.</h2>
+        <a class="final-cta" href="https://github.com/relaxcloud-cn/vibe-coding-rank">Open on GitHub</a>
       </section>
     </main>
+
     <script src="./app.js" type="module"></script>
   </body>
 </html>

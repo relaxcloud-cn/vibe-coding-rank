@@ -54,20 +54,13 @@ async function loadReport() {
 
 function renderRail(level) {
   const rail = document.querySelector("#rank-rail");
-  const ladder = document.querySelector("#ladder");
   rail.innerHTML = "";
-  ladder.innerHTML = "";
   for (const [value, label, phrase] of RANKS) {
     const active = Number(value) <= level ? " active" : "";
     const compact = document.createElement("div");
     compact.className = `rail-item${active}`;
-    compact.innerHTML = `<span class="badge">${value}</span><strong>${label}</strong>`;
+    compact.innerHTML = `<span class="badge">${value}</span><div><strong>${label}</strong><br><span>${phrase}</span></div>`;
     rail.append(compact);
-
-    const item = document.createElement("div");
-    item.className = `ladder-item${active}`;
-    item.innerHTML = `<span class="badge">${value}</span><div><strong>${label}</strong><br><span>${phrase}</span></div>`;
-    ladder.append(item);
   }
 }
 
@@ -111,9 +104,11 @@ function render(report) {
 document.querySelector("#copy-command").addEventListener("click", async () => {
   const command = "npx github:relaxcloud-cn/vibe-coding-rank --source codex --open";
   await navigator.clipboard.writeText(command);
-  document.querySelector("#copy-command").textContent = "已复制";
+  const button = document.querySelector("#copy-command");
+  const previous = button.innerHTML;
+  button.innerHTML = `<span><span class="prompt">$</span> copied to clipboard</span><span class="copy-icon" aria-hidden="true">OK</span>`;
   setTimeout(() => {
-    document.querySelector("#copy-command").textContent = "复制";
+    button.innerHTML = previous;
   }, 1200);
 });
 
