@@ -62,6 +62,15 @@
     "脚本只做证据清洗和自动初筛，不是最终 AI 段位判定。"
   ],
   "userControlCount": 14,
+  "usageStats": {
+    "usage_record_count": 42,
+    "total_tokens": 1280000,
+    "peak_day": "2026-05-07",
+    "peak_day_tokens": 420000,
+    "active_days": 6,
+    "active_sessions": 12,
+    "token_note": "Token 是 AI 投入强度指标，不参与段位升品。"
+  },
   "dimensionProfile": [
     {
       "id": "architecture_judgment",

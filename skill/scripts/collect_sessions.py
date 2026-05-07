@@ -31,7 +31,6 @@ TEXT_KEYS = {
 NON_CONVERSATION_TYPES = {
     "agent_reasoning",
     "reasoning",
-    "token_count",
     "turn_context",
 }
 
@@ -168,10 +167,72 @@ def should_skip_record(value: Any) -> bool:
     return False
 
 
+def to_int(value: Any) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return max(0, value)
+    if isinstance(value, float):
+        return max(0, int(value))
+    return 0
+
+
+def usage_payload(value: Any) -> dict[str, int] | None:
+    if not isinstance(value, dict):
+        return None
+
+    source: dict[str, Any] | None = None
+    payload = value.get("payload")
+    if isinstance(payload, dict) and payload.get("type") == "token_count":
+        info = payload.get("info")
+        if isinstance(info, dict):
+            source = info.get("last_token_usage") or info.get("total_token_usage")
+
+    message = value.get("message")
+    if source is None and isinstance(message, dict):
+        usage = message.get("usage")
+        if isinstance(usage, dict):
+            source = usage
+
+    if not isinstance(source, dict):
+        return None
+
+    input_tokens = to_int(source.get("input_tokens"))
+    cached_tokens = to_int(source.get("cached_input_tokens")) + to_int(source.get("cache_read_input_tokens"))
+    cache_creation_tokens = to_int(source.get("cache_creation_input_tokens"))
+    output_tokens = to_int(source.get("output_tokens"))
+    reasoning_tokens = to_int(source.get("reasoning_output_tokens"))
+    total_tokens = to_int(source.get("total_tokens"))
+    if total_tokens == 0:
+        total_tokens = input_tokens + cached_tokens + cache_creation_tokens + output_tokens + reasoning_tokens
+
+    if total_tokens == 0:
+        return None
+
+    return {
+        "input_tokens": input_tokens,
+        "cached_input_tokens": cached_tokens,
+        "cache_creation_input_tokens": cache_creation_tokens,
+        "output_tokens": output_tokens,
+        "reasoning_output_tokens": reasoning_tokens,
+        "total_tokens": total_tokens,
+    }
+
+
 def extract_records_from_json(value: Any, path: Path) -> Iterable[dict[str, Any]]:
     if isinstance(value, list):
         for item in value:
             yield from extract_records_from_json(item, path)
+        return
+
+    usage = usage_payload(value)
+    if usage:
+        yield {
+            "role": "usage_stats",
+            "text": json.dumps(usage, ensure_ascii=False, sort_keys=True),
+            "path": str(path),
+            "usage": usage,
+        }
         return
 
     if should_skip_record(value):
@@ -234,6 +295,7 @@ def main() -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
 
     written = 0
+    usage_written = 0
     with output.open("w", encoding="utf-8") as out:
         for path in iter_files(root, since_ts):
             try:
@@ -249,15 +311,20 @@ def main() -> int:
                         "role": record.get("role", "unknown"),
                         "text": text[: args.max_chars],
                     }
+                    is_usage = record.get("role") == "usage_stats"
+                    if isinstance(record.get("usage"), dict):
+                        payload["usage"] = record["usage"]
+                    if not is_usage and written >= args.limit:
+                        continue
                     out.write(json.dumps(payload, ensure_ascii=False) + "\n")
-                    written += 1
-                    if written >= args.limit:
-                        print(f"wrote {written} records to {output}")
-                        return 0
+                    if is_usage:
+                        usage_written += 1
+                    else:
+                        written += 1
             except OSError:
                 continue
 
-    print(f"wrote {written} records to {output}")
+    print(f"wrote {written} records and {usage_written} usage stats to {output}")
     return 0
 
 

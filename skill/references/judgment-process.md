@@ -14,6 +14,7 @@
 - `unlock_status`：八品、九品是否解锁。
 - `preliminary_rank`：自动初筛结果，只能作为参考。
 - `user_control_count`：用户主动控制证据数。六品以上必须看这个字段。
+- `usage_stats`：AI 投入强度硬统计。只能解释使用强度，不能用于升品。
 
 ## 二、六个判断维度
 

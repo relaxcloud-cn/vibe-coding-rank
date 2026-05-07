@@ -71,7 +71,18 @@ class ScriptTests(unittest.TestCase):
                 },
                 {
                     "type": "event_msg",
-                    "payload": {"type": "token_count", "info": {"total_tokens": 1}},
+                    "payload": {
+                        "type": "token_count",
+                        "info": {
+                            "last_token_usage": {
+                                "input_tokens": 10,
+                                "cached_input_tokens": 5,
+                                "output_tokens": 2,
+                                "reasoning_output_tokens": 1,
+                                "total_tokens": 18,
+                            }
+                        },
+                    },
                 },
             ]
             source.write_text(
@@ -90,7 +101,8 @@ class ScriptTests(unittest.TestCase):
             )
 
             collected = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
-            self.assertEqual([row["role"] for row in collected], ["user"])
+            self.assertEqual([row["role"] for row in collected], ["user", "usage_stats"])
+            self.assertEqual(collected[1]["usage"]["total_tokens"], 18)
 
     def test_collect_sessions_marks_claude_tool_results(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -298,6 +310,56 @@ class ScriptTests(unittest.TestCase):
             data = json.loads(summary.read_text(encoding="utf-8"))
             self.assertEqual(data["excluded_reason_counts"]["role:tool_result"], 1)
             self.assertNotIn("architecture", data["signal_counts"])
+            self.assertLessEqual(data["preliminary_rank"]["level"], 4)
+
+    def test_prepare_evidence_reports_usage_stats_without_scoring(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            evidence = root / "evidence.jsonl"
+            summary = root / "summary.json"
+            rows = [
+                {
+                    "source": "codex",
+                    "path": "session-a.jsonl:1",
+                    "mtime": "2026-05-07T10:00:00",
+                    "role": "usage_stats",
+                    "text": json.dumps({"total_tokens": 100, "input_tokens": 80, "output_tokens": 20}),
+                    "usage": {"total_tokens": 100, "input_tokens": 80, "output_tokens": 20},
+                },
+                {
+                    "source": "codex",
+                    "path": "session-b.jsonl:1",
+                    "mtime": "2026-05-08T10:00:00",
+                    "role": "usage_stats",
+                    "text": json.dumps({"total_tokens": 300, "input_tokens": 250, "output_tokens": 50}),
+                    "usage": {"total_tokens": 300, "input_tokens": 250, "output_tokens": 50},
+                },
+                {
+                    "source": "codex",
+                    "path": "session-b.jsonl:2",
+                    "mtime": "2026-05-08T10:00:00",
+                    "role": "user",
+                    "text": "先给计划，验收条件是 test 通过。",
+                },
+            ]
+            evidence.write_text(
+                "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+                encoding="utf-8",
+            )
+
+            run_script(
+                "prepare_evidence.py",
+                "--input",
+                str(evidence),
+                "--output",
+                str(summary),
+            )
+
+            data = json.loads(summary.read_text(encoding="utf-8"))
+            self.assertEqual(data["usage_stats"]["total_tokens"], 400)
+            self.assertEqual(data["usage_stats"]["peak_day"], "2026-05-08")
+            self.assertEqual(data["usage_stats"]["peak_day_tokens"], 300)
+            self.assertEqual(data["excluded_reason_counts"]["role:usage_stats"], 2)
             self.assertLessEqual(data["preliminary_rank"]["level"], 4)
 
     def test_prepare_evidence_caps_single_dense_record(self) -> None:

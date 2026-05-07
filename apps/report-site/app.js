@@ -28,6 +28,12 @@ const SAMPLE = {
   isFinal: false,
   strongEvidenceCount: 12,
   userControlCount: 8,
+  usageStats: {
+    total_tokens: 1280000,
+    peak_day_tokens: 420000,
+    active_days: 6,
+    token_note: "Token 是 AI 投入强度指标，不参与段位升品。",
+  },
   dimensionProfile: [
     { id: "problem_definition", label: "目标定义", status: "成立", score: 65 },
     { id: "boundary_control", label: "边界控制", status: "成立", score: 65 },
@@ -119,6 +125,7 @@ function render(report) {
   document.querySelector("#judgment-mode").textContent = judgmentText(report);
   document.querySelector("#strong-evidence").textContent = report.strongEvidenceCount ?? 0;
   document.querySelector("#user-control").textContent = report.userControlCount ?? 0;
+  document.querySelector("#token-total").textContent = formatTokens(report.usageStats?.total_tokens || 0);
   document.querySelector("#signals").textContent = report.signalCount || 0;
   document.querySelector("#records").textContent = report.analyzedRecordCount ?? report.recordCount ?? 0;
   document.querySelector("#rank-cap").textContent = firstText(report.rankCaps) || SAMPLE.rankCaps[0];
@@ -163,6 +170,13 @@ function firstText(items) {
   const first = items[0];
   if (typeof first === "string") return first;
   return first.cap || first.summary || "";
+}
+
+function formatTokens(value) {
+  const tokens = Number(value || 0);
+  if (tokens >= 100000000) return `${(tokens / 100000000).toFixed(1)}亿`;
+  if (tokens >= 10000) return `${Math.round(tokens / 10000)}万`;
+  return String(tokens);
 }
 
 function renderQuality(report) {

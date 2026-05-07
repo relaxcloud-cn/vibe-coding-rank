@@ -281,6 +281,7 @@ EXCLUDED_ROLES = {
     "attachment",
     "queue-operation",
     "tool_result",
+    "usage_stats",
 }
 
 EXCLUDED_TEXT_PATTERNS: list[tuple[str, str]] = [
@@ -365,12 +366,89 @@ def source_session(record: dict[str, Any]) -> str:
     return path or record_source(record)
 
 
+def source_day(record: dict[str, Any]) -> str:
+    mtime = str(record.get("mtime", "")).strip()
+    if len(mtime) >= 10:
+        return mtime[:10]
+    path = str(record.get("path", ""))
+    match = re.search(r"/(\d{4})/(\d{2})/(\d{2})/", path)
+    if match:
+        return "-".join(match.groups())
+    return "unknown"
+
+
 def is_promotion_signal(signal: str) -> bool:
     return signal not in {"snippet_generation", "demo_generation", "bug_loop", "team_system"}
 
 
 def is_user_role(role: str) -> bool:
     return role.strip().lower() == "user"
+
+
+def usage_from_record(record: dict[str, Any]) -> dict[str, int] | None:
+    usage = record.get("usage")
+    if not isinstance(usage, dict):
+        try:
+            usage = json.loads(str(record.get("text", "")))
+        except json.JSONDecodeError:
+            return None
+    total = int(usage.get("total_tokens") or 0)
+    if total <= 0:
+        return None
+    return {
+        "input_tokens": int(usage.get("input_tokens") or 0),
+        "cached_input_tokens": int(usage.get("cached_input_tokens") or 0),
+        "cache_creation_input_tokens": int(usage.get("cache_creation_input_tokens") or 0),
+        "output_tokens": int(usage.get("output_tokens") or 0),
+        "reasoning_output_tokens": int(usage.get("reasoning_output_tokens") or 0),
+        "total_tokens": total,
+    }
+
+
+def build_usage_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
+    totals: Counter[str] = Counter()
+    by_day: Counter[str] = Counter()
+    by_session: Counter[str] = Counter()
+    usage_records = 0
+    peak_record = 0
+
+    for record in records:
+        if str(record.get("role", "")).strip().lower() != "usage_stats":
+            continue
+        usage = usage_from_record(record)
+        if not usage:
+            continue
+        usage_records += 1
+        for key, value in usage.items():
+            totals[key] += value
+        total_tokens = usage["total_tokens"]
+        peak_record = max(peak_record, total_tokens)
+        by_day[source_day(record)] += total_tokens
+        by_session[source_session(record)] += total_tokens
+
+    peak_day, peak_day_tokens = ("", 0)
+    if by_day:
+        peak_day, peak_day_tokens = by_day.most_common(1)[0]
+    peak_session, peak_session_tokens = ("", 0)
+    if by_session:
+        peak_session, peak_session_tokens = by_session.most_common(1)[0]
+
+    return {
+        "usage_record_count": usage_records,
+        "total_tokens": totals["total_tokens"],
+        "input_tokens": totals["input_tokens"],
+        "cached_input_tokens": totals["cached_input_tokens"],
+        "cache_creation_input_tokens": totals["cache_creation_input_tokens"],
+        "output_tokens": totals["output_tokens"],
+        "reasoning_output_tokens": totals["reasoning_output_tokens"],
+        "active_days": len([day for day in by_day if day != "unknown"]),
+        "active_sessions": len(by_session),
+        "peak_record_tokens": peak_record,
+        "peak_day": peak_day,
+        "peak_day_tokens": peak_day_tokens,
+        "peak_session_tokens": peak_session_tokens,
+        "token_note": "Token 是 AI 投入强度指标，不参与段位升品。",
+    }
 
 
 def exclusion_reason(record: dict[str, Any], patterns: list[tuple[str, re.Pattern[str]]]) -> str | None:
@@ -582,6 +660,7 @@ def build_dimension_profile(
 def main() -> int:
     args = parse_args()
     records = load_records(Path(args.input))
+    usage_stats = build_usage_stats(records)
     patterns = compile_patterns()
     excluded_patterns = compile_excluded_patterns()
     counts: Counter[str] = Counter()
@@ -685,6 +764,7 @@ def main() -> int:
         "promotion_evidence_count": promotion_evidence_count,
         "user_control_count": user_control_count,
         "user_control_source_count": len(user_control_sources),
+        "usage_stats": usage_stats,
         "source_count": len(analyzed_sources),
         "preliminary_rank": preliminary_rank,
         "heuristic_rank": preliminary_rank,

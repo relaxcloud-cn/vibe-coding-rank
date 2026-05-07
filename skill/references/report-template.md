@@ -52,6 +52,15 @@
 - 系统归属：{system_ownership}
 - 方法复制：{method_replication}
 
+## 硬统计
+
+- 总 token：{total_tokens}
+- 峰值日 token：{peak_day_tokens}
+- 活跃天数：{active_days}
+- 峰值会话 token：{peak_session_tokens}
+
+说明：Token 是 AI 投入强度，不参与段位升品。
+
 ## 下一品升级路线
 
 {upgrade_path}
