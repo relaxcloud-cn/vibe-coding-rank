@@ -370,6 +370,9 @@ function render(report) {
   document.querySelector("#drag-factors").textContent = dragFactorSummary(report);
   document.querySelector("#why-this-rank").textContent = report.whyThisRank || report.narrative?.rankReason || SAMPLE.whyThisRank;
   document.querySelector("#why-not-next").textContent = report.whyNotNextRank || report.narrative?.nextRankGap || SAMPLE.whyNotNextRank;
+  document.querySelector("#next-action-title").textContent = nextActionTitle(report);
+  document.querySelector("#next-action-body").textContent = upgradePathSummary(report);
+  document.querySelector("#next-action-gate").textContent = rankGateSummary(report);
   renderQuality(report);
   renderDimensions(report);
   renderHardStatCards(report);
@@ -399,6 +402,9 @@ function renderError(error) {
   document.querySelector("#evidence-grid").innerHTML = "";
   document.querySelector("#why-this-rank").textContent = "无法根据当前链接判断段位。";
   document.querySelector("#why-not-next").textContent = "需要有效报告数据后才能分析下一品差距。";
+  document.querySelector("#next-action-title").textContent = "重新生成报告";
+  document.querySelector("#next-action-body").textContent = "重新运行 CLI，生成有效的脱敏报告链接。";
+  document.querySelector("#next-action-gate").textContent = "当前链接无法解析。";
   document.querySelector("#rank-cap").textContent = "报告数据不可用。";
   document.querySelector("#upgrade-path").textContent = "重新运行 npx github:relaxcloud-cn/vibe-coding-rank --source codex --short-link --open";
   document.querySelector("#unlock-status").textContent = "未加载";
@@ -546,6 +552,13 @@ function rankGateSummary(report) {
   const failed = firstFailedGate(report);
   if (!failed) return "当前关键门槛已通过，继续看下一品证据缺口。";
   return `${failed.label || failed.id}未通过：${shortText(failed.reason || "", 56)}`;
+}
+
+function nextActionTitle(report) {
+  const failed = firstFailedGate(report);
+  if (failed?.label) return `先补齐${failed.label}`;
+  const nextRank = report.nextRank?.label || "下一品";
+  return `冲击${nextRank}`;
 }
 
 function firstFailedGate(report) {

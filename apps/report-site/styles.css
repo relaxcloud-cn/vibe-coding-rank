@@ -632,6 +632,51 @@ button {
   line-height: 1.62;
 }
 
+.next-action-card {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.72fr) minmax(260px, 1.28fr);
+  gap: 18px;
+  align-items: center;
+  margin: -2px 0 20px;
+  padding: 20px;
+  border: 1px solid rgba(25, 111, 70, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(135deg, #eef8ef, #ffffff 58%, #f3f8ff);
+  box-shadow: 0 16px 42px rgba(25, 111, 70, 0.12);
+}
+
+.next-action-card span {
+  display: block;
+  color: #247148;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.next-action-card strong {
+  display: block;
+  margin-top: 8px;
+  color: #123923;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.next-action-card p {
+  margin: 0;
+  color: #173c2a;
+  font-size: 16px;
+  font-weight: 850;
+  line-height: 1.55;
+}
+
+.next-action-card small {
+  grid-column: 1 / -1;
+  display: block;
+  color: #6c756f;
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1.45;
+}
+
 .quality-note {
   margin: 0 0 18px;
   padding: 10px 12px;
@@ -964,6 +1009,7 @@ button {
 
   .app-shell,
   .main-grid,
+  .next-action-card,
   .split-section {
     grid-template-columns: 1fr;
   }

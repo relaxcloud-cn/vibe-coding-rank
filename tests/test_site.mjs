@@ -144,6 +144,18 @@ assert.equal(
   shortDom.window.document.querySelector("#upgrade-path").textContent,
   "沉淀 3 次以上用户主导的边界、架构、验收或取舍决策，把“为什么这样设计”留在记录里。",
 );
+assert.equal(
+  shortDom.window.document.querySelector("#next-action-title").textContent,
+  "先补齐七品用户决策占比",
+);
+assert.equal(
+  shortDom.window.document.querySelector("#next-action-body").textContent,
+  "沉淀 3 次以上用户主导的边界、架构、验收或取舍决策，把“为什么这样设计”留在记录里。",
+);
+assert.equal(
+  shortDom.window.document.querySelector("#next-action-gate").textContent,
+  "七品用户决策占比未通过：七品需要足够用户决策证据，证明人真正做边界、架构、验收或取舍。",
+);
 assert.equal(shortDom.window.document.querySelector("#hard-stat-grid .hard-stat-card strong").textContent, "4 天");
 shortDom.window.document.querySelector("#copy-share-prompt").click();
 await new Promise((resolveReady) => setTimeout(resolveReady, 0));
