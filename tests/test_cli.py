@@ -64,6 +64,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("No raw logs", payload["report"]["shareImagePrompt"])
         self.assertIn("证据结构", payload["report"]["shareImagePrompt"])
         self.assertIn("统计解读", payload["report"]["shareImagePrompt"])
+        self.assertIn("关键门槛", payload["report"]["shareImagePrompt"])
         self.assertIn("narrative", payload["report"])
         self.assertIn("你现在是", payload["report"]["narrative"]["oneLine"])
         self.assertIn("statsInsight", payload["report"])

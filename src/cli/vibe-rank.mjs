@@ -726,6 +726,17 @@ function behaviorMixLine(report) {
   return parts.join(", ");
 }
 
+function rankGateLine(report) {
+  const gates = Array.isArray(report.rankGates) ? report.rankGates : [];
+  const currentLevel = Number(report.rank?.level || 0);
+  const failed = gates
+    .filter((item) => item && item.passed === false && Number(item.level || 0) > currentLevel)
+    .sort((a, b) => Number(a.level || 0) - Number(b.level || 0))[0]
+    || gates.find((item) => item && item.passed === false);
+  if (!failed) return "当前关键门槛已通过，继续看下一品证据缺口。";
+  return `${failed.label || failed.id}未通过：${shortText(failed.reason || "", 56)}`;
+}
+
 function statsInsight(report) {
   const stats = report.hardStats || {};
   const notes = [];
@@ -794,6 +805,7 @@ function buildShareImagePrompt(report, url = "") {
   const stats = hardStatsLine(report) || "暂无硬统计";
   const evidenceStats = evidenceStatsLine(report) || "暂无证据结构统计";
   const behaviorMix = behaviorMixLine(report) || "暂无行为结构统计";
+  const rankGate = rankGateLine(report);
   const insight = statsInsight(report);
   const rankCap = shortText(report.rankCaps?.[0] || report.narrative?.capSummary || "暂无明显封顶原因", 52);
   const upgrade = shortText(report.upgradePath?.[0] || report.narrative?.upgradeSummary || "继续沉淀可复用工作流", 52);
@@ -824,6 +836,9 @@ ${behaviorMix}
 
 统计解读：
 ${insight}
+
+关键门槛：
+${rankGate}
 
 六维画像：
 ${dimensions || "目标定义、边界控制、验证闭环、架构判断、系统归属、方法复制"}
@@ -935,6 +950,10 @@ function printHuman(report, url, outPath) {
   }
   if (report.statsInsight) {
     console.log(`统计解读：${report.statsInsight}`);
+  }
+  const rankGate = rankGateLine(report);
+  if (rankGate) {
+    console.log(`关键门槛：${rankGate}`);
   }
   console.log("");
   console.log("一句话判定：");

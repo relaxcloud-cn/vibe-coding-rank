@@ -45,6 +45,17 @@ async function renderAt(hash, fetchResponse = {}) {
           promotion_assistant_execution_ratio: 0.7,
           user_decision_count: 12,
         },
+        rankGates: [
+          {
+            id: "level7_user_decision_ratio",
+            level: 7,
+            label: "七品用户决策占比",
+            passed: false,
+            observed: 0.02,
+            required: 0.08,
+            reason: "七品需要足够用户决策证据，证明人真正做边界、架构、验收或取舍。",
+          },
+        ],
         privacy: { rawLogsUploaded: false },
       },
     }),
@@ -70,6 +81,10 @@ assert.equal(
 assert.equal(
   shortDom.window.document.querySelector("#behavior-mix").textContent,
   "用户决策 20%；助手执行 70%；决策证据 12 条。",
+);
+assert.equal(
+  shortDom.window.document.querySelector("#rank-gate-summary").textContent,
+  "七品用户决策占比未通过：七品需要足够用户决策证据，证明人真正做边界、架构、验收或取舍。",
 );
 shortDom.window.document.querySelector("#copy-report-link").click();
 await new Promise((resolveReady) => setTimeout(resolveReady, 0));

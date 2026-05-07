@@ -264,6 +264,7 @@ function render(report) {
   document.querySelector("#evidence-structure").textContent = evidenceStructureSummary(report);
   document.querySelector("#behavior-mix").textContent = behaviorMixSummary(report);
   document.querySelector("#stats-insight").textContent = statsInsight(report);
+  document.querySelector("#rank-gate-summary").textContent = rankGateSummary(report);
   document.querySelector("#why-this-rank").textContent = report.whyThisRank || report.narrative?.rankReason || SAMPLE.whyThisRank;
   document.querySelector("#why-not-next").textContent = report.whyNotNextRank || report.narrative?.nextRankGap || SAMPLE.whyNotNextRank;
   renderQuality(report);
@@ -302,6 +303,7 @@ function renderError(error) {
   document.querySelector("#evidence-structure").textContent = "暂无";
   document.querySelector("#behavior-mix").textContent = "暂无";
   document.querySelector("#stats-insight").textContent = "暂无";
+  document.querySelector("#rank-gate-summary").textContent = "暂无";
 }
 
 function judgmentText(report) {
@@ -420,6 +422,17 @@ function statsInsight(report) {
   return "硬统计用于解释投入强度、样本质量和证据结构，不直接参与段位升品。";
 }
 
+function rankGateSummary(report) {
+  const gates = Array.isArray(report.rankGates) ? report.rankGates : [];
+  const currentLevel = Number(report.rank?.level || 0);
+  const failed = gates
+    .filter((item) => item && item.passed === false && Number(item.level || 0) > currentLevel)
+    .sort((a, b) => Number(a.level || 0) - Number(b.level || 0))[0]
+    || gates.find((item) => item && item.passed === false);
+  if (!failed) return "当前关键门槛已通过，继续看下一品证据缺口。";
+  return `${failed.label || failed.id}未通过：${shortText(failed.reason || "", 56)}`;
+}
+
 function shortText(value, length = 42) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   if (text.length <= length) return text;
@@ -472,6 +485,9 @@ ${behaviorMixSummary(report)}
 
 统计解读：
 ${statsInsight(report)}
+
+关键门槛：
+${rankGateSummary(report)}
 
 六维画像：
 ${dimensions}
