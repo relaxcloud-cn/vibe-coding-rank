@@ -133,7 +133,7 @@ Vibe Coding Rank 想测的是更深的一层：
 默认模式不上传原始日志。CLI 只把最终报告编码到 URL hash 里，云端页面负责展示：
 
 ```bash
-npx github:relaxcloud-cn/vibe-coding-rank --source codex --site https://vibe.yisec.com --open
+npx github:relaxcloud-cn/vibe-coding-rank --source codex --site https://vibe.yisec.ai --open
 ```
 
 如果你部署了 Cloudflare Worker 和 KV，可以开启短链接上传：
@@ -141,11 +141,11 @@ npx github:relaxcloud-cn/vibe-coding-rank --source codex --site https://vibe.yis
 ```bash
 npx github:relaxcloud-cn/vibe-coding-rank \
   --source codex \
-  --upload-url https://vibe.yisec.com \
+  --upload-url https://vibe.yisec.ai \
   --open
 ```
 
-部署配置在 `wrangler.toml`。默认子域名占位为 `vibe.yisec.com`，上线前把 Cloudflare KV namespace id 替换掉即可。
+部署配置在 `wrangler.toml`。默认子域名为 `vibe.yisec.ai`，短链接模式上线前需要创建 Cloudflare KV namespace。
 
 ## 作为 Codex skill 使用
 

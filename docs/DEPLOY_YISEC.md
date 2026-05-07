@@ -6,7 +6,7 @@
 npx github:relaxcloud-cn/vibe-coding-rank --source codex --open
 ```
 
-本地完成取证和脱敏，浏览器打开 `https://vibe.yisec.com` 上的报告页。
+本地完成取证和脱敏，浏览器打开 `https://vibe.yisec.ai` 上的报告页。
 
 ## 1. 创建 Cloudflare KV
 
@@ -28,11 +28,11 @@ id = "your-kv-namespace-id"
 
 ```toml
 routes = [
-  { pattern = "vibe.yisec.com", custom_domain = true }
+  { pattern = "vibe.yisec.ai", custom_domain = true }
 ]
 ```
 
-如果最终域名不是 `vibe.yisec.com`，同时修改：
+如果最终域名不是 `vibe.yisec.ai`，同时修改：
 
 - `wrangler.toml` 的 route
 - README 里的 `--site` / `--upload-url`
@@ -49,7 +49,7 @@ npx wrangler deploy
 静态报告模式：
 
 ```bash
-npx github:relaxcloud-cn/vibe-coding-rank --demo --site https://vibe.yisec.com --open
+npx github:relaxcloud-cn/vibe-coding-rank --demo --site https://vibe.yisec.ai --open
 ```
 
 短链接上传模式：
@@ -57,7 +57,7 @@ npx github:relaxcloud-cn/vibe-coding-rank --demo --site https://vibe.yisec.com -
 ```bash
 npx github:relaxcloud-cn/vibe-coding-rank \
   --demo \
-  --upload-url https://vibe.yisec.com \
+  --upload-url https://vibe.yisec.ai \
   --open
 ```
 

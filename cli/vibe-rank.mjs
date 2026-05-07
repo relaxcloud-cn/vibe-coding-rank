@@ -39,7 +39,7 @@ function parseArgs(argv) {
     source: "codex",
     root: "",
     since: "",
-    site: "https://vibe.yisec.com",
+    site: "https://vibe.yisec.ai",
     uploadUrl: "",
     out: ".airank/vibe-report.json",
     limit: "5000",
@@ -89,7 +89,7 @@ Options:
   --source codex|claude|generic   Session source. Default: codex
   --root <path>                   Session directory or file
   --since YYYY-MM-DD              Only scan recently modified records
-  --site <url>                    Report site. Default: https://vibe.yisec.com
+  --site <url>                    Report site. Default: https://vibe.yisec.ai
   --upload-url <url>              Optional Worker API base URL for short cloud links
   --out <path>                    Local report JSON. Default: .airank/vibe-report.json
   --open                          Open the cloud report URL

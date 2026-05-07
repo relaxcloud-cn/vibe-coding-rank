@@ -9,6 +9,21 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CliTests(unittest.TestCase):
+    def test_demo_default_url_uses_yisec_ai(self) -> None:
+        result = subprocess.run(
+            [
+                "node",
+                str(ROOT / "cli" / "vibe-rank.mjs"),
+                "--demo",
+                "--print-json",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["url"].startswith("https://vibe.yisec.ai/#data="))
+
     def test_demo_print_json_contains_cloud_report_url(self) -> None:
         result = subprocess.run(
             [
