@@ -8,6 +8,23 @@ import { spawnSync } from "node:child_process";
 
 const ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const SOURCES = new Set(["codex", "claude", "generic"]);
+const VALUE_ARGS = new Set([
+  "--source",
+  "--root",
+  "--since",
+  "--site",
+  "--upload-url",
+  "--out",
+  "--limit",
+  "--max-chars",
+  "--usd-per-million-input-tokens",
+  "--usd-per-million-cached-input-tokens",
+  "--usd-per-million-output-tokens",
+  "--usd-per-million-reasoning-tokens",
+  "--write-link",
+  "--write-share-prompt",
+  "--write-judge-prompt",
+]);
 
 const RANKS = [
   "零品 · 门外汉",
@@ -247,6 +264,9 @@ function parseArgs(argv) {
     } else if (arg === "--no-write") {
       options.write = false;
     } else if (arg.startsWith("--")) {
+      if (!VALUE_ARGS.has(arg)) {
+        throw new Error(`Unknown option: ${arg}`);
+      }
       const key = arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
       const value = argv[i + 1];
       if (!value || value.startsWith("--")) {

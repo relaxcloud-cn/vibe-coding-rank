@@ -285,6 +285,36 @@ class CliTests(unittest.TestCase):
         self.assertIn('Unsupported --source "cursor"', result.stderr)
         self.assertIn("codex, claude, or generic", result.stderr)
 
+    def test_rejects_unknown_option_before_using_defaults(self) -> None:
+        result = subprocess.run(
+            [
+                "node",
+                str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                "--soruce",
+                "claude",
+                "--doctor",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unknown option: --soruce", result.stderr)
+        self.assertNotIn("来源：codex", result.stdout)
+
+    def test_rejects_unexpected_value_after_boolean_option(self) -> None:
+        result = subprocess.run(
+            [
+                "node",
+                str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                "--doctor",
+                "codex",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unknown argument: codex", result.stderr)
+
     def test_doctor_reports_ready_state_for_existing_root(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             result = subprocess.run(
