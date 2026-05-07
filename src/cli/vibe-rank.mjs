@@ -34,6 +34,87 @@ const UPGRADE_PATHS = {
   9: ["持续定义新范式，并让行业围绕你的方法重新组织协作。"],
 };
 
+const RANK_REPORT_COPY = {
+  0: {
+    verdict: "你还没有进入 AI 编程协作场。",
+    reason: "当前证据不足以证明你已经把 AI 放进真实开发流程。系统仍然主要靠你自己手写和搜索推进。",
+    gap: "要进入一品，至少需要用 Codex、Claude Code 或类似工具完成一个真实开发任务，并留下可分析记录。",
+  },
+  1: {
+    verdict: "你能让 AI 写片段，但系统还不是你的。",
+    reason: "证据更像零散函数、正则、补全或局部代码生成。你获得了局部加速，但还没有表现出对完整任务边界和系统结果的控制。",
+    gap: "要进入二品，需要让 AI 拼出可运行 demo 或完整功能雏形，而不只是生成片段。",
+  },
+  2: {
+    verdict: "你能拼出能跑的东西，但结果控制力还弱。",
+    reason: "证据显示你已经能让 AI 生成 demo 或页面，但主要关注点仍是能不能跑，缺少稳定验证和系统理解。",
+    gap: "要进入三品，需要证明你能持续交付中等复杂度功能，而不只是一次性 demo。",
+  },
+  3: {
+    verdict: "你能交付功能，但还容易陷在修 bug 循环里。",
+    reason: "证据表明你可以推动 AI 完成任务，也会处理失败和报错。但系统判断更多停留在局部修复，架构边界和验证闭环还不稳。",
+    gap: "要进入四品，需要在改代码前清楚定义目标、非目标、验收条件和文件边界。",
+  },
+  4: {
+    verdict: "系统开始是你的，但还没有稳定形成架构驱动。",
+    reason: "你已经开始用目标、边界和验收标准约束 AI，不再只是让它随便改。这个阶段的关键变化是你开始划定系统边界。",
+    gap: "要进入五品，需要更稳定地体现架构判断、产品目标取舍和验证 gate。",
+  },
+  5: {
+    verdict: "你已经在用架构和产品目标驱动 AI。",
+    reason: "证据显示你不只追求代码能跑，而是在用模块边界、验收条件、验证手段和工作流约束 AI 交付。系统大体开始属于你。",
+    gap: "要进入六品，需要证明你能从模糊问题出发，完成定义问题、设计系统、驱动交付的完整闭环。",
+  },
+  6: {
+    verdict: "你已经形成从问题定义到系统交付的闭环。",
+    reason: "你不是只在指挥 AI 写代码，而是在把目标、架构、验证和工作流连成一个系统。即使不亲手写每一行代码，你也开始拥有结果。",
+    gap: "要进入七品，需要让审核、验证和架构判断更系统化，减少靠临场人工拉回方向。",
+  },
+  7: {
+    verdict: "AI 已经接近成为你的系统延伸。",
+    reason: "证据显示你的注意力已经从工具和代码细节上移到系统目标、质量和演进。你能让 AI 协助建系统，也能审视系统哪里应该被替换。",
+    gap: "要进入八品，需要证明你的方法能被团队或社区复用，而不是只在你个人身上成立。",
+  },
+  8: {
+    verdict: "你已经开始把个人方法变成团队方法。",
+    reason: "证据显示你不只是自己会用 AI，而是在沉淀 playbook、rules、skills、workflow 或培训材料，让其他人也能复制你的协作方式。",
+    gap: "要进入九品，需要公开范式影响证据，例如框架、产品、文章、社区实践或行业标准。",
+  },
+  9: {
+    verdict: "你已经在定义人与 AI 协作的新范式。",
+    reason: "九品不是高频使用 AI，而是创造能改变他人协作方式的概念、工具、框架或公共实践。",
+    gap: "九品之后不是刷分，而是持续扩大范式影响并经受真实世界验证。",
+  },
+};
+
+const SIGNAL_LABELS = {
+  snippet_generation: "片段生成证据",
+  demo_generation: "Demo 生成证据",
+  bug_loop: "Bug 循环证据",
+  context_boundary: "边界控制证据",
+  plan_before_edit: "计划先行证据",
+  validation: "验证闭环证据",
+  architecture: "架构判断证据",
+  ownership: "系统归属证据",
+  workflow_asset: "工作流沉淀证据",
+  agent_orchestration: "Agent 编排证据",
+  team_system: "团队复制证据",
+};
+
+const SIGNAL_REASONS = {
+  snippet_generation: "这类证据说明你已经会把 AI 用在局部实现上，但还不能单独证明系统控制力。",
+  demo_generation: "这类证据说明你能用 AI 快速搭出可运行结果，但还需要验证和架构判断来证明系统归属。",
+  bug_loop: "这类证据说明你在处理失败，但如果没有根因分析和边界重设，容易被封顶在三品附近。",
+  context_boundary: "这类证据说明你开始定义目标、非目标、验收条件或文件范围，系统开始被你约束。",
+  plan_before_edit: "这类证据说明你不急着让 AI 改代码，而是先要求计划和执行路径。",
+  validation: "这类证据说明你用测试、构建、lint、回归或人工验收来确认结果，而不是只看能不能跑。",
+  architecture: "这类证据说明你关注模块边界、权限、数据模型、重构或系统设计，开始从系统层面判断结果。",
+  ownership: "这类证据说明你关注上线、日志、回滚、维护、关键路径和生产责任，是系统归属的重要信号。",
+  workflow_asset: "这类证据说明你把一次协作沉淀成 rules、skill、workflow 或 checklist，开始把能力资产化。",
+  agent_orchestration: "这类证据说明你能让多个 Agent 或不同角色分工协作，而不是只和单个聊天窗口来回修。",
+  team_system: "这类证据说明你的方法可能正在被团队复用，是八品的必要条件，但还需要强证据确认。",
+};
+
 function parseArgs(argv) {
   const options = {
     source: "codex",
@@ -193,6 +274,8 @@ function flattenEvidence(evidence) {
     for (const item of items || []) {
       rows.push({
         signal,
+        label: SIGNAL_LABELS[signal] || signal,
+        reason: SIGNAL_REASONS[signal] || "这条证据支持当前段位判断。",
         source: item.source || "",
         role: item.role || "unknown",
         snippet: item.snippet || "",
@@ -200,6 +283,25 @@ function flattenEvidence(evidence) {
     }
   }
   return rows.slice(0, 12);
+}
+
+function strongestEvidence(rows) {
+  const priority = [
+    "architecture",
+    "validation",
+    "ownership",
+    "context_boundary",
+    "workflow_asset",
+    "agent_orchestration",
+    "team_system",
+    "plan_before_edit",
+    "demo_generation",
+    "bug_loop",
+    "snippet_generation",
+  ];
+  return [...rows]
+    .sort((a, b) => priority.indexOf(a.signal) - priority.indexOf(b.signal))
+    .slice(0, 5);
 }
 
 function systemOwnership(level) {
@@ -213,6 +315,11 @@ function buildReport(summary, options) {
   const rank = summary.heuristic_rank || {};
   const level = Number(rank.level || 0);
   const nextLevel = Math.min(9, level + 1);
+  const evidenceRows = flattenEvidence(summary.evidence);
+  const copy = RANK_REPORT_COPY[level] || RANK_REPORT_COPY[0];
+  const strongest = strongestEvidence(evidenceRows);
+  const rankCaps = summary.rank_caps || [];
+  const upgradePath = UPGRADE_PATHS[level] || [];
   return {
     product: "Airank Vibe Coding Rank",
     generatedAt: new Date().toISOString(),
@@ -235,9 +342,21 @@ function buildReport(summary, options) {
     excludedReasonCounts: summary.excluded_reason_counts || {},
     signalCount: summary.signal_count || 0,
     signalCounts: summary.signal_counts || {},
-    evidence: flattenEvidence(summary.evidence),
-    rankCaps: summary.rank_caps || [],
-    upgradePath: UPGRADE_PATHS[level] || [],
+    verdict: copy.verdict,
+    whyThisRank: copy.reason,
+    whyNotNextRank: copy.gap,
+    evidence: evidenceRows,
+    strongestEvidence: strongest,
+    rankCaps,
+    upgradePath,
+    narrative: {
+      title: "Vibe Coding 段位报告",
+      oneLine: `你现在是：${rank.label || RANKS[level] || RANKS[0]}。${copy.verdict}`,
+      rankReason: copy.reason,
+      nextRankGap: copy.gap,
+      capSummary: rankCaps[0] || "当前没有明显封顶原因，但仍需更多证据提高置信度。",
+      upgradeSummary: upgradePath[0] || "继续积累真实项目证据，并把成功做法沉淀成可复用工作流。",
+    },
   };
 }
 
@@ -282,12 +401,29 @@ function printHuman(report, url, outPath) {
   console.log(`Score: ${report.rank.score}`);
   console.log(`Confidence: ${report.rank.confidence}`);
   console.log(`System ownership: ${report.rank.systemOwnership}`);
+  console.log("");
+  console.log("Verdict:");
+  console.log(report.narrative.oneLine);
+  console.log("");
+  console.log("Why this rank:");
+  console.log(report.whyThisRank);
+  console.log("");
+  console.log("Why not next:");
+  console.log(report.whyNotNextRank);
   if (report.excludedRecordCount) {
+    console.log("");
     console.log(`Evidence analyzed: ${report.analyzedRecordCount}/${report.recordCount} records`);
     console.log(`Filtered context records: ${report.excludedRecordCount}`);
   }
   console.log(`Cloud report: ${url}`);
   if (outPath) console.log(`Local report: ${outPath}`);
+  if (report.strongestEvidence.length) {
+    console.log("");
+    console.log("Strongest evidence:");
+    for (const item of report.strongestEvidence.slice(0, 3)) {
+      console.log(`- ${item.label}: ${item.reason}`);
+    }
+  }
   console.log("");
   console.log("Next:");
   for (const item of report.upgradePath) {

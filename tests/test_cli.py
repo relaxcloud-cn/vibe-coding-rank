@@ -44,6 +44,11 @@ class CliTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["report"]["rank"]["label"], "六品 · 已有大成")
         self.assertIn("#data=", payload["url"])
+        self.assertIn("whyThisRank", payload["report"])
+        self.assertIn("whyNotNextRank", payload["report"])
+        self.assertIn("strongestEvidence", payload["report"])
+        self.assertIn("narrative", payload["report"])
+        self.assertIn("你现在是", payload["report"]["narrative"]["oneLine"])
 
     def test_generic_source_uses_moved_evidence_scripts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -77,6 +82,7 @@ class CliTests(unittest.TestCase):
             )
             payload = json.loads(result.stdout)
             self.assertGreaterEqual(payload["report"]["recordCount"], 1)
+            self.assertIn("whyThisRank", payload["report"])
 
 
 if __name__ == "__main__":

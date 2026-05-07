@@ -23,11 +23,14 @@ const SAMPLE = {
   recordCount: 128,
   analyzedRecordCount: 120,
   excludedRecordCount: 8,
+  verdict: "你已经形成从问题定义到系统交付的闭环。",
+  whyThisRank: "你不是只在指挥 AI 写代码，而是在把目标、架构、验证和工作流连成一个系统。即使不亲手写每一行代码，你也开始拥有结果。",
+  whyNotNextRank: "要进入七品，需要让审核、验证和架构判断更系统化，减少靠临场人工拉回方向。",
   evidence: [
-    { signal: "目标", snippet: "实现这个用户故事，验收条件如下；不要改支付模块，先给计划再动代码。" },
-    { signal: "验证", snippet: "已运行 build、lint、单元测试和截图 smoke check，并复查 diff。" },
-    { signal: "架构", snippet: "这个模块继续 patch 没意义，重设数据边界，用新的状态模型替换。" },
-    { signal: "工作流", snippet: "把这次成功流程沉淀进 AGENTS.md，后续同类任务按 gate 执行。" },
+    { signal: "目标", label: "边界控制证据", reason: "这类证据说明你开始定义目标、非目标、验收条件或文件范围，系统开始被你约束。", snippet: "实现这个用户故事，验收条件如下；不要改支付模块，先给计划再动代码。" },
+    { signal: "验证", label: "验证闭环证据", reason: "这类证据说明你用测试、构建、lint、回归或人工验收来确认结果。", snippet: "已运行 build、lint、单元测试和截图 smoke check，并复查 diff。" },
+    { signal: "架构", label: "架构判断证据", reason: "这类证据说明你关注模块边界、权限、数据模型、重构或系统设计。", snippet: "这个模块继续 patch 没意义，重设数据边界，用新的状态模型替换。" },
+    { signal: "工作流", label: "工作流沉淀证据", reason: "这类证据说明你把一次协作沉淀成 rules、skill、workflow 或 checklist。", snippet: "把这次成功流程沉淀进 AGENTS.md，后续同类任务按 gate 执行。" },
   ],
   rankCaps: ["缺少团队级 playbook、共享 workflow 或方法复制证据。"],
   upgradePath: ["把成功协作沉淀成 AGENTS.md、rules、skill 或团队 playbook。"],
@@ -71,11 +74,11 @@ function renderRail(level) {
 function renderEvidence(report) {
   const grid = document.querySelector("#evidence-grid");
   grid.innerHTML = "";
-  const rows = (report.evidence?.length ? report.evidence : SAMPLE.evidence).slice(0, 6);
+  const rows = (report.strongestEvidence?.length ? report.strongestEvidence : report.evidence?.length ? report.evidence : SAMPLE.evidence).slice(0, 6);
   for (const row of rows) {
     const card = document.createElement("article");
     card.className = "evidence-card";
-    card.innerHTML = `<strong>${row.signal || "evidence"}</strong><span>${row.snippet || row.summary || ""}</span>`;
+    card.innerHTML = `<strong>${row.label || row.signal || "证据"}</strong><em>${row.reason || ""}</em><span>${row.snippet || row.summary || ""}</span>`;
     grid.append(card);
   }
 }
@@ -84,6 +87,7 @@ function render(report) {
   const rank = report.rank || SAMPLE.rank;
   const level = Number(rank.level || 0);
   document.querySelector("#rank-label").textContent = rank.label || RANKS[level][1];
+  document.querySelector("#verdict").textContent = report.verdict || report.narrative?.oneLine || SAMPLE.verdict;
   document.querySelector("#score-value").textContent = rank.score || 0;
   document.querySelector("#confidence").textContent = translateConfidence(rank.confidence || "low");
   document.querySelector("#ownership").textContent = translateOwnership(rank.systemOwnership || "weak");
@@ -91,6 +95,8 @@ function render(report) {
   document.querySelector("#records").textContent = report.analyzedRecordCount ?? report.recordCount ?? 0;
   document.querySelector("#rank-cap").textContent = firstText(report.rankCaps) || SAMPLE.rankCaps[0];
   document.querySelector("#upgrade-path").textContent = firstText(report.upgradePath) || SAMPLE.upgradePath[0];
+  document.querySelector("#why-this-rank").textContent = report.whyThisRank || report.narrative?.rankReason || SAMPLE.whyThisRank;
+  document.querySelector("#why-not-next").textContent = report.whyNotNextRank || report.narrative?.nextRankGap || SAMPLE.whyNotNextRank;
   renderQuality(report);
   renderRail(level);
   renderEvidence(report);

@@ -55,15 +55,18 @@ python3 "$SKILL_DIR/scripts/summarize_evidence.py" \
 - `references/vibe-coding-rank.md` for the rank model.
 - `references/evidence-rubric.md` for signal interpretation.
 - `references/output-schema.md` for the expected report shape.
+- `references/report-template.md` for the Chinese human-facing report.
 - `references/image-report-prompt.md` when the user asks for a share image or image report.
 
-4. Produce a concise report:
+4. Produce a Chinese rank report:
 
-- Final rank.
-- Confidence level.
-- Evidence that supports the rank.
-- Evidence that caps the rank.
-- Next-rank upgrade path.
+- 一句话判定。
+- 为什么是这个段位。
+- 为什么还不是下一品。
+- 最强证据链。
+- 段位封顶原因。
+- 下一品升级路线。
+- 证据质量说明。
 
 5. If the user asks for a 图片报告, 海报, 朋友圈图, or share image, generate it with Imagen/imagegen:
 
@@ -86,15 +89,15 @@ python3 "$SKILL_DIR/scripts/summarize_evidence.py" \
 
 ## Default Output
 
-Use this structure:
+Use this structure in Chinese:
 
 ```json
 {
   "rank": "五品 · 炉火纯青",
-  "score": 72,
-  "confidence": "medium",
-  "system_ownership": "strong",
-  "evidence": [],
+  "one_line_verdict": "你已经开始用架构和验收标准拥有系统，但闭环还没有稳定到六品。",
+  "why_this_rank": "...",
+  "why_not_next_rank": "...",
+  "strongest_evidence": [],
   "rank_caps": [],
   "next_rank": "六品 · 已有大成",
   "upgrade_path": []
