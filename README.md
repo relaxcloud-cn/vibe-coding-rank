@@ -294,11 +294,26 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 --usd-per-million-output-tokens <n>     输出 token 每百万美元单价，用于成本估算
 --usd-per-million-reasoning-tokens <n>  reasoning token 每百万美元单价，用于成本估算
 --out <path>                    本地报告 JSON 输出路径
+--write-link <path>             输出完整公开报告链接
 --write-share-prompt <path>     输出脱敏后的图片报告提示词
 --write-judge-prompt <path>     输出脱敏后的 AI 深度判定提示词
 --no-write                      不写本地报告文件
 --print-json                    输出机器可读 JSON
 --open                          自动打开报告链接
+```
+
+默认 `#data` 链接可能较长，终端里会只显示预览。需要复制完整链接时，优先使用短链接：
+
+```bash
+npx github:relaxcloud-cn/vibe-coding-rank --source codex --short-link --open
+```
+
+如果你不想上传脱敏报告 JSON，也可以把完整本地 hash 链接写入文件：
+
+```bash
+npx github:relaxcloud-cn/vibe-coding-rank \
+  --source codex \
+  --write-link .airank/report-url.txt
 ```
 
 生成朋友圈/海报提示词：

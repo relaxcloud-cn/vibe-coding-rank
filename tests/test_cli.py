@@ -216,11 +216,36 @@ class CliTests(unittest.TestCase):
                 text=True,
             )
             text = result.stdout
+            self.assertIn("置信度：高", text)
+            self.assertIn("系统归属：强", text)
             self.assertIn("统计仪表盘：", text)
             self.assertIn("公开链接只包含压缩脱敏摘要", text)
+            self.assertIn("--write-link .airank/report-url.txt", text)
             self.assertIn(f"本地完整报告：{out}", text)
             self.assertIn("--write-share-prompt", text)
             self.assertIn("--write-judge-prompt", text)
+
+    def test_demo_can_write_full_report_link(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            link_path = Path(tmp) / "report-url.txt"
+            result = subprocess.run(
+                [
+                    "node",
+                    str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                    "--demo",
+                    "--write-link",
+                    str(link_path),
+                    "--print-json",
+                    "--no-write",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            payload = json.loads(result.stdout)
+            self.assertTrue(payload["linkPath"].endswith("report-url.txt"))
+            self.assertEqual(link_path.read_text(encoding="utf-8").strip(), payload["url"])
+            self.assertTrue(payload["url"].startswith("https://vibe.yisec.ai/#data="))
 
     def test_short_link_uploads_report_and_uses_id_url(self) -> None:
         received = {}

@@ -224,6 +224,7 @@ function parseArgs(argv) {
     write: true,
     writeSharePrompt: "",
     writeJudgePrompt: "",
+    writeLink: "",
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -281,6 +282,7 @@ Options:
   --open                          Open the cloud report URL
   --demo                          Generate a demo report without reading local logs
   --print-json                    Print machine-readable report JSON
+  --write-link <path>             Write the full public report URL to a file
   --write-share-prompt <path>     Write a sanitized Imagen/imagegen poster prompt
   --write-judge-prompt <path>     Write a sanitized AI deep-judgment prompt
   --no-write                      Do not write a local report file
@@ -1529,14 +1531,14 @@ function publicReport(report) {
   };
 }
 
-function printHuman(report, url, outPath) {
+function printHuman(report, url, outPath, linkPath = "") {
   console.log("");
   console.log("Vibe Coding 段位报告");
   console.log(`段位：${report.rank.label}`);
   console.log(`分数：${report.rank.score}`);
-  console.log(`置信度：${report.rank.confidence}`);
+  console.log(`置信度：${translateConfidence(report.rank.confidence)}`);
   console.log(`判定模式：${report.judgmentModeLabel}${report.isFinal ? "" : "（非最终判定）"}`);
-  console.log(`系统归属：${report.rank.systemOwnership}`);
+  console.log(`系统归属：${translateOwnership(report.rank.systemOwnership)}`);
   const hardStats = hardStatsLine(report);
   if (hardStats) {
     console.log(`硬统计：${hardStats}`);
@@ -1590,6 +1592,11 @@ function printHuman(report, url, outPath) {
   console.log("");
   console.log("产物：");
   console.log(`- 公开链接：${displayUrl}`);
+  if (linkPath) {
+    console.log(`- 完整公开链接：${linkPath}`);
+  } else if (url.length > 180) {
+    console.log("- 完整公开链接较长，建议加 --short-link 生成短链接，或加 --write-link .airank/report-url.txt 写入文件。");
+  }
   console.log("- 公开链接只包含压缩脱敏摘要；原始日志、本地路径和源码片段不会上传。");
   if (outPath) {
     console.log(`- 本地完整报告：${outPath}`);
@@ -1671,6 +1678,7 @@ async function main() {
   report.judgePrompt = judgePrompt;
   let shareImagePromptPath = "";
   let judgePromptPath = "";
+  let linkPath = "";
   if (options.writeSharePrompt) {
     shareImagePromptPath = writeTextFile(options.writeSharePrompt, shareImagePrompt);
     report.shareImagePromptPath = shareImagePromptPath;
@@ -1698,10 +1706,13 @@ async function main() {
     }
   }
   const outPath = options.write && options.out ? writeReport(options.out, report) : "";
+  if (options.writeLink) {
+    linkPath = writeTextFile(options.writeLink, url);
+  }
   if (options.printJson) {
-    console.log(JSON.stringify({ report, url, outPath, shareImagePromptPath, judgePromptPath }, null, 2));
+    console.log(JSON.stringify({ report, url, outPath, shareImagePromptPath, judgePromptPath, linkPath }, null, 2));
   } else {
-    printHuman(report, url, outPath);
+    printHuman(report, url, outPath, linkPath);
   }
   if (options.open) openUrl(url);
 }
