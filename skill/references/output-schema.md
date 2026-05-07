@@ -244,6 +244,14 @@
 
 `shareImagePrompt` 和 `judgePrompt` 只出现在本地 CLI 报告或显式写出的提示词文件里。公开 `#data` 链接和短链接 payload 不包含这两个长文本字段；网页会基于脱敏报告即时生成对应提示词。
 
+公开链接使用压缩后的 public payload：
+
+- 只保留网页展示、分享图和深度判定需要的字段。
+- `hardStats` 只保留关键统计，不包含完整行为明细。
+- `hardStatCards` 只保留优先级最高的 8 张解释卡。
+- `strongestEvidence` 只保留脱敏后的最强证据摘要；公开 payload 的 `evidence` 可为空。
+- 完整证据、路径和片段只保存在本地报告，不进入公开链接或短链接存储。
+
 ## 中文报告要求
 
 必须包含：

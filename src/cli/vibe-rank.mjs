@@ -153,6 +153,47 @@ const SHARE_HARD_CARD_PRIORITY = [
   "strong_evidence_density",
 ];
 
+const PUBLIC_HARD_STATS_FIELDS = [
+  "raw_record_count",
+  "analyzed_record_count",
+  "non_scoring_record_count",
+  "usage_record_count",
+  "tool_result_record_count",
+  "tool_event_record_count",
+  "context_excluded_record_count",
+  "scoring_candidate_record_count",
+  "total_tokens",
+  "peak_day_tokens",
+  "active_days",
+  "active_sessions",
+  "peak_day_token_share",
+  "evidence_span_days",
+  "signal_coverage_ratio",
+  "dominant_signal_ratio",
+  "established_dimension_count",
+  "strong_evidence_density",
+  "strong_record_density",
+  "validation_density",
+  "validation_count",
+  "promotion_user_decision_ratio",
+  "promotion_assistant_execution_ratio",
+  "user_decision_count",
+  "user_control_ratio",
+  "bug_loop_density",
+  "bug_loop_count",
+];
+
+const PUBLIC_USAGE_STATS_FIELDS = [
+  "total_tokens",
+  "peak_day_tokens",
+  "active_days",
+  "active_sessions",
+  "average_day_tokens",
+  "average_session_tokens",
+  "peak_day_token_share",
+  "token_note",
+];
+
 function parseArgs(argv) {
   const options = {
     source: "codex",
@@ -1321,7 +1362,19 @@ function publicEvidence(item) {
   };
 }
 
+function pickFields(source, fields) {
+  const result = {};
+  for (const field of fields) {
+    const value = source?.[field];
+    if (value !== undefined && value !== null && value !== "") result[field] = value;
+  }
+  return result;
+}
+
 function publicReport(report) {
+  const evidence = (report.strongestEvidence?.length ? report.strongestEvidence : report.evidence || [])
+    .slice(0, 6)
+    .map(publicEvidence);
   return {
     product: report.product,
     generatedAt: report.generatedAt,
@@ -1338,33 +1391,37 @@ function publicReport(report) {
     signalCounts: report.signalCounts,
     strongEvidenceCount: report.strongEvidenceCount,
     userControlCount: report.userControlCount,
-    userControlSourceCount: report.userControlSourceCount,
-    behaviorCounts: report.behaviorCounts,
-    promotionBehaviorCounts: report.promotionBehaviorCounts,
-    usageStats: report.usageStats,
-    hardStats: report.hardStats,
+    usageStats: pickFields(report.usageStats, PUBLIC_USAGE_STATS_FIELDS),
+    hardStats: pickFields(report.hardStats, PUBLIC_HARD_STATS_FIELDS),
     costEstimate: report.costEstimate,
     statsInsight: report.statsInsight,
-    hardStatCards: report.hardStatCards,
+    hardStatCards: shareHardStatCards(report.hardStatCards),
     dimensionProfile: report.dimensionProfile,
     verdict: report.verdict,
     whyThisRank: report.whyThisRank,
     whyNotNextRank: report.whyNotNextRank,
-    evidence: (report.evidence || []).map(publicEvidence),
-    strongestEvidence: (report.strongestEvidence || []).map(publicEvidence),
+    evidence: [],
+    strongestEvidence: evidence,
     rankCaps: report.rankCaps,
     rankGates: report.rankGates,
     qualityFlags: report.qualityFlags,
     dragFactors: report.dragFactors,
     unlockStatus: report.unlockStatus,
-    qualityNotes: report.qualityNotes,
     gateUpgradeAdvice: report.gateUpgradeAdvice,
     upgradePath: report.upgradePath,
-    narrative: report.narrative,
+    narrative: {
+      title: report.narrative?.title,
+      oneLine: report.narrative?.oneLine,
+      rankReason: report.narrative?.rankReason,
+      nextRankGap: report.narrative?.nextRankGap,
+      capSummary: report.narrative?.capSummary,
+      upgradeSummary: report.narrative?.upgradeSummary,
+    },
     privacy: {
       localPathsRemoved: true,
       rawLogsUploaded: false,
-      note: "Short links store only the final sanitized report JSON, not raw Codex or Claude Code logs.",
+      compactPublicReport: true,
+      note: "Public links store only compact sanitized report JSON, not raw Codex or Claude Code logs.",
     },
   };
 }

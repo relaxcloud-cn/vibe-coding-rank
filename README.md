@@ -382,7 +382,7 @@ Use $vibe-coding-rank to analyze my local Codex sessions and produce a Vibe Codi
 
 ## 隐私原则
 
-原始会话记录可能包含源码、客户信息、业务上下文或 token。默认流程会先在本地提取和脱敏，再生成摘要。默认 `#data` 链接只包含脱敏后的公开报告摘要；完整本地报告仍会写到 `.airank/vibe-report.json`，方便你自己审计证据。
+原始会话记录可能包含源码、客户信息、业务上下文或 token。默认流程会先在本地提取和脱敏，再生成摘要。默认 `#data` 链接只包含压缩后的公开报告摘要，不包含原始日志、本地路径、源码片段或提示词长文本；完整本地报告仍会写到 `.airank/vibe-report.json`，方便你自己审计证据。
 
 不要把这些文件提交到公开仓库：
 
