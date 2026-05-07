@@ -16,6 +16,9 @@
     "confidence": "high",
     "systemOwnership": "strong"
   },
+  "judgmentMode": "自动初筛",
+  "judgmentModeLabel": "自动初筛",
+  "isFinal": false,
   "nextRank": {
     "level": 7,
     "label": "七品 · 已臻化境"
@@ -30,6 +33,10 @@
       "reason": "这类证据说明你关注模块边界、权限、数据模型、重构或系统设计。",
       "source": "codex:session.jsonl:47",
       "role": "user",
+      "dimension": "系统设计",
+      "strength": "强",
+      "supportsLevels": [5, 6, 7],
+      "usableForPromotion": true,
       "snippet": "这个模块继续 patch 没意义，重设数据边界..."
     }
   ],
@@ -38,6 +45,32 @@
   ],
   "upgradePath": [
     "把个人方法复制给团队：playbook、skills、培训、评测和团队报告。"
+  ],
+  "unlockStatus": {
+    "level8": {
+      "unlocked": false,
+      "label": "八品 · 半步宗师",
+      "reason": "八品需要团队级方法复制强证据，自动初筛默认不会仅凭私有会话放行。"
+    },
+    "level9": {
+      "unlocked": false,
+      "label": "九品 · 大宗师",
+      "reason": "九品需要公开范式影响证据，不能仅凭私有会话自动判定。"
+    }
+  },
+  "qualityNotes": [
+    "脚本只做证据清洗和自动初筛，不是最终 AI 段位判定。"
+  ],
+  "dimensionProfile": [
+    {
+      "id": "architecture_judgment",
+      "label": "架构判断",
+      "status": "成立",
+      "score": 65,
+      "evidence_count": 9,
+      "strong_evidence_count": 9,
+      "source_count": 3
+    }
   ],
   "narrative": {
     "title": "Vibe Coding 段位报告",
@@ -70,3 +103,5 @@
 - 证据质量
 
 不要只输出分数。分数只是辅助，段位判断必须能被证据解释。
+
+如果 `isFinal` 是 `false`，报告必须明确写出：这是自动初筛，不是最终高段位判定。八品和九品要看 `unlockStatus`，不能只因为信号数量多就放行。

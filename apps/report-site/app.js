@@ -23,6 +23,18 @@ const SAMPLE = {
   recordCount: 128,
   analyzedRecordCount: 120,
   excludedRecordCount: 8,
+  judgmentMode: "自动初筛",
+  judgmentModeLabel: "自动初筛",
+  isFinal: false,
+  strongEvidenceCount: 12,
+  dimensionProfile: [
+    { id: "problem_definition", label: "目标定义", status: "成立", score: 65 },
+    { id: "boundary_control", label: "边界控制", status: "成立", score: 65 },
+    { id: "validation_loop", label: "验证闭环", status: "稳定", score: 85 },
+    { id: "architecture_judgment", label: "架构判断", status: "成立", score: 65 },
+    { id: "system_ownership", label: "系统归属", status: "成立", score: 65 },
+    { id: "method_replication", label: "方法复制", status: "线索", score: 35 },
+  ],
   verdict: "你已经形成从问题定义到系统交付的闭环。",
   whyThisRank: "你不是只在指挥 AI 写代码，而是在把目标、架构、验证和工作流连成一个系统。即使不亲手写每一行代码，你也开始拥有结果。",
   whyNotNextRank: "要进入七品，需要让审核、验证和架构判断更系统化，减少靠临场人工拉回方向。",
@@ -33,6 +45,18 @@ const SAMPLE = {
     { signal: "工作流", label: "工作流沉淀证据", reason: "这类证据说明你把一次协作沉淀成 rules、skill、workflow 或 checklist。", snippet: "把这次成功流程沉淀进 AGENTS.md，后续同类任务按 gate 执行。" },
   ],
   rankCaps: ["缺少团队级 playbook、共享 workflow 或方法复制证据。"],
+  unlockStatus: {
+    level8: {
+      unlocked: false,
+      label: "八品 · 半步宗师",
+      reason: "八品需要团队级方法复制强证据，自动初筛默认不会仅凭私有会话放行。",
+    },
+    level9: {
+      unlocked: false,
+      label: "九品 · 大宗师",
+      reason: "九品需要公开范式影响证据，不能仅凭私有会话自动判定。",
+    },
+  },
   upgradePath: ["把成功协作沉淀成 AGENTS.md、rules、skill 或团队 playbook。"],
 };
 
@@ -91,15 +115,45 @@ function render(report) {
   document.querySelector("#score-value").textContent = rank.score || 0;
   document.querySelector("#confidence").textContent = translateConfidence(rank.confidence || "low");
   document.querySelector("#ownership").textContent = translateOwnership(rank.systemOwnership || "weak");
+  document.querySelector("#judgment-mode").textContent = judgmentText(report);
+  document.querySelector("#strong-evidence").textContent = report.strongEvidenceCount ?? 0;
   document.querySelector("#signals").textContent = report.signalCount || 0;
   document.querySelector("#records").textContent = report.analyzedRecordCount ?? report.recordCount ?? 0;
   document.querySelector("#rank-cap").textContent = firstText(report.rankCaps) || SAMPLE.rankCaps[0];
   document.querySelector("#upgrade-path").textContent = firstText(report.upgradePath) || SAMPLE.upgradePath[0];
+  document.querySelector("#unlock-status").textContent = unlockText(report);
   document.querySelector("#why-this-rank").textContent = report.whyThisRank || report.narrative?.rankReason || SAMPLE.whyThisRank;
   document.querySelector("#why-not-next").textContent = report.whyNotNextRank || report.narrative?.nextRankGap || SAMPLE.whyNotNextRank;
   renderQuality(report);
+  renderDimensions(report);
   renderRail(level);
   renderEvidence(report);
+}
+
+function judgmentText(report) {
+  const label = report.judgmentModeLabel || report.judgmentMode || "自动初筛";
+  return report.isFinal ? `${label} · 最终判定` : `${label} · 非最终高段位判定`;
+}
+
+function unlockText(report) {
+  const level8 = report.unlockStatus?.level8;
+  const level9 = report.unlockStatus?.level9;
+  if (level9?.unlocked) return `${level9.label || "九品"} 已解锁`;
+  if (level8?.unlocked) return `${level8.label || "八品"} 已解锁，九品仍需公开影响证据。`;
+  if (level8?.reason) return `八品未解锁：${level8.reason}`;
+  return "八品/九品需要团队复用或公开影响证据。";
+}
+
+function renderDimensions(report) {
+  const grid = document.querySelector("#dimension-grid");
+  const rows = report.dimensionProfile?.length ? report.dimensionProfile : SAMPLE.dimensionProfile;
+  grid.innerHTML = "";
+  for (const row of rows) {
+    const item = document.createElement("article");
+    item.className = "dimension-card";
+    item.innerHTML = `<div><strong>${row.label}</strong><span>${row.status || "缺失"}</span></div><meter min="0" max="100" value="${Number(row.score || 0)}"></meter>`;
+    grid.append(item);
+  }
 }
 
 function firstText(items) {

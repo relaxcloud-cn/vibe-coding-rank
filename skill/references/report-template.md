@@ -15,6 +15,8 @@
 
 你现在是：{rank_label}。{verdict}
 
+判定模式：{judgment_mode}
+
 ## 为什么是这个段位
 
 {rank_reason}
@@ -41,6 +43,15 @@
 
 {rank_cap}
 
+## 六维画像
+
+- 目标定义：{problem_definition}
+- 边界控制：{boundary_control}
+- 验证闭环：{validation_loop}
+- 架构判断：{architecture_judgment}
+- 系统归属：{system_ownership}
+- 方法复制：{method_replication}
+
 ## 下一品升级路线
 
 {upgrade_path}
@@ -51,6 +62,8 @@
 - 有效分析记录：{analyzed_record_count}
 - 已过滤系统上下文：{excluded_record_count}
 - 置信度：{confidence}
+- 强证据数：{strong_evidence_count}
+- 高段位锁：{unlock_status}
 ```
 
 ## 文风要求
@@ -61,6 +74,7 @@
 - 不要堆工具名。
 - 不要把 token 消耗当能力本身。
 - 不要把关键词命中当证据；必须解释行为意义。
+- 自动初筛不是最终高段位判定；八品和九品必须说明是否解锁，以及为什么。
 - 不要暴露本地路径、session id、源码、客户信息或密钥。
 
 ## 好输出示例

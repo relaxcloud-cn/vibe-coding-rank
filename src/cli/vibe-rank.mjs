@@ -115,6 +115,11 @@ const SIGNAL_REASONS = {
   team_system: "这类证据说明你的方法可能正在被团队复用，是八品的必要条件，但还需要强证据确认。",
 };
 
+const MODE_COPY = {
+  自动初筛: "自动初筛",
+  AI深度判定: "AI 深度判定",
+};
+
 function parseArgs(argv) {
   const options = {
     source: "codex",
@@ -217,7 +222,9 @@ function runPython(script, args) {
 
 function sampleSummary() {
   return {
-    analysis_version: "0.1-demo",
+    analysis_version: "0.2-demo",
+    judgment_mode: "自动初筛",
+    is_final: false,
     record_count: 128,
     analyzed_record_count: 120,
     excluded_record_count: 8,
@@ -235,12 +242,74 @@ function sampleSummary() {
       workflow_asset: 6,
       agent_orchestration: 4,
     },
+    strong_evidence_count: 12,
+    dimension_profile: [
+      { id: "problem_definition", label: "目标定义", status: "成立", score: 65, evidence_count: 19, strong_evidence_count: 11 },
+      { id: "boundary_control", label: "边界控制", status: "成立", score: 65, evidence_count: 20, strong_evidence_count: 11 },
+      { id: "validation_loop", label: "验证闭环", status: "稳定", score: 85, evidence_count: 13, strong_evidence_count: 13 },
+      { id: "architecture_judgment", label: "架构判断", status: "成立", score: 65, evidence_count: 9, strong_evidence_count: 9 },
+      { id: "system_ownership", label: "系统归属", status: "成立", score: 65, evidence_count: 27, strong_evidence_count: 22 },
+      { id: "method_replication", label: "方法复制", status: "线索", score: 35, evidence_count: 10, strong_evidence_count: 0 },
+    ],
+    preliminary_rank: {
+      level: 6,
+      label: "六品 · 已有大成",
+      score: 76,
+      confidence: "high",
+      is_final: false,
+      mode: "自动初筛",
+      max_auto_level: 7,
+    },
     heuristic_rank: {
       level: 6,
       label: "六品 · 已有大成",
       score: 76,
       confidence: "high",
+      is_final: false,
+      mode: "自动初筛",
+      max_auto_level: 7,
     },
+    evidence_cards: [
+      {
+        signal: "context_boundary",
+        evidence_type: "边界控制证据",
+        dimension: "目标与边界",
+        actor: "user",
+        behavior: "实现这个用户故事，验收条件如下；不要改支付模块，先给计划再动代码。",
+        proves: "开始定义目标、非目标、验收条件或文件范围，AI 的行为被人的边界约束。",
+        supports_levels: [4, 5],
+        strength: "强",
+        source: "codex:demo/session.jsonl:12",
+        snippet: "实现这个用户故事，验收条件如下；不要改支付模块，先给计划再动代码。",
+        usable_for_promotion: true,
+      },
+      {
+        signal: "validation",
+        evidence_type: "验证闭环证据",
+        dimension: "验证判断",
+        actor: "assistant",
+        behavior: "已运行 build、lint、单元测试和截图 smoke check，并复查 diff。",
+        proves: "用测试、构建、lint、回归或人工验收确认结果，而不是只看能不能跑。",
+        supports_levels: [3, 5, 6],
+        strength: "强",
+        source: "codex:demo/session.jsonl:31",
+        snippet: "已运行 build、lint、单元测试和截图 smoke check，并复查 diff。",
+        usable_for_promotion: true,
+      },
+      {
+        signal: "architecture",
+        evidence_type: "架构判断证据",
+        dimension: "系统设计",
+        actor: "user",
+        behavior: "这个模块继续 patch 没意义，重设数据边界，用新的状态模型替换。",
+        proves: "关注模块边界、权限、数据模型、重构或系统设计，开始从系统层面判断结果。",
+        supports_levels: [5, 6, 7],
+        strength: "强",
+        source: "codex:demo/session.jsonl:47",
+        snippet: "这个模块继续 patch 没意义，重设数据边界，用新的状态模型替换。",
+        usable_for_promotion: true,
+      },
+    ],
     evidence: {
       context_boundary: [
         {
@@ -264,11 +333,30 @@ function sampleSummary() {
         },
       ],
     },
-    rank_caps: ["缺少团队级 playbook、共享 workflow 或方法复制证据。"],
+    rank_caps: [
+      "自动初筛最高只确认到七品；八品需要单独复核团队复制证据。",
+      "九品 · 大宗师 需要公开范式影响证据，不能仅凭私有会话自动判定。",
+    ],
+    unlock_status: {
+      level8: {
+        unlocked: false,
+        label: "八品 · 半步宗师",
+        reason: "八品需要团队级方法复制强证据，自动初筛默认不会仅凭私有会话放行。",
+      },
+      level9: {
+        unlocked: false,
+        label: "九品 · 大宗师",
+        reason: "九品需要公开范式影响证据，不能仅凭私有会话自动判定。",
+      },
+    },
+    quality_notes: [
+      "脚本只做证据清洗和自动初筛，不是最终 AI 段位判定。",
+      "八品需要团队方法被他人复用的强证据；九品需要公开范式影响证据。",
+    ],
   };
 }
 
-function flattenEvidence(evidence) {
+function flattenLegacyEvidence(evidence) {
   const rows = [];
   for (const [signal, items] of Object.entries(evidence || {})) {
     for (const item of items || []) {
@@ -283,6 +371,24 @@ function flattenEvidence(evidence) {
     }
   }
   return rows.slice(0, 12);
+}
+
+function flattenEvidence(summary) {
+  if (Array.isArray(summary.evidence_cards) && summary.evidence_cards.length) {
+    return summary.evidence_cards.slice(0, 16).map((item) => ({
+      signal: item.signal || "",
+      label: item.evidence_type || SIGNAL_LABELS[item.signal] || item.signal || "证据",
+      reason: item.proves || SIGNAL_REASONS[item.signal] || "这条证据支持当前段位判断。",
+      source: item.source || "",
+      role: item.actor || "unknown",
+      snippet: item.snippet || item.behavior || "",
+      dimension: item.dimension || "",
+      strength: item.strength || "",
+      supportsLevels: item.supports_levels || [],
+      usableForPromotion: item.usable_for_promotion ?? true,
+    }));
+  }
+  return flattenLegacyEvidence(summary.evidence);
 }
 
 function strongestEvidence(rows) {
@@ -300,7 +406,11 @@ function strongestEvidence(rows) {
     "snippet_generation",
   ];
   return [...rows]
-    .sort((a, b) => priority.indexOf(a.signal) - priority.indexOf(b.signal))
+    .sort((a, b) => {
+      const ap = priority.indexOf(a.signal);
+      const bp = priority.indexOf(b.signal);
+      return (ap === -1 ? 99 : ap) - (bp === -1 ? 99 : bp);
+    })
     .slice(0, 5);
 }
 
@@ -312,19 +422,28 @@ function systemOwnership(level) {
 }
 
 function buildReport(summary, options) {
-  const rank = summary.heuristic_rank || {};
+  const rank = summary.preliminary_rank || summary.heuristic_rank || {};
   const level = Number(rank.level || 0);
   const nextLevel = Math.min(9, level + 1);
-  const evidenceRows = flattenEvidence(summary.evidence);
+  const evidenceRows = flattenEvidence(summary);
   const copy = RANK_REPORT_COPY[level] || RANK_REPORT_COPY[0];
   const strongest = strongestEvidence(evidenceRows);
   const rankCaps = summary.rank_caps || [];
   const upgradePath = UPGRADE_PATHS[level] || [];
+  const judgmentMode = summary.judgment_mode || rank.mode || "自动初筛";
+  const isFinal = Boolean(summary.is_final || rank.is_final);
+  const qualityNotes = summary.quality_notes || [];
+  const nextRankGap = isFinal
+    ? copy.gap
+    : `${copy.gap} 当前结果是自动初筛，高段位需要 AI 判定官基于证据卡复核。`;
   return {
     product: "Airank Vibe Coding Rank",
     generatedAt: new Date().toISOString(),
     source: options.source,
     root: options.root || defaultRoot(options.source),
+    judgmentMode,
+    judgmentModeLabel: MODE_COPY[judgmentMode] || judgmentMode,
+    isFinal,
     rank: {
       level,
       label: rank.label || RANKS[level] || RANKS[0],
@@ -342,19 +461,23 @@ function buildReport(summary, options) {
     excludedReasonCounts: summary.excluded_reason_counts || {},
     signalCount: summary.signal_count || 0,
     signalCounts: summary.signal_counts || {},
+    strongEvidenceCount: summary.strong_evidence_count || strongest.filter((item) => item.strength === "强").length,
+    dimensionProfile: summary.dimension_profile || [],
     verdict: copy.verdict,
     whyThisRank: copy.reason,
-    whyNotNextRank: copy.gap,
+    whyNotNextRank: nextRankGap,
     evidence: evidenceRows,
     strongestEvidence: strongest,
     rankCaps,
+    unlockStatus: summary.unlock_status || {},
+    qualityNotes,
     upgradePath,
     narrative: {
       title: "Vibe Coding 段位报告",
       oneLine: `你现在是：${rank.label || RANKS[level] || RANKS[0]}。${copy.verdict}`,
       rankReason: copy.reason,
-      nextRankGap: copy.gap,
-      capSummary: rankCaps[0] || "当前没有明显封顶原因，但仍需更多证据提高置信度。",
+      nextRankGap,
+      capSummary: rankCaps[0] || qualityNotes[0] || "当前没有明显封顶原因，但仍需更多证据提高置信度。",
       upgradeSummary: upgradePath[0] || "继续积累真实项目证据，并把成功做法沉淀成可复用工作流。",
     },
   };
@@ -400,6 +523,7 @@ function printHuman(report, url, outPath) {
   console.log(`Rank: ${report.rank.label}`);
   console.log(`Score: ${report.rank.score}`);
   console.log(`Confidence: ${report.rank.confidence}`);
+  console.log(`Judgment: ${report.judgmentModeLabel}${report.isFinal ? "" : "（非最终判定）"}`);
   console.log(`System ownership: ${report.rank.systemOwnership}`);
   console.log("");
   console.log("Verdict:");
@@ -469,7 +593,7 @@ async function main() {
     }
 
     runPython("collect_sessions.py", collectArgs);
-    runPython("summarize_evidence.py", ["--input", evidencePath, "--output", summaryPath]);
+    runPython("prepare_evidence.py", ["--input", evidencePath, "--output", summaryPath]);
     summary = JSON.parse(readFileSync(summaryPath, "utf-8"));
     options.root = root;
   }

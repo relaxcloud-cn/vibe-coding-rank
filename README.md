@@ -58,6 +58,16 @@ Vibe Coding Rank 想测的是更深的一层：
 
 这个 skill 会读取 Codex、Claude Code 或通用 AI 编程会话记录，先在本地提取和脱敏证据，再按照九品体系生成评级报告。
 
+现在的判定链路分三步：
+
+```text
+原始日志 -> 证据清洗和行为证据卡 -> 自动初筛/AI 深度判定 -> 中文段位报告
+```
+
+脚本不再直接充当高段位裁判。它负责把真实记录整理成行为证据卡，标出强证据、弱信号、封顶原因和高段位锁。CLI 默认输出的是 **自动初筛**，用于快速预览；八品和九品必须看更强证据，不能靠信号数量堆出来。
+
+高段位还要看证据跨度：单条记录里写得再完整，也只能算候选证据。六品以上需要跨多次会话、多条强证据反复成立。
+
 它不看你怎么包装自己，只看真实记录里有没有这些行为：
 
 - 目标定义、非目标、验收标准
@@ -67,6 +77,8 @@ Vibe Coding Rank 想测的是更深的一层：
 - 多 agent 分工、review gate、检查点
 - AGENTS.md、CLAUDE.md、rules、skills、workflow、playbook
 - 团队级方法复制和公开影响证据
+
+其中，八品需要证明方法被团队或社区复用；九品需要公开范式影响。普通个人私有日志通常最高只自动确认到七品。
 
 ## Vibe Coding 九品体系
 
@@ -99,11 +111,14 @@ Vibe Coding Rank 想测的是更深的一层：
 
 一次完整分析会输出：
 
-- 最终段位
+- 段位结论
+- 判定模式：自动初筛或 AI 深度判定
 - 置信度
 - 系统归属判断
-- 支撑该段位的证据
+- 六维能力画像：目标定义、边界控制、验证闭环、架构判断、系统归属、方法复制
+- 支撑该段位的行为证据卡
 - 限制段位上限的证据缺口
+- 八品/九品是否解锁
 - 下一品升级路径
 
 示例结构：
@@ -113,9 +128,13 @@ Vibe Coding Rank 想测的是更深的一层：
   "rank": "五品 · 炉火纯青",
   "score": 72,
   "confidence": "medium",
+  "judgment_mode": "自动初筛",
+  "is_final": false,
   "system_ownership": "strong",
-  "evidence": [],
+  "dimension_profile": [],
+  "evidence_cards": [],
   "rank_caps": [],
+  "unlock_status": {},
   "next_rank": "六品 · 已有大成",
   "upgrade_path": []
 }
@@ -170,7 +189,7 @@ python3 skill/scripts/collect_sessions.py \
   --since 2026-02-01 \
   --output /tmp/airank-codex-evidence.jsonl
 
-python3 skill/scripts/summarize_evidence.py \
+python3 skill/scripts/prepare_evidence.py \
   --input /tmp/airank-codex-evidence.jsonl \
   --output /tmp/airank-vibe-summary.json
 ```
@@ -184,7 +203,7 @@ python3 skill/scripts/collect_sessions.py \
   --output /tmp/airank-claude-evidence.jsonl
 ```
 
-然后让 Codex 使用 `$vibe-coding-rank`，读取摘要和 `skill/references/` 中的评级规则，生成最终报告。
+然后让 Codex 使用 `$vibe-coding-rank`，读取摘要里的 `evidence_cards`、`rank_caps`、`unlock_status` 和 `skill/references/` 中的判定规则，生成最终中文报告。
 
 ## 安装到 Codex
 
@@ -215,8 +234,8 @@ Use $vibe-coding-rank to analyze my local Codex sessions and produce a Vibe Codi
 ├── skill/                           # 可单独安装的 Codex skill
 │   ├── SKILL.md                     # Skill 入口
 │   ├── agents/openai.yaml           # Skill UI 元信息
-│   ├── references/                  # 九品体系、证据规则、输出结构
-│   └── scripts/                     # 本地取证和启发式评分脚本
+│   ├── references/                  # 九品体系、证据规则、AI 判定流程、输出结构
+│   └── scripts/                     # 本地取证和证据准备脚本
 ├── src/
 │   ├── cli/vibe-rank.mjs            # npx 一条命令入口
 │   └── worker/index.js              # Cloudflare Worker API

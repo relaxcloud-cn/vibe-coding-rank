@@ -1,108 +1,112 @@
-# Evidence Rubric
+# 证据判定规则
 
-Use observed evidence, not self-description.
+只看可观察行为，不看自我描述。
 
-## Invalid Evidence
+## 无效证据
 
-Do not score these as user ability evidence:
+以下内容不能作为用户能力证据：
 
-- System prompts, developer instructions, tool policies, permission notes, or environment context.
-- Auto-injected `AGENTS.md` / `CLAUDE.md` context shown to the model before work begins.
-- Compacted conversation summaries unless they clearly summarize user-directed work and not policy/context.
-- File paths, repo names, or keyword mentions without an observed behavior.
-- Raw snippets that only say a tool exists, a framework exists, or a rule file exists.
+- system prompt、developer instruction、工具策略、权限说明、环境上下文。
+- 工作开始前自动注入给模型的 `AGENTS.md` / `CLAUDE.md` 内容。
+- 压缩摘要，除非它明确总结的是用户驱动的真实工作，而不是策略和上下文。
+- 只有文件路径、仓库名、工具名、规则文件名，但没有行为。
+- 只说“存在某工具/某框架/某规则文件”的片段。
 
-Valid evidence must show the user or agent actually doing work: defining a goal, setting constraints, reviewing a plan, validating output, redesigning a module, creating a reusable workflow, or teaching the method to others.
+有效证据必须能看到用户或 Agent 真的在工作：定义目标、设置约束、审查计划、验证输出、重设模块边界、沉淀工作流，或把方法教给别人。
 
-## Positive Signals
+## 有效行为证据
 
-### Context and Boundary
+### 目标与边界
 
-- Gives goals, non-goals, acceptance criteria.
-- Limits files, modules, APIs, or data boundaries.
-- Requires plan before edits.
-- Mentions `AGENTS.md`, `CLAUDE.md`, `.cursor/rules`, skills, hooks, MCP, checklists.
+- 给出目标、非目标、验收标准。
+- 限制文件、模块、API 或数据边界。
+- 要求先出计划再改代码。
+- 把上下文写进 `AGENTS.md`、`CLAUDE.md`、`.cursor/rules`、skills、hooks、MCP、checklists。
 
-Supports: 四品及以上.
+支持：四品及以上。
 
-### Vibe Generation
+### 结果生成
 
-- Starts from vague idea or product feeling.
-- Uses screenshots, UI taste, runtime feedback, logs, and natural language to shape output.
-- Lets AI build runnable demos before full manual understanding.
+- 从模糊想法、产品感觉或用户抱怨出发。
+- 用截图、审美判断、运行反馈、日志和自然语言塑造结果。
+- 让 AI 先搭可运行 demo，再逐步建立理解。
 
-Supports: 五品/六品 depending on control quality.
+支持：二品到六品，取决于控制质量。没有验证和架构判断时，只能算低段位。
 
-### System Ownership
+### 系统归属
 
-- Asks AI to explain architecture and critical paths.
-- Uses tests, lint, build, smoke checks, diff review.
-- Refuses uncontrolled large changes.
-- Switches from patching to redesign when the system shape is wrong.
-- Handles production boundaries: auth, data, payment, security, monitoring, backup, rollback.
+- 要求 AI 解释架构和关键路径。
+- 使用测试、lint、build、smoke check、diff review。
+- 拒绝无边界的大范围修改。
+- 发现继续 patch 没意义时，切换为重新设计。
+- 处理生产边界：权限、数据、支付、安全、监控、备份、回滚。
 
-Supports: 五品 to 七品.
+支持：五品到七品。
 
-### Agent Orchestration
+### Agent 编排
 
-- Splits work between writer/reviewer/tester/researcher agents.
-- Runs Best-of-N approaches.
-- Uses independent review agent.
-- Sets gates and checkpoints.
+- 拆分 writer / reviewer / tester / researcher 等角色。
+- 使用 Best-of-N 或并行方案。
+- 使用独立 review agent。
+- 设置 gate 和 checkpoint。
 
-Supports: 六品/七品, or 八品 if made reusable for others.
+支持：六品/七品；如果形成团队复用机制，才可能支持八品。
 
-### Team System
+### 团队复制
 
-- Creates shared playbooks, reusable skills, rules, workflows, templates, evals.
-- Helps team members adopt the method.
-- Builds org-level AI engineering process.
+- 创建共享 playbook、skills、rules、workflows、templates、evals。
+- 让团队成员实际采用这套方法。
+- 建立组织级 AI 工程流程。
 
-Supports: 八品.
+支持：八品。
 
-## Negative Signals
+## 负向证据
 
-### Bug Loop Trap
+### Bug 循环陷阱
 
-- Repeatedly says "fix again" without adding context.
-- Keeps feeding errors back with no root-cause analysis.
-- Lets AI patch symptoms indefinitely.
+- 反复说“继续修”“再修一下”，但不补上下文。
+- 只把报错喂回去，没有根因分析。
+- 让 AI 无限 patch 症状。
 
-Caps: usually 三品 unless later evidence shows boundary reset or redesign.
+封顶：通常三品，除非后续出现边界重设或重构证据。
 
-### Demo Without Ownership
+### Demo 无归属
 
-- Accepts runnable code without understanding key paths.
-- No validation beyond "it runs".
-- Does not know where data/auth/payment/security live.
+- 接受能跑的代码，但不理解关键路径。
+- 除了“跑起来”没有验证。
+- 不知道数据、权限、支付、安全边界在哪里。
 
-Caps: 二品/三品.
+封顶：二品/三品。
 
-### Uncontrolled Agent
+### 失控 Agent
 
-- Lets agent change many unrelated files.
-- No file scope, no tests, no plan, no review.
-- Accepts broad refactors for small tasks.
+- 允许 Agent 改大量无关文件。
+- 没有文件范围、测试、计划、review。
+- 小任务接受大范围重构。
 
-Caps: 三品/四品 depending on correction behavior.
+封顶：三品/四品，取决于后续是否纠偏。
 
-### Thin Evidence
+### 证据太薄
 
-- Few records, mostly chat snippets.
-- No project evidence.
-- No validation traces.
+- 记录很少，主要是闲聊片段。
+- 没有项目证据。
+- 没有验证轨迹。
 
-Lower confidence and avoid high ranks.
+处理：降低置信度，避免高段位。
 
-## Rank Cap Rules
+## 段位封顶规则
 
-- No AI coding evidence: zero品.
-- Only snippets/functions: one品.
-- Demo evidence but no validation: two品.
-- Feature delivery plus bug loops: three品.
-- Boundaries and acceptance criteria: at least four品.
-- Architecture/product goals plus gates: five品.
-- Closed loop from problem definition to delivery: six品.
-- System ownership with transparent tooling: seven品.
-- Team replication evidence: eight品.
-- Public paradigm-level influence: nine品.
+- 没有 AI 编程证据：零品。
+- 只有片段/函数：一品。
+- 有 demo 但没有验证：二品。
+- 能交付功能但主要陷在 bug 循环：三品。
+- 有边界和验收标准：至少四品。
+- 有架构/产品目标和验证 gate：五品。
+- 从问题定义到交付形成闭环：六品。
+- 工具透明且系统归属稳定：七品。
+- 团队方法复制证据：八品。
+- 公开范式影响：九品。
+
+自动初筛默认最高只确认到七品。八品需要单独复核团队复制强证据，九品必须补充公开影响证据。
+
+高段位必须看证据跨度：单条记录、单次会话、单个项目里的漂亮表述，只能作为候选证据，不能直接证明稳定能力。

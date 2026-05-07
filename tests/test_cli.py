@@ -43,10 +43,15 @@ class CliTests(unittest.TestCase):
         )
         payload = json.loads(result.stdout)
         self.assertEqual(payload["report"]["rank"]["label"], "六品 · 已有大成")
+        self.assertEqual(payload["report"]["judgmentMode"], "自动初筛")
+        self.assertFalse(payload["report"]["isFinal"])
         self.assertIn("#data=", payload["url"])
         self.assertIn("whyThisRank", payload["report"])
         self.assertIn("whyNotNextRank", payload["report"])
         self.assertIn("strongestEvidence", payload["report"])
+        self.assertIn("unlockStatus", payload["report"])
+        self.assertIn("qualityNotes", payload["report"])
+        self.assertIn("dimensionProfile", payload["report"])
         self.assertIn("narrative", payload["report"])
         self.assertIn("你现在是", payload["report"]["narrative"]["oneLine"])
 
@@ -83,6 +88,7 @@ class CliTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertGreaterEqual(payload["report"]["recordCount"], 1)
             self.assertIn("whyThisRank", payload["report"])
+            self.assertEqual(payload["report"]["judgmentMode"], "自动初筛")
 
 
 if __name__ == "__main__":
