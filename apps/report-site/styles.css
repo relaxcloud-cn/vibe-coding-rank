@@ -513,7 +513,8 @@ button {
 .capability-grid article,
 .usecase,
 .insight-card,
-.hard-stat-card {
+.hard-stat-card,
+.metric-group-card {
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 18px;
   background: white;
@@ -859,6 +860,61 @@ button {
   line-height: 1.45;
 }
 
+.metric-group-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.metric-group-card {
+  min-width: 0;
+  padding: 16px;
+  background: linear-gradient(180deg, #102f22, #184934);
+  color: #f5fff8;
+}
+
+.metric-group-card span {
+  display: block;
+  color: rgba(245, 255, 248, 0.72);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.metric-group-card strong {
+  display: block;
+  margin-top: 8px;
+  color: #fff8d6;
+  font-size: 22px;
+  line-height: 1.08;
+}
+
+.metric-group-card em,
+.metric-group-card small,
+.metric-group-card p {
+  display: block;
+  margin-top: 8px;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.metric-group-card em {
+  color: rgba(245, 255, 248, 0.92);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.metric-group-card small {
+  color: rgba(245, 255, 248, 0.64);
+  font-size: 12px;
+}
+
+.metric-group-card p {
+  margin-bottom: 0;
+  color: rgba(245, 255, 248, 0.78);
+  font-size: 12px;
+}
+
 .section {
   position: relative;
   z-index: 2;
@@ -1021,6 +1077,7 @@ button {
   .metrics,
   .bottom-grid,
   .hard-stat-grid,
+  .metric-group-grid,
   .dimension-grid,
   .capability-grid,
   .logo-strip,

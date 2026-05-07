@@ -67,6 +67,7 @@ The script only performs local cleaning, evidence classification, and conservati
 - Treat `weak_signals` as usage clues, not promotion evidence.
 - Treat `usage_stats` and `hard_stats` as objective usage/sample-quality facts, not promotion evidence.
 - Use `hardStatCards` to explain objective stats to users: token volume, optional cost estimate, effective sample ratio, strong-record density, validation density, rework pressure, user control, and user decision ratio. Do not turn token volume or cost into a rank boost.
+- Use `metricGroups` / `metric_groups` as the hard-stat dashboard: investment intensity, sample quality, human control, validation loop, and efficiency risk. These groups can raise or lower confidence, explain caps, and guide the next action; they must not directly raise the rank.
 - Treat `costEstimate` as optional and user-priced; if no token price was provided, say the report only measures token intensity, not dollars.
 - Use `qualityFlags` to surface sample or judgment risks such as low user control, low user decision ratio, assistant-heavy evidence, or token concentration.
 - Use `dragFactors` to explain behaviors dragging the rank down, especially bug loops, demo-heavy work, snippet-heavy work, weak-signal-heavy logs, or thin strong records.

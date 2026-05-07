@@ -266,6 +266,13 @@ const SAMPLE = {
     { id: "rework_pressure", label: "返工压力", value: "0%", detail: "0 条 Bug 循环信号", interpretation: "返工信号不高，说明协作没有明显困在修补循环。" },
     { id: "automation_noise", label: "工具事件占比", value: "0%", detail: "0 条工具事件已排除", interpretation: "工具调用、补丁事件和命令结果不直接评分，只用于解释样本结构。" },
   ],
+  metricGroups: [
+    { id: "investment", label: "投入强度", value: "128万 token", signal: "活跃 6 天 / 12 会话", basis: "峰值日占比 33%", ratingImpact: "只解释 AI 使用投入和样本稳定性，不直接升品。", risk: "投入分布没有明显单日集中风险。" },
+    { id: "sample_quality", label: "样本可信度", value: "120/128", signal: "证据来源 3 个，强记录占比 10%", basis: "信号覆盖 64%", ratingImpact: "影响置信度和高段位封顶；样本薄时不能判六品以上。", risk: "样本里有可复核的强证据。" },
+    { id: "human_control", label: "人类控制", value: "17%", signal: "主动控制 17%，用户决策 17%", basis: "助手执行 75%", ratingImpact: "决定六品、七品能否成立；高段位必须看到人的系统级决策。", risk: "用户决策足以支撑更高段位复核。" },
+    { id: "validation_loop", label: "验证闭环", value: "11%", signal: "13 条验证信号", basis: "5/6 个维度成立", ratingImpact: "验证不足会压住六品；验收是主要证据。", risk: "有验证信号，但仍要看是否由人定义验收标准。" },
+    { id: "efficiency_risk", label: "效率风险", value: "0%", signal: "0 条 Bug 循环信号", basis: "弱信号占比 18%", ratingImpact: "返工和弱信号不直接扣分，但会解释为什么系统归属不稳。", risk: "没有明显困在修补循环。" },
+  ],
 };
 
 const SHARE_HARD_CARD_PRIORITY = [
@@ -376,6 +383,7 @@ function render(report) {
   renderQuality(report);
   renderDimensions(report);
   renderHardStatCards(report);
+  renderMetricGroups(report);
   renderRail(level);
   renderEvidence(report);
   renderShareState(report);
@@ -417,6 +425,7 @@ function renderError(error) {
   document.querySelector("#quality-flags").textContent = "暂无";
   document.querySelector("#drag-factors").textContent = "暂无";
   document.querySelector("#hard-stat-grid").innerHTML = "";
+  document.querySelector("#metric-group-grid").innerHTML = "";
 }
 
 function judgmentText(report) {
@@ -722,6 +731,89 @@ function fallbackHardStatCards(report) {
   ];
 }
 
+function fallbackMetricGroups(report) {
+  const stats = report.hardStats || {};
+  const usage = { ...(report.usageStats || {}), ...stats };
+  const cost = report.costEstimate || usage.cost_estimate || {};
+  const totalTokens = usage.total_tokens || 0;
+  const activeDays = Number(usage.active_days || 0);
+  const activeSessions = Number(usage.active_sessions || 0);
+  const peakDayShare = Number(usage.peak_day_token_share || 0);
+  const analyzed = stats.analyzed_record_count ?? report.analyzedRecordCount ?? 0;
+  const candidate = stats.scoring_candidate_record_count ?? report.recordCount ?? analyzed;
+  const sourceCount = stats.source_count || report.userControlSourceCount || 0;
+  const strongRecordDensity = Number(stats.strong_record_density || 0);
+  const userDecisionRatio = Number(stats.promotion_user_decision_ratio ?? stats.user_decision_ratio ?? 0);
+  const userControlRatio = Number(stats.user_control_ratio || 0);
+  const validationDensity = Number(stats.validation_density || 0);
+  const bugLoopDensity = Number(stats.bug_loop_density || 0);
+  const assistantExecutionRatio = Number(stats.promotion_assistant_execution_ratio || 0);
+  const signalCoverageRatio = Number(stats.signal_coverage_ratio || 0);
+  const establishedDimensions = Number(stats.established_dimension_count || 0);
+  const nonScoringRatio = Number(stats.non_scoring_record_ratio || 0);
+  const costText = cost.configured ? `，估算成本 ${formatMoney(cost.estimatedUsd)}` : "";
+
+  return [
+    {
+      id: "investment",
+      label: "投入强度",
+      value: totalTokens ? `${formatTokens(totalTokens)} token` : "暂无",
+      signal: activeDays || activeSessions ? `活跃 ${activeDays || 0} 天 / ${activeSessions || 0} 会话${costText}` : "未读取到 token 统计",
+      basis: peakDayShare ? `峰值日占比 ${formatPercent(peakDayShare)}` : "缺少峰值日分布",
+      ratingImpact: "只解释 AI 使用投入和样本稳定性，不直接升品。",
+      risk: peakDayShare >= 0.5 ? "token 单日集中，稳定性会被打折。" : "投入分布没有明显单日集中风险。",
+    },
+    {
+      id: "sample_quality",
+      label: "样本可信度",
+      value: `${analyzed}/${candidate}`,
+      signal: `证据来源 ${sourceCount || 0} 个，强记录占比 ${formatPercent(strongRecordDensity)}`,
+      basis: `非评分记录占比 ${formatPercent(nonScoringRatio)}，信号覆盖 ${formatPercent(signalCoverageRatio)}`,
+      ratingImpact: "影响置信度和高段位封顶；样本薄时不能判六品以上。",
+      risk: strongRecordDensity < 0.05 ? "强记录偏薄，需要更多真实任务证据。" : "样本里有可复核的强证据。",
+    },
+    {
+      id: "human_control",
+      label: "人类控制",
+      value: formatPercent(userDecisionRatio || userControlRatio),
+      signal: `主动控制 ${formatPercent(userControlRatio)}，用户决策 ${formatPercent(userDecisionRatio)}`,
+      basis: assistantExecutionRatio ? `助手执行 ${formatPercent(assistantExecutionRatio)}` : "缺少助手执行占比",
+      ratingImpact: "决定六品、七品能否成立；高段位必须看到人的系统级决策。",
+      risk: userDecisionRatio < 0.03 ? "用户决策占比偏低，容易被封顶五品。" : "用户决策足以支撑更高段位复核。",
+    },
+    {
+      id: "validation_loop",
+      label: "验证闭环",
+      value: formatPercent(validationDensity),
+      signal: `${stats.validation_count || 0} 条验证信号`,
+      basis: `${establishedDimensions}/6 个维度成立`,
+      ratingImpact: "验证不足会压住六品；测试、构建、lint、截图和人工验收是主要证据。",
+      risk: validationDensity <= 0 ? "未看到验证闭环，系统结果不可托付。" : "有验证信号，但仍要看是否由人定义验收标准。",
+    },
+    {
+      id: "efficiency_risk",
+      label: "效率风险",
+      value: formatPercent(bugLoopDensity),
+      signal: `${stats.bug_loop_count || 0} 条 Bug 循环信号`,
+      basis: stats.weak_signal_ratio ? `弱信号占比 ${formatPercent(stats.weak_signal_ratio)}` : "缺少弱信号占比",
+      ratingImpact: "返工和弱信号不直接扣分，但会解释为什么系统归属不稳。",
+      risk: bugLoopDensity >= 0.08 ? "返工压力高，可能仍停在局部 patch 循环。" : "没有明显困在修补循环。",
+    },
+  ];
+}
+
+function renderMetricGroups(report) {
+  const grid = document.querySelector("#metric-group-grid");
+  const rows = report.metricGroups?.length ? report.metricGroups : fallbackMetricGroups(report);
+  grid.innerHTML = "";
+  for (const row of rows) {
+    const item = document.createElement("article");
+    item.className = "metric-group-card";
+    item.innerHTML = `<span>${row.label || "统计"}</span><strong>${row.value || "暂无"}</strong><em>${row.signal || ""}</em><small>${row.ratingImpact || ""}</small><p>${row.risk || row.basis || ""}</p>`;
+    grid.append(item);
+  }
+}
+
 function renderHardStatCards(report) {
   const grid = document.querySelector("#hard-stat-grid");
   const rows = report.hardStatCards?.length ? report.hardStatCards : fallbackHardStatCards(report);
@@ -760,6 +852,10 @@ function buildSharePrompt(report) {
   const hardCards = shareHardStatCards(report.hardStatCards?.length ? report.hardStatCards : fallbackHardStatCards(report))
     .map((item) => `${item.label} ${item.value}：${shortText(item.interpretation, 24)}`)
     .join("；");
+  const metricRows = (report.metricGroups?.length ? report.metricGroups : fallbackMetricGroups(report))
+    .slice(0, 5)
+    .map((item) => `${item.label} ${item.value}：${shortText(item.ratingImpact || item.risk || "", 28)}`)
+    .join("；");
   const url = location.href;
   return `
 Use case: infographic-diagram
@@ -780,6 +876,9 @@ ${hardStatsLine(report)}
 
 硬指标卡：
 ${hardCards}
+
+统计仪表盘：
+${metricRows || "投入强度、样本可信度、人类控制、验证闭环、效率风险"}
 
 证据结构：
 ${evidenceStructureSummary(report)}
@@ -832,6 +931,10 @@ function buildJudgePrompt(report) {
   const hardCards = shareHardStatCards(report.hardStatCards?.length ? report.hardStatCards : fallbackHardStatCards(report))
     .map((item) => `- ${item.label}：${item.value}；${item.detail || ""}；${item.interpretation || ""}`)
     .join("\n");
+  const metricRows = (report.metricGroups?.length ? report.metricGroups : fallbackMetricGroups(report))
+    .slice(0, 5)
+    .map((item) => `- ${item.label}：${item.value}；${item.signal || ""}；评级作用：${item.ratingImpact || ""}；风险：${item.risk || ""}`)
+    .join("\n");
   const dimensions = (report.dimensionProfile?.length ? report.dimensionProfile : SAMPLE.dimensionProfile)
     .slice(0, 6)
     .map((item) => `- ${item.label || item.id}：${item.status || "缺失"}，${Number(item.score || 0)}/100，证据 ${item.evidence_count ?? item.evidenceCount ?? "未知"} 条`)
@@ -868,6 +971,9 @@ function buildJudgePrompt(report) {
 
 硬指标卡：
 ${hardCards || "- 暂无硬指标卡"}
+
+统计仪表盘：
+${metricRows || "- 暂无统计仪表盘"}
 
 证据结构：
 - ${evidenceStructureSummary(report)}

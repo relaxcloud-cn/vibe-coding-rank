@@ -81,6 +81,17 @@ async function renderAt(hash, fetchResponse = {}) {
             interpretation: "高段位必须看到人的系统级决策。",
           },
         ],
+        metricGroups: [
+          {
+            id: "human_control",
+            label: "人类控制",
+            value: "20%",
+            signal: "主动控制 1%，用户决策 20%",
+            basis: "助手执行 70%",
+            ratingImpact: "决定六品、七品能否成立；高段位必须看到人的系统级决策。",
+            risk: "用户决策足以支撑更高段位复核。",
+          },
+        ],
         rankGates: [
           {
             id: "level7_user_decision_ratio",
@@ -157,17 +168,21 @@ assert.equal(
   "七品用户决策占比未通过：七品需要足够用户决策证据，证明人真正做边界、架构、验收或取舍。",
 );
 assert.equal(shortDom.window.document.querySelector("#hard-stat-grid .hard-stat-card strong").textContent, "4 天");
+assert.equal(shortDom.window.document.querySelector("#metric-group-grid .metric-group-card span").textContent, "人类控制");
+assert.equal(shortDom.window.document.querySelector("#metric-group-grid .metric-group-card strong").textContent, "20%");
 shortDom.window.document.querySelector("#copy-share-prompt").click();
 await new Promise((resolveReady) => setTimeout(resolveReady, 0));
 assert.match(shortDom.window.__copied, /用户决策占比 2%/);
 assert.match(shortDom.window.__copied, /验证闭环密度 12%/);
 assert.match(shortDom.window.__copied, /返工压力 2%/);
+assert.match(shortDom.window.__copied, /统计仪表盘/);
 shortDom.window.document.querySelector("#copy-judge-prompt").click();
 await new Promise((resolveReady) => setTimeout(resolveReady, 0));
 assert.match(shortDom.window.__copied, /AI 深度判定官/);
 assert.match(shortDom.window.__copied, /最终段位/);
 assert.match(shortDom.window.__copied, /维持、上调或下调/);
 assert.match(shortDom.window.__copied, /七品用户决策占比/);
+assert.match(shortDom.window.__copied, /统计仪表盘/);
 assert.equal(
   shortDom.window.document.querySelector("#quality-flags").textContent,
   "主动控制偏低 1%：高阶信号主要不是由用户主动定义目标、边界、架构或验收触发。",

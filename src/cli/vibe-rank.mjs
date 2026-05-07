@@ -194,6 +194,15 @@ const PUBLIC_USAGE_STATS_FIELDS = [
   "token_note",
 ];
 
+const PUBLIC_METRIC_GROUP_FIELDS = [
+  "id",
+  "label",
+  "value",
+  "signal",
+  "ratingImpact",
+  "risk",
+];
+
 function parseArgs(argv) {
   const options = {
     source: "codex",
@@ -752,6 +761,7 @@ function buildReport(summary, options) {
     promotionBehaviorCounts: summary.promotion_behavior_counts || summary.hard_stats?.promotion_behavior_counts || {},
     usageStats: summary.usage_stats || {},
     hardStats: summary.hard_stats || {},
+    metricGroups: summary.metric_groups || [],
     dimensionProfile: summary.dimension_profile || [],
     verdict: copy.verdict,
     whyThisRank: copy.reason,
@@ -779,6 +789,7 @@ function buildReport(summary, options) {
   report.statsInsight = statsInsight(report);
   report.gateUpgradeAdvice = gateUpgradeAdvice(report, upgradePath[0]);
   report.hardStatCards = hardStatCards(report);
+  report.metricGroups = report.metricGroups.length ? report.metricGroups : metricGroups(report);
   report.narrative.upgradeSummary = report.gateUpgradeAdvice;
   return report;
 }
@@ -1137,6 +1148,83 @@ function hardStatCards(report) {
   ];
 }
 
+function metricGroups(report) {
+  const stats = report.hardStats || {};
+  const usage = report.usageStats || {};
+  const cost = report.costEstimate || {};
+  const totalTokens = stats.total_tokens || usage.total_tokens || 0;
+  const activeDays = stats.active_days || usage.active_days || 0;
+  const activeSessions = stats.active_sessions || usage.active_sessions || 0;
+  const peakDayShare = Number(stats.peak_day_token_share || usage.peak_day_token_share || 0);
+  const analyzed = stats.analyzed_record_count ?? report.analyzedRecordCount ?? 0;
+  const candidate = stats.scoring_candidate_record_count ?? report.recordCount ?? analyzed;
+  const sourceCount = stats.source_count || report.userControlSourceCount || 0;
+  const strongRecordDensity = Number(stats.strong_record_density || 0);
+  const userDecisionRatio = Number(stats.promotion_user_decision_ratio ?? stats.user_decision_ratio ?? 0);
+  const userControlRatio = Number(stats.user_control_ratio || 0);
+  const validationDensity = Number(stats.validation_density || 0);
+  const bugLoopDensity = Number(stats.bug_loop_density || 0);
+  const assistantExecutionRatio = Number(stats.promotion_assistant_execution_ratio || 0);
+  const signalCoverageRatio = Number(stats.signal_coverage_ratio || 0);
+  const establishedDimensions = Number(stats.established_dimension_count || 0);
+  const nonScoringRatio = Number(stats.non_scoring_record_ratio || 0);
+  const costText = cost.configured ? `，估算成本 ${money(cost.estimatedUsd)}` : "";
+
+  return [
+    {
+      id: "investment",
+      label: "投入强度",
+      value: totalTokens ? `${formatTokens(totalTokens)} token` : "暂无",
+      signal: activeDays || activeSessions ? `活跃 ${activeDays || 0} 天 / ${activeSessions || 0} 会话${costText}` : "未读取到 token 统计",
+      basis: peakDayShare ? `峰值日占比 ${formatPercent(peakDayShare)}` : "缺少峰值日分布",
+      ratingImpact: "只解释 AI 使用投入和样本稳定性，不直接升品。",
+      risk: peakDayShare >= 0.5 ? "token 单日集中，稳定性会被打折。" : "投入分布没有明显单日集中风险。",
+    },
+    {
+      id: "sample_quality",
+      label: "样本可信度",
+      value: `${analyzed}/${candidate}`,
+      signal: `证据来源 ${sourceCount || 0} 个，强记录占比 ${formatPercent(strongRecordDensity)}`,
+      basis: `非评分记录占比 ${formatPercent(nonScoringRatio)}，信号覆盖 ${formatPercent(signalCoverageRatio)}`,
+      ratingImpact: "影响置信度和高段位封顶；样本薄时不能判六品以上。",
+      risk: strongRecordDensity < 0.05 ? "强记录偏薄，需要更多真实任务证据。" : "样本里有可复核的强证据。",
+    },
+    {
+      id: "human_control",
+      label: "人类控制",
+      value: formatPercent(userDecisionRatio || userControlRatio),
+      signal: `主动控制 ${formatPercent(userControlRatio)}，用户决策 ${formatPercent(userDecisionRatio)}`,
+      basis: assistantExecutionRatio ? `助手执行 ${formatPercent(assistantExecutionRatio)}` : "缺少助手执行占比",
+      ratingImpact: "决定六品、七品能否成立；高段位必须看到人的系统级决策。",
+      risk: userDecisionRatio < 0.03 ? "用户决策占比偏低，容易被封顶五品。" : "用户决策足以支撑更高段位复核。",
+    },
+    {
+      id: "validation_loop",
+      label: "验证闭环",
+      value: formatPercent(validationDensity),
+      signal: `${stats.validation_count || 0} 条验证信号`,
+      basis: `${establishedDimensions}/6 个维度成立`,
+      ratingImpact: "验证不足会压住六品；测试、构建、lint、截图和人工验收是主要证据。",
+      risk: validationDensity <= 0 ? "未看到验证闭环，系统结果不可托付。" : "有验证信号，但仍要看是否由人定义验收标准。",
+    },
+    {
+      id: "efficiency_risk",
+      label: "效率风险",
+      value: formatPercent(bugLoopDensity),
+      signal: `${stats.bug_loop_count || 0} 条 Bug 循环信号`,
+      basis: stats.weak_signal_ratio ? `弱信号占比 ${formatPercent(stats.weak_signal_ratio)}` : "缺少弱信号占比",
+      ratingImpact: "返工和弱信号不直接扣分，但会解释为什么系统归属不稳。",
+      risk: bugLoopDensity >= 0.08 ? "返工压力高，可能仍停在局部 patch 循环。" : "没有明显困在修补循环。",
+    },
+  ];
+}
+
+function publicMetricGroups(groups) {
+  return (Array.isArray(groups) ? groups : [])
+    .slice(0, 5)
+    .map((item) => pickFields(item, PUBLIC_METRIC_GROUP_FIELDS));
+}
+
 function translateConfidence(value) {
   return {
     low: "低",
@@ -1195,6 +1283,10 @@ function buildShareImagePrompt(report, url = "") {
   const hardCards = shareHardStatCards(report.hardStatCards)
     .map((item) => `${item.label} ${item.value}：${shortText(item.interpretation, 24)}`)
     .join("；");
+  const metricRows = (report.metricGroups || metricGroups(report))
+    .slice(0, 5)
+    .map((item) => `${item.label} ${item.value}：${shortText(item.ratingImpact || item.risk || "", 28)}`)
+    .join("；");
   const reportUrl = url ? `\n公开链接：${url.length > 140 ? `${url.slice(0, 140)}...` : url}` : "";
 
   return `
@@ -1216,6 +1308,9 @@ ${stats}
 
 硬指标卡：
 ${hardCards || "AI 投入强度、成本估算、用户决策占比、用户主动控制、验证闭环密度、返工压力"}
+
+统计仪表盘：
+${metricRows || "投入强度、样本可信度、人类控制、验证闭环、效率风险"}
 
 证据结构：
 ${evidenceStats}
@@ -1267,6 +1362,10 @@ function buildJudgePrompt(report, url = "") {
   const hardCards = shareHardStatCards(report.hardStatCards)
     .map((item) => `- ${item.label}：${item.value}；${item.detail || ""}；${item.interpretation || ""}`)
     .join("\n");
+  const metricRows = (report.metricGroups || metricGroups(report))
+    .slice(0, 5)
+    .map((item) => `- ${item.label}：${item.value}；${item.signal || ""}；评级作用：${item.ratingImpact || ""}；风险：${item.risk || ""}`)
+    .join("\n");
   const dimensions = (report.dimensionProfile || [])
     .slice(0, 6)
     .map((item) => `- ${item.label || item.id}：${item.status || "缺失"}，${Number(item.score || 0)}/100，证据 ${item.evidence_count ?? item.evidenceCount ?? "未知"} 条`)
@@ -1307,6 +1406,9 @@ function buildJudgePrompt(report, url = "") {
 
 硬指标卡：
 ${hardCards || "- 暂无硬指标卡"}
+
+统计仪表盘：
+${metricRows || "- 暂无统计仪表盘"}
 
 证据结构：
 - ${evidenceStatsLine(report) || "暂无证据结构统计"}
@@ -1396,6 +1498,7 @@ function publicReport(report) {
     costEstimate: report.costEstimate,
     statsInsight: report.statsInsight,
     hardStatCards: shareHardStatCards(report.hardStatCards),
+    metricGroups: publicMetricGroups(report.metricGroups),
     dimensionProfile: report.dimensionProfile,
     verdict: report.verdict,
     whyThisRank: report.whyThisRank,
@@ -1476,10 +1579,34 @@ function printHuman(report, url, outPath) {
     console.log(`非评分记录：${report.excludedRecordCount} 条`);
   }
   const displayUrl = url.length > 180 ? `${url.slice(0, 180)}...` : url;
-  console.log(`云端报告：${displayUrl}`);
-  if (outPath) console.log(`本地报告：${outPath}`);
-  if (report.shareImagePromptPath) console.log(`图片报告提示词：${report.shareImagePromptPath}`);
-  if (report.judgePromptPath) console.log(`深度判定提示词：${report.judgePromptPath}`);
+  const groups = (report.metricGroups || []).slice(0, 5);
+  if (groups.length) {
+    console.log("");
+    console.log("统计仪表盘：");
+    for (const item of groups) {
+      console.log(`- ${item.label}：${item.value}；${item.ratingImpact}`);
+    }
+  }
+  console.log("");
+  console.log("产物：");
+  console.log(`- 公开链接：${displayUrl}`);
+  console.log("- 公开链接只包含压缩脱敏摘要；原始日志、本地路径和源码片段不会上传。");
+  if (outPath) {
+    console.log(`- 本地完整报告：${outPath}`);
+    console.log("  本地报告用于自查证据，可能包含脱敏证据片段，请不要直接公开。");
+  } else {
+    console.log("- 本地完整报告：本次未写入；去掉 --no-write 可写入 .airank/vibe-report.json。");
+  }
+  if (report.shareImagePromptPath) {
+    console.log(`- 图片报告提示词：${report.shareImagePromptPath}`);
+  } else {
+    console.log("- 图片报告提示词：加 --write-share-prompt .airank/share-poster-prompt.txt 生成。");
+  }
+  if (report.judgePromptPath) {
+    console.log(`- 深度判定提示词：${report.judgePromptPath}`);
+  } else {
+    console.log("- 深度判定提示词：加 --write-judge-prompt .airank/deep-judge-prompt.txt 生成。");
+  }
   if (report.strongestEvidence.length) {
     console.log("");
     console.log("最强证据：");

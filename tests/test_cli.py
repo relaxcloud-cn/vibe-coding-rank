@@ -40,6 +40,9 @@ class CliTests(unittest.TestCase):
         self.assertFalse(shared["privacy"]["rawLogsUploaded"])
         self.assertTrue(shared["privacy"]["compactPublicReport"])
         self.assertIn("costEstimate", shared)
+        self.assertIn("metricGroups", shared)
+        self.assertEqual(len(shared["metricGroups"]), 5)
+        self.assertEqual(shared["metricGroups"][2]["id"], "human_control")
         self.assertNotIn("behaviorCounts", shared)
         self.assertNotIn("promotionBehaviorCounts", shared)
         self.assertNotIn("qualityNotes", shared)
@@ -98,12 +101,20 @@ class CliTests(unittest.TestCase):
         self.assertTrue(any(item["id"] == "validation_density" for item in payload["report"]["hardStatCards"]))
         self.assertTrue(any(item["id"] == "rework_pressure" for item in payload["report"]["hardStatCards"]))
         self.assertTrue(any(item["id"] == "promotion_record_quality" for item in payload["report"]["hardStatCards"]))
+        self.assertIn("metricGroups", payload["report"])
+        self.assertEqual(
+            [item["id"] for item in payload["report"]["metricGroups"]],
+            ["investment", "sample_quality", "human_control", "validation_loop", "efficiency_risk"],
+        )
+        self.assertIn("不直接升品", payload["report"]["metricGroups"][0]["ratingImpact"])
+        self.assertIn("高段位必须看到人的系统级决策", payload["report"]["metricGroups"][2]["ratingImpact"])
         self.assertIn("其他人或项目复用", payload["report"]["gateUpgradeAdvice"])
         self.assertEqual(payload["report"]["qualityFlags"][0]["label"], "助手执行占比较高")
         self.assertIn("shareImagePrompt", payload["report"])
         self.assertIn("Vibe Coding 九品报告", payload["report"]["shareImagePrompt"])
         self.assertIn("No raw logs", payload["report"]["shareImagePrompt"])
         self.assertIn("硬指标卡", payload["report"]["shareImagePrompt"])
+        self.assertIn("统计仪表盘", payload["report"]["shareImagePrompt"])
         self.assertIn("证据结构", payload["report"]["shareImagePrompt"])
         self.assertIn("统计解读", payload["report"]["shareImagePrompt"])
         self.assertIn("关键门槛", payload["report"]["shareImagePrompt"])
@@ -118,6 +129,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("最终段位", payload["report"]["judgePrompt"])
         self.assertIn("维持、上调或下调", payload["report"]["judgePrompt"])
         self.assertIn("用户决策占比", payload["report"]["judgePrompt"])
+        self.assertIn("统计仪表盘", payload["report"]["judgePrompt"])
         self.assertNotIn("demo/session.jsonl", payload["report"]["judgePrompt"])
         self.assertIn("statsInsight", payload["report"])
         self.assertEqual(payload["report"]["usageStats"]["average_day_tokens"], 213333)
@@ -181,10 +193,34 @@ class CliTests(unittest.TestCase):
             self.assertTrue(payload["judgePromptPath"].endswith("judge-prompt.txt"))
             self.assertIn("Asset type: 4:5 vertical Chinese social-share poster", prompt)
             self.assertIn("主评级：六品 · 已有大成", prompt)
+            self.assertIn("统计仪表盘", prompt)
             self.assertIn("AI 深度判定官", judge_prompt)
             self.assertIn("最终段位", judge_prompt)
+            self.assertIn("统计仪表盘", judge_prompt)
             self.assertNotIn(str(ROOT), prompt)
             self.assertNotIn(str(ROOT), judge_prompt)
+
+    def test_human_output_explains_report_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "report.json"
+            result = subprocess.run(
+                [
+                    "node",
+                    str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                    "--demo",
+                    "--out",
+                    str(out),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            text = result.stdout
+            self.assertIn("统计仪表盘：", text)
+            self.assertIn("公开链接只包含压缩脱敏摘要", text)
+            self.assertIn(f"本地完整报告：{out}", text)
+            self.assertIn("--write-share-prompt", text)
+            self.assertIn("--write-judge-prompt", text)
 
     def test_short_link_uploads_report_and_uses_id_url(self) -> None:
         received = {}
@@ -242,6 +278,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("qualityFlags", uploaded)
         self.assertIn("dragFactors", uploaded)
         self.assertIn("costEstimate", uploaded)
+        self.assertIn("metricGroups", uploaded)
+        self.assertEqual(uploaded["metricGroups"][0]["id"], "investment")
         self.assertNotIn("judgePrompt", uploaded)
         self.assertTrue(uploaded["privacy"]["compactPublicReport"])
         self.assertLessEqual(len(uploaded["hardStatCards"]), 8)

@@ -497,6 +497,17 @@ class ScriptTests(unittest.TestCase):
             self.assertEqual(data["hard_stats"]["bug_loop_density"], 0)
             self.assertEqual(data["hard_stats"]["tool_event_record_ratio"], 0)
             self.assertEqual(data["hard_stats"]["established_dimension_count"], 0)
+            self.assertIn("metric_groups", data)
+            self.assertEqual([item["id"] for item in data["metric_groups"]], [
+                "investment",
+                "sample_quality",
+                "human_control",
+                "validation_loop",
+                "efficiency_risk",
+            ])
+            self.assertEqual(data["metric_groups"][0]["value"], "400 token")
+            self.assertIn("不直接升品", data["metric_groups"][0]["ratingImpact"])
+            self.assertIn("用户决策足以支撑", data["metric_groups"][2]["risk"])
             self.assertEqual(data["excluded_reason_counts"]["role:usage_stats"], 2)
             self.assertIn("quality_flags", data)
             self.assertTrue(any(item["id"] == "peak_day_concentrated" for item in data["quality_flags"]))

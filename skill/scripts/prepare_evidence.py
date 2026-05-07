@@ -966,6 +966,81 @@ def build_quality_flags(hard_stats: dict[str, Any]) -> list[dict[str, str]]:
     return sorted(flags, key=lambda item: (priority.get(item["severity"], 9), item["id"]))
 
 
+def metric_groups(hard_stats: dict[str, Any], usage_stats: dict[str, Any]) -> list[dict[str, str]]:
+    total_tokens = int(hard_stats.get("total_tokens") or usage_stats.get("total_tokens") or 0)
+    active_days = int(hard_stats.get("active_days") or usage_stats.get("active_days") or 0)
+    active_sessions = int(hard_stats.get("active_sessions") or usage_stats.get("active_sessions") or 0)
+    peak_day_share = float(hard_stats.get("peak_day_token_share") or usage_stats.get("peak_day_token_share") or 0)
+    analyzed = int(hard_stats.get("analyzed_record_count") or 0)
+    candidate = int(hard_stats.get("scoring_candidate_record_count") or analyzed)
+    source_count = int(hard_stats.get("source_count") or 0)
+    strong_record_density = float(hard_stats.get("strong_record_density") or 0)
+    signal_coverage_ratio = float(hard_stats.get("signal_coverage_ratio") or 0)
+    non_scoring_ratio = float(hard_stats.get("non_scoring_record_ratio") or 0)
+    user_control_ratio = float(hard_stats.get("user_control_ratio") or 0)
+    user_decision_ratio = float(hard_stats.get("promotion_user_decision_ratio") or hard_stats.get("user_decision_ratio") or 0)
+    assistant_execution_ratio = float(hard_stats.get("promotion_assistant_execution_ratio") or 0)
+    validation_density = float(hard_stats.get("validation_density") or 0)
+    established_dimensions = int(hard_stats.get("established_dimension_count") or 0)
+    bug_loop_density = float(hard_stats.get("bug_loop_density") or 0)
+    weak_signal_ratio = float(hard_stats.get("weak_signal_ratio") or 0)
+
+    def tokens(value: int) -> str:
+        if value >= 100000000:
+            return f"{value / 100000000:.1f}亿 token"
+        if value >= 10000:
+            return f"{round(value / 10000)}万 token"
+        return f"{value} token" if value else "暂无"
+
+    return [
+        {
+            "id": "investment",
+            "label": "投入强度",
+            "value": tokens(total_tokens),
+            "signal": f"活跃 {active_days} 天 / {active_sessions} 会话" if active_days or active_sessions else "未读取到 token 统计",
+            "basis": f"峰值日占比 {percent(peak_day_share)}" if peak_day_share else "缺少峰值日分布",
+            "ratingImpact": "只解释 AI 使用投入和样本稳定性，不直接升品。",
+            "risk": "token 单日集中，稳定性会被打折。" if peak_day_share >= 0.5 else "投入分布没有明显单日集中风险。",
+        },
+        {
+            "id": "sample_quality",
+            "label": "样本可信度",
+            "value": f"{analyzed}/{candidate}",
+            "signal": f"证据来源 {source_count} 个，强记录占比 {percent(strong_record_density)}",
+            "basis": f"非评分记录占比 {percent(non_scoring_ratio)}，信号覆盖 {percent(signal_coverage_ratio)}",
+            "ratingImpact": "影响置信度和高段位封顶；样本薄时不能判六品以上。",
+            "risk": "强记录偏薄，需要更多真实任务证据。" if strong_record_density < 0.05 else "样本里有可复核的强证据。",
+        },
+        {
+            "id": "human_control",
+            "label": "人类控制",
+            "value": percent(user_decision_ratio or user_control_ratio),
+            "signal": f"主动控制 {percent(user_control_ratio)}，用户决策 {percent(user_decision_ratio)}",
+            "basis": f"助手执行 {percent(assistant_execution_ratio)}" if assistant_execution_ratio else "缺少助手执行占比",
+            "ratingImpact": "决定六品、七品能否成立；高段位必须看到人的系统级决策。",
+            "risk": "用户决策占比偏低，容易被封顶五品。" if user_decision_ratio < 0.03 else "用户决策足以支撑更高段位复核。",
+        },
+        {
+            "id": "validation_loop",
+            "label": "验证闭环",
+            "value": percent(validation_density),
+            "signal": f"{int(hard_stats.get('validation_count') or 0)} 条验证信号",
+            "basis": f"{established_dimensions}/6 个维度成立",
+            "ratingImpact": "验证不足会压住六品；测试、构建、lint、截图和人工验收是主要证据。",
+            "risk": "未看到验证闭环，系统结果不可托付。" if validation_density <= 0 else "有验证信号，但仍要看是否由人定义验收标准。",
+        },
+        {
+            "id": "efficiency_risk",
+            "label": "效率风险",
+            "value": percent(bug_loop_density),
+            "signal": f"{int(hard_stats.get('bug_loop_count') or 0)} 条 Bug 循环信号",
+            "basis": f"弱信号占比 {percent(weak_signal_ratio)}" if weak_signal_ratio else "缺少弱信号占比",
+            "ratingImpact": "返工和弱信号不直接扣分，但会解释为什么系统归属不稳。",
+            "risk": "返工压力高，可能仍停在局部 patch 循环。" if bug_loop_density >= 0.08 else "没有明显困在修补循环。",
+        },
+    ]
+
+
 def exclusion_reason(record: dict[str, Any], patterns: list[tuple[str, re.Pattern[str]]]) -> str | None:
     role = str(record.get("role", "")).strip().lower()
     if role in EXCLUDED_ROLES:
@@ -1509,6 +1584,7 @@ def main() -> int:
     )
     quality_flags = build_quality_flags(hard_stats)
     drag_factors = build_drag_factors(counts, hard_stats)
+    metric_group_rows = metric_groups(hard_stats, usage_stats)
     level, label, caps, unlocks = choose_rank(
         counts,
         analyzed_record_count,
@@ -1560,6 +1636,7 @@ def main() -> int:
         "promotion_signal_behavior_counts": dict(sorted(promotion_signal_behavior_counts.items())),
         "usage_stats": usage_stats,
         "hard_stats": hard_stats,
+        "metric_groups": metric_group_rows,
         "source_count": source_count,
         "preliminary_rank": preliminary_rank,
         "heuristic_rank": preliminary_rank,
