@@ -701,12 +701,18 @@ def choose_rank(
     if level >= 7 and (user_control_count < 12 or user_control_sources < 3):
         level = 6
         caps.append("七品需要多次用户主动定义边界、架构、验证或归属；当前更多是助手执行痕迹。")
+    if level >= 7 and ratio(user_control_count, promotion_evidence_count) < 0.08:
+        level = 6
+        caps.append("七品需要用户主动控制证据占比足够高；当前高阶信号主要来自助手执行或总结，自动初筛先封顶六品。")
     if level >= 6 and (total_records < 8 or source_count < 2 or promotion_evidence_count < 4):
         level = 5
         caps.append("六品需要问题定义、架构、验证、交付闭环在多条记录中成立；当前证据跨度不够。")
     if level >= 6 and (user_control_count < 6 or user_control_sources < 2):
         level = 5
         caps.append("六品需要足够用户主动控制证据；不能只用助手完成测试、构建或总结来升品。")
+    if level >= 6 and ratio(user_control_count, promotion_evidence_count) < 0.03:
+        level = 5
+        caps.append("六品需要用户主动控制在高阶证据里占一定比例；当前更多是 AI 自述完成，不能证明你稳定拥有系统。")
     if level < 8 and unlocks["level8"]["unlocked"]:
         unlocks["level8"] = {
             "unlocked": False,
