@@ -268,6 +268,23 @@ const SAMPLE = {
   ],
 };
 
+const SHARE_HARD_CARD_PRIORITY = [
+  "ai_investment",
+  "estimated_cost",
+  "user_decision",
+  "user_control",
+  "validation_density",
+  "rework_pressure",
+  "strong_record_density",
+  "sample_validity",
+  "sample_stability",
+  "promotion_record_quality",
+  "signal_coverage",
+  "dimension_maturity",
+  "automation_noise",
+  "strong_evidence_density",
+];
+
 let currentReport = SAMPLE;
 
 function decodeBase64Url(value) {
@@ -704,6 +721,19 @@ function renderHardStatCards(report) {
   }
 }
 
+function shareHardStatCards(cards) {
+  const priority = new Map(SHARE_HARD_CARD_PRIORITY.map((id, index) => [id, index]));
+  return [...(Array.isArray(cards) ? cards : [])]
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const aPriority = priority.has(a.item?.id) ? priority.get(a.item.id) : 999;
+      const bPriority = priority.has(b.item?.id) ? priority.get(b.item.id) : 999;
+      return aPriority - bPriority || a.index - b.index;
+    })
+    .slice(0, 8)
+    .map(({ item }) => item);
+}
+
 function buildSharePrompt(report) {
   const rank = report.rank || SAMPLE.rank;
   const evidenceRows = (report.strongestEvidence?.length ? report.strongestEvidence : report.evidence?.length ? report.evidence : SAMPLE.evidence)
@@ -714,8 +744,7 @@ function buildSharePrompt(report) {
     .slice(0, 6)
     .map((item) => `${item.label || item.id} ${item.status || "缺失"} ${Number(item.score || 0)}/100`)
     .join("；");
-  const hardCards = (report.hardStatCards?.length ? report.hardStatCards : fallbackHardStatCards(report))
-    .slice(0, 6)
+  const hardCards = shareHardStatCards(report.hardStatCards?.length ? report.hardStatCards : fallbackHardStatCards(report))
     .map((item) => `${item.label} ${item.value}：${shortText(item.interpretation, 24)}`)
     .join("；");
   const url = location.href;

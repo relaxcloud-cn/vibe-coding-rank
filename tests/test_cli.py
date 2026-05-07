@@ -101,6 +101,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("质量提示", payload["report"]["shareImagePrompt"])
         self.assertIn("拖累项", payload["report"]["shareImagePrompt"])
         self.assertIn("其他人或项目复用", payload["report"]["shareImagePrompt"])
+        self.assertIn("验证闭环密度", payload["report"]["shareImagePrompt"])
+        self.assertIn("返工压力", payload["report"]["shareImagePrompt"])
         self.assertIn("narrative", payload["report"])
         self.assertIn("你现在是", payload["report"]["narrative"]["oneLine"])
         self.assertIn("statsInsight", payload["report"])

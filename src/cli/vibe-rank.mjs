@@ -136,6 +136,23 @@ const MODE_COPY = {
   AI深度判定: "AI 深度判定",
 };
 
+const SHARE_HARD_CARD_PRIORITY = [
+  "ai_investment",
+  "estimated_cost",
+  "user_decision",
+  "user_control",
+  "validation_density",
+  "rework_pressure",
+  "strong_record_density",
+  "sample_validity",
+  "sample_stability",
+  "promotion_record_quality",
+  "signal_coverage",
+  "dimension_maturity",
+  "automation_noise",
+  "strong_evidence_density",
+];
+
 function parseArgs(argv) {
   const options = {
     source: "codex",
@@ -1100,6 +1117,19 @@ function shortText(value, length = 42) {
   return `${text.slice(0, length - 1)}…`;
 }
 
+function shareHardStatCards(cards) {
+  const priority = new Map(SHARE_HARD_CARD_PRIORITY.map((id, index) => [id, index]));
+  return [...(Array.isArray(cards) ? cards : [])]
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const aPriority = priority.has(a.item?.id) ? priority.get(a.item.id) : 999;
+      const bPriority = priority.has(b.item?.id) ? priority.get(b.item.id) : 999;
+      return aPriority - bPriority || a.index - b.index;
+    })
+    .slice(0, 8)
+    .map(({ item }) => item);
+}
+
 function buildShareImagePrompt(report, url = "") {
   const rank = report.rank || {};
   const evidence = (report.strongestEvidence || report.evidence || [])
@@ -1119,8 +1149,7 @@ function buildShareImagePrompt(report, url = "") {
   const insight = statsInsight(report);
   const rankCap = shortText(report.rankCaps?.[0] || report.narrative?.capSummary || "暂无明显封顶原因", 52);
   const upgrade = shortText(report.gateUpgradeAdvice || report.upgradePath?.[0] || report.narrative?.upgradeSummary || "继续沉淀可复用工作流", 52);
-  const hardCards = (report.hardStatCards || [])
-    .slice(0, 6)
+  const hardCards = shareHardStatCards(report.hardStatCards)
     .map((item) => `${item.label} ${item.value}：${shortText(item.interpretation, 24)}`)
     .join("；");
   const reportUrl = url ? `\n公开链接：${url.length > 140 ? `${url.slice(0, 140)}...` : url}` : "";
@@ -1143,7 +1172,7 @@ Exact Chinese text to include:
 ${stats}
 
 硬指标卡：
-${hardCards || "AI 投入强度、样本稳定性、有效样本、强证据密度、用户主动控制、用户决策占比"}
+${hardCards || "AI 投入强度、成本估算、用户决策占比、用户主动控制、验证闭环密度、返工压力"}
 
 证据结构：
 ${evidenceStats}

@@ -53,6 +53,28 @@ async function renderAt(hash, fetchResponse = {}) {
         },
         hardStatCards: [
           {
+            id: "sample_stability",
+            label: "样本稳定性",
+            value: "4 天",
+            detail: "峰值日 40%",
+            interpretation: "样本越分散，越能证明稳定工作方式。",
+          },
+          {
+            id: "validation_density",
+            label: "验证闭环密度",
+            value: "12%",
+            detail: "12 条验证信号",
+            interpretation: "测试、构建、lint、截图和人工验收越稳定，结果越可托付。",
+          },
+          {
+            id: "rework_pressure",
+            label: "返工压力",
+            value: "2%",
+            detail: "2 条 Bug 循环信号",
+            interpretation: "返工信号不高，说明协作没有明显困在修补循环。",
+          },
+          {
+            id: "user_decision",
             label: "用户决策占比",
             value: "2%",
             detail: "助手执行 70%",
@@ -122,7 +144,12 @@ assert.equal(
   shortDom.window.document.querySelector("#upgrade-path").textContent,
   "沉淀 3 次以上用户主导的边界、架构、验收或取舍决策，把“为什么这样设计”留在记录里。",
 );
-assert.equal(shortDom.window.document.querySelector("#hard-stat-grid .hard-stat-card strong").textContent, "2%");
+assert.equal(shortDom.window.document.querySelector("#hard-stat-grid .hard-stat-card strong").textContent, "4 天");
+shortDom.window.document.querySelector("#copy-share-prompt").click();
+await new Promise((resolveReady) => setTimeout(resolveReady, 0));
+assert.match(shortDom.window.__copied, /用户决策占比 2%/);
+assert.match(shortDom.window.__copied, /验证闭环密度 12%/);
+assert.match(shortDom.window.__copied, /返工压力 2%/);
 assert.equal(
   shortDom.window.document.querySelector("#quality-flags").textContent,
   "主动控制偏低 1%：高阶信号主要不是由用户主动定义目标、边界、架构或验收触发。",
