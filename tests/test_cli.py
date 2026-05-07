@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -13,9 +14,10 @@ class CliTests(unittest.TestCase):
         result = subprocess.run(
             [
                 "node",
-                str(ROOT / "cli" / "vibe-rank.mjs"),
+                str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
                 "--demo",
                 "--print-json",
+                "--no-write",
             ],
             check=True,
             capture_output=True,
@@ -28,11 +30,12 @@ class CliTests(unittest.TestCase):
         result = subprocess.run(
             [
                 "node",
-                str(ROOT / "cli" / "vibe-rank.mjs"),
+                str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
                 "--demo",
                 "--site",
                 "http://localhost:4173",
                 "--print-json",
+                "--no-write",
             ],
             check=True,
             capture_output=True,
@@ -41,6 +44,39 @@ class CliTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["report"]["rank"]["label"], "六品 · 已有大成")
         self.assertIn("#data=", payload["url"])
+
+    def test_generic_source_uses_moved_evidence_scripts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "session.jsonl"
+            source.write_text(
+                json.dumps(
+                    {
+                        "role": "user",
+                        "content": "先给计划，验收条件是 test 通过，不要改支付模块。",
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    "node",
+                    str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                    "--source",
+                    "generic",
+                    "--root",
+                    str(root),
+                    "--print-json",
+                    "--no-write",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            payload = json.loads(result.stdout)
+            self.assertGreaterEqual(payload["report"]["recordCount"], 1)
 
 
 if __name__ == "__main__":

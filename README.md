@@ -147,18 +147,30 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 
 部署配置在 `wrangler.toml`。默认子域名为 `vibe.yisec.ai`，短链接模式上线前需要创建 Cloudflare KV namespace。
 
+常用 CLI 参数：
+
+```bash
+--source codex|claude|generic   会话来源
+--root <path>                   自定义会话目录或文件
+--since YYYY-MM-DD              只扫描指定日期后的记录
+--out <path>                    本地报告 JSON 输出路径
+--no-write                      不写本地报告文件
+--print-json                    输出机器可读 JSON
+--open                          自动打开报告链接
+```
+
 ## 作为 Codex skill 使用
 
 在本目录下运行：
 
 ```bash
-python3 scripts/collect_sessions.py \
+python3 skill/scripts/collect_sessions.py \
   --source codex \
   --root "$HOME/.codex/sessions" \
   --since 2026-02-01 \
   --output /tmp/airank-codex-evidence.jsonl
 
-python3 scripts/summarize_evidence.py \
+python3 skill/scripts/summarize_evidence.py \
   --input /tmp/airank-codex-evidence.jsonl \
   --output /tmp/airank-vibe-summary.json
 ```
@@ -166,19 +178,19 @@ python3 scripts/summarize_evidence.py \
 Claude Code：
 
 ```bash
-python3 scripts/collect_sessions.py \
+python3 skill/scripts/collect_sessions.py \
   --source claude \
   --root "$HOME/.claude/projects" \
   --output /tmp/airank-claude-evidence.jsonl
 ```
 
-然后让 Codex 使用 `$vibe-coding-rank`，读取摘要和 `references/` 中的评级规则，生成最终报告。
+然后让 Codex 使用 `$vibe-coding-rank`，读取摘要和 `skill/references/` 中的评级规则，生成最终报告。
 
 ## 安装到 Codex
 
 ```bash
 mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-cp -R . "${CODEX_HOME:-$HOME/.codex}/skills/vibe-coding-rank"
+cp -R skill "${CODEX_HOME:-$HOME/.codex}/skills/vibe-coding-rank"
 ```
 
 调用示例：
@@ -192,24 +204,22 @@ Use $vibe-coding-rank to analyze my local Codex sessions and produce a Vibe Codi
 ```text
 .
 ├── README.md                        # 项目介绍和使用说明
-├── SKILL.md                         # Codex 读取的 skill 入口
 ├── package.json                     # CLI 元信息和本地检查脚本
 ├── wrangler.toml                    # Cloudflare Worker / 静态资源部署配置
-├── agents/openai.yaml               # UI 元信息
+├── apps/
+│   └── report-site/                 # vibe.yisec.ai 静态报告页
 ├── assets/                          # README 和产品展示图
-├── cli/vibe-rank.mjs                # npx 一条命令入口
-├── docs/DEPLOY_YISEC.md             # vibe.yisec.ai 部署说明
-├── docs/LAUNCH_PLAYBOOK.md          # 宣传运营打法
-├── references/
-│   ├── vibe-coding-rank.md          # 九品体系
-│   ├── evidence-rubric.md           # 证据解释规则
-│   ├── image-report-prompt.md       # Imagen / imagegen 图片报告模板
-│   └── output-schema.md             # 报告输出结构
-├── scripts/
-│   ├── collect_sessions.py          # 提取并脱敏会话证据
-│   └── summarize_evidence.py        # 生成启发式证据摘要
-├── site/                            # 云端报告展示页
-├── worker/index.js                  # Cloudflare Worker API
+├── docs/
+│   ├── deployment/yisec.md          # vibe.yisec.ai 部署说明
+│   └── launch-playbook.md           # 宣传运营打法
+├── skill/                           # 可单独安装的 Codex skill
+│   ├── SKILL.md                     # Skill 入口
+│   ├── agents/openai.yaml           # Skill UI 元信息
+│   ├── references/                  # 九品体系、证据规则、输出结构
+│   └── scripts/                     # 本地取证和启发式评分脚本
+├── src/
+│   ├── cli/vibe-rank.mjs            # npx 一条命令入口
+│   └── worker/index.js              # Cloudflare Worker API
 └── tests/                           # CLI 和脚本回归测试
 ```
 

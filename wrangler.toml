@@ -1,5 +1,5 @@
 name = "vibe-coding-rank"
-main = "worker/index.js"
+main = "src/worker/index.js"
 compatibility_date = "2026-05-07"
 account_id = "b211f40e3a1bf7502103718b9b6c683b"
 workers_dev = true
@@ -10,7 +10,7 @@ routes = [
 ]
 
 [assets]
-directory = "./site"
+directory = "./apps/report-site"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 run_worker_first = ["/api/*"]

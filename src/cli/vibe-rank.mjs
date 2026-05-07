@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { homedir, platform, tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 
-const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 
 const RANKS = [
   "零品 · 门外汉",
@@ -47,6 +47,7 @@ function parseArgs(argv) {
     open: false,
     demo: false,
     printJson: false,
+    write: true,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -60,6 +61,8 @@ function parseArgs(argv) {
       options.open = true;
     } else if (arg === "--print-json") {
       options.printJson = true;
+    } else if (arg === "--no-write") {
+      options.write = false;
     } else if (arg.startsWith("--")) {
       const key = arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
       const value = argv[i + 1];
@@ -95,6 +98,7 @@ Options:
   --open                          Open the cloud report URL
   --demo                          Generate a demo report without reading local logs
   --print-json                    Print machine-readable report JSON
+  --no-write                      Do not write a local report file
 `.trim();
 }
 
@@ -112,7 +116,7 @@ function defaultRoot(source) {
 }
 
 function runPython(script, args) {
-  const scriptPath = join(ROOT, "scripts", script);
+  const scriptPath = join(ROOT, "skill", "scripts", script);
   const interpreters = ["python3", "python"];
   let last;
   for (const python of interpreters) {
@@ -341,7 +345,7 @@ async function main() {
     url = uploaded.url || `${options.uploadUrl.replace(/\/$/, "")}/#id=${uploaded.id}`;
   }
 
-  const outPath = options.out ? writeReport(options.out, report) : "";
+  const outPath = options.write && options.out ? writeReport(options.out, report) : "";
   if (options.printJson) {
     console.log(JSON.stringify({ report, url, outPath }, null, 2));
   } else {

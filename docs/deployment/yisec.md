@@ -36,7 +36,7 @@ routes = [
 
 - `wrangler.toml` 的 route
 - README 里的 `--site` / `--upload-url`
-- `cli/vibe-rank.mjs` 的默认 `site`
+- `src/cli/vibe-rank.mjs` 的默认 `site`
 
 ## 3. 部署
 

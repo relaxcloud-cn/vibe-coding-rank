@@ -12,27 +12,23 @@
     "url": "https://github.com/relaxcloud-cn/vibe-coding-rank/issues"
   },
   "bin": {
-    "vibe-rank": "./cli/vibe-rank.mjs",
-    "airank-vibe": "./cli/vibe-rank.mjs"
+    "vibe-rank": "./src/cli/vibe-rank.mjs",
+    "airank-vibe": "./src/cli/vibe-rank.mjs"
   },
   "scripts": {
-    "check": "node --check cli/vibe-rank.mjs && node --check worker/index.js && python3 -m unittest discover -s tests",
-    "demo": "node cli/vibe-rank.mjs --demo",
-    "site": "python3 -m http.server 4173 -d site"
+    "check": "node --check src/cli/vibe-rank.mjs && node --check src/worker/index.js && python3 -B -m unittest discover -s tests",
+    "demo": "node src/cli/vibe-rank.mjs --demo",
+    "site": "python3 -m http.server 4173 -d apps/report-site"
   },
   "engines": {
     "node": ">=20"
   },
   "files": [
-    "SKILL.md",
-    "agents",
+    "apps",
     "assets",
-    "cli",
     "docs",
-    "references",
-    "scripts",
-    "site",
-    "worker",
+    "skill",
+    "src",
     "wrangler.toml"
   ],
   "keywords": [
