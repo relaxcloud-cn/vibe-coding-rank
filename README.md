@@ -116,12 +116,13 @@ Vibe Coding Rank 想测的是更深的一层：
 - 置信度
 - 系统归属判断
 - 硬统计画像：总 token、峰值日 token、活跃天数、日均/会话均 token、峰值集中度、有效样本比例、强证据密度、主动控制占比、用户决策占比、助手执行占比、信号覆盖度，以及对应的统计解读
+- 硬指标卡：把 token、活跃天数、有效样本、强证据密度、用户主动控制、用户决策占比翻译成评级意义
 - 六维能力画像：目标定义、边界控制、验证闭环、架构判断、系统归属、方法复制
 - 支撑该段位的行为证据卡
 - 限制段位上限的证据缺口
-- 机器可读的段位门槛：每个 gate 的通过状态、观测值、要求值和原因
+- 机器可读的段位门槛：每个门槛的通过状态、观测值、要求值和原因
 - 八品/九品是否解锁
-- 下一品升级路径
+- 下一品升级路径：优先绑定第一个未通过的下一品门槛，而不是给泛泛建议
 - 图片报告提示词：可直接交给 Imagen / imagegen 生成朋友圈海报
 
 示例结构：
@@ -163,13 +164,28 @@ Vibe Coding Rank 想测的是更深的一层：
     "note": "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。"
   },
   "stats_insight": "主动控制占比充足，用户在目标、边界、架构和验收上有明确主导痕迹。",
+  "hardStatCards": [
+    {
+      "label": "AI 投入强度",
+      "value": "128万 token",
+      "detail": "活跃 6 天 / 12 会话",
+      "interpretation": "只说明 AI 使用投入，不直接参与段位升品。"
+    },
+    {
+      "label": "用户决策占比",
+      "value": "17%",
+      "detail": "助手执行 75%",
+      "interpretation": "高段位必须看到人的系统级决策，而不是 AI 自述完成。"
+    }
+  ],
   "dimension_profile": [],
   "evidence_cards": [],
   "rank_caps": [],
   "unlock_status": {},
   "next_rank": "六品 · 已有大成",
-  "upgrade_path": [],
-  "share_image_prompt": "Use case: infographic-diagram..."
+  "gateUpgradeAdvice": "沉淀 3 次以上用户主导的边界、架构、验收或取舍决策，把“为什么这样设计”留在记录里。",
+  "upgradePath": [],
+  "shareImagePrompt": "Use case: infographic-diagram..."
 }
 ```
 

@@ -512,7 +512,8 @@ button {
 .panel,
 .capability-grid article,
 .usecase,
-.insight-card {
+.insight-card,
+.hard-stat-card {
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 18px;
   background: white;
@@ -768,6 +769,51 @@ button {
   line-height: 1.45;
 }
 
+.hard-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.hard-stat-card {
+  min-width: 0;
+  padding: 15px;
+  background: linear-gradient(180deg, #ffffff, #f6faf5);
+}
+
+.hard-stat-card span {
+  display: block;
+  color: #68736b;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.hard-stat-card strong {
+  display: block;
+  margin-top: 8px;
+  color: #123923;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.hard-stat-card em {
+  display: block;
+  margin-top: 7px;
+  color: #225c3c;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.hard-stat-card p {
+  margin: 8px 0 0;
+  color: #746f67;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .section {
   position: relative;
   z-index: 2;
@@ -928,6 +974,7 @@ button {
 
   .metrics,
   .bottom-grid,
+  .hard-stat-grid,
   .dimension-grid,
   .capability-grid,
   .logo-strip,

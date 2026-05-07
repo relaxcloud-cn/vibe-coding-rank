@@ -54,6 +54,7 @@
       "reason": "七品需要足够用户决策证据，证明人真正做边界、架构、验收或取舍。"
     }
   ],
+  "gateUpgradeAdvice": "沉淀 3 次以上用户主导的边界、架构、验收或取舍决策，把“为什么这样设计”留在记录里。",
   "upgradePath": [
     "把个人方法复制给团队：playbook、skills、培训、评测和团队报告。"
   ],
@@ -143,6 +144,22 @@
     "peak_session_token_share": 0.2031,
     "note": "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。"
   },
+  "hardStatCards": [
+    {
+      "id": "ai_investment",
+      "label": "AI 投入强度",
+      "value": "128万 token",
+      "detail": "活跃 6 天 / 12 会话",
+      "interpretation": "只说明 AI 使用投入，不直接参与段位升品。"
+    },
+    {
+      "id": "user_decision",
+      "label": "用户决策占比",
+      "value": "17%",
+      "detail": "助手执行 75%",
+      "interpretation": "高段位必须看到人的系统级决策，而不是 AI 自述完成。"
+    }
+  ],
   "statsInsight": "主动控制占比充足，用户在目标、边界、架构和验收上有明确主导痕迹。",
   "dimensionProfile": [
     {

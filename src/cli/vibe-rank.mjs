@@ -115,6 +115,22 @@ const SIGNAL_REASONS = {
   team_system: "这类证据说明你的方法可能正在被团队复用，是八品的必要条件，但还需要强证据确认。",
 };
 
+const GATE_UPGRADE_ADVICE = {
+  level5_architecture: "下一次不要直接让 AI 改代码，先让它画出模块边界、数据流和风险点；你确认架构取舍后再允许执行。",
+  level6_validation: "补齐验证闭环：每个任务都写清验收标准，并要求 AI 跑测试、构建、lint 或截图检查，最后由你复核结果。",
+  level6_evidence_span: "不要靠单次高光会话升品。连续做 2 到 3 个真实任务，留下目标定义、架构约束、验证结果和交付复盘。",
+  level6_user_control_ratio: "提高主动控制占比：让 AI 动手前，先由你写清目标、非目标、文件范围、验收条件和风险边界。",
+  level6_user_decision_ratio: "不要只说继续修。下一轮要明确留下你的系统级决策：为什么重构、哪些模块不能碰、用什么标准验收。",
+  level7_ownership: "补系统归属证据：记录关键路径、上线风险、日志监控、回滚方案和维护责任，证明你能为生产结果负责。",
+  level7_evidence_span: "七品需要稳定性。跨多个任务复用同一套目标、边界、验证和复盘机制，而不是一次性把项目做完。",
+  level7_user_control_ratio: "把审核和验证前置成 checklist 或 gate，减少靠 AI 自述完成；每个关键节点由你决定是否继续。",
+  level7_user_decision_ratio: "沉淀 3 次以上用户主导的边界、架构、验收或取舍决策，把“为什么这样设计”留在记录里。",
+  level7_workflow_asset: "把成功协作写成 AGENTS.md、rules、skill、workflow 或 checklist，并在后续任务里复用它。",
+  level8_team_replication: "找至少 2 个其他人或项目复用你的 rules、skill 或 playbook，并记录复用结果；八品看方法是否离开你仍然有效。",
+  level8_team_candidate: "团队和工作流同时出现只是线索。你需要证明它被别人稳定使用，而不是只在你的私有会话里出现。",
+  level9_public_influence: "九品需要公开范式影响：发布框架、文章、工具、课程或社区案例，让行业开始复用你的协作方法。",
+};
+
 const MODE_COPY = {
   自动初筛: "自动初筛",
   AI深度判定: "AI 深度判定",
@@ -575,7 +591,7 @@ function buildReport(summary, options) {
   const nextRankGap = isFinal
     ? copy.gap
     : `${copy.gap} 当前结果是自动初筛，高段位需要 AI 判定官基于证据卡复核。`;
-  return {
+  const report = {
     product: "Airank Vibe Coding Rank",
     generatedAt: new Date().toISOString(),
     source: options.source,
@@ -607,7 +623,6 @@ function buildReport(summary, options) {
     promotionBehaviorCounts: summary.promotion_behavior_counts || summary.hard_stats?.promotion_behavior_counts || {},
     usageStats: summary.usage_stats || {},
     hardStats: summary.hard_stats || {},
-    statsInsight: statsInsight({ hardStats: summary.hard_stats || {} }),
     dimensionProfile: summary.dimension_profile || [],
     verdict: copy.verdict,
     whyThisRank: copy.reason,
@@ -628,6 +643,11 @@ function buildReport(summary, options) {
       upgradeSummary: upgradePath[0] || "继续积累真实项目证据，并把成功做法沉淀成可复用工作流。",
     },
   };
+  report.statsInsight = statsInsight(report);
+  report.gateUpgradeAdvice = gateUpgradeAdvice(report, upgradePath[0]);
+  report.hardStatCards = hardStatCards(report);
+  report.narrative.upgradeSummary = report.gateUpgradeAdvice;
+  return report;
 }
 
 function encodeReport(report) {
@@ -726,15 +746,26 @@ function behaviorMixLine(report) {
   return parts.join(", ");
 }
 
-function rankGateLine(report) {
+function firstFailedGate(report) {
   const gates = Array.isArray(report.rankGates) ? report.rankGates : [];
   const currentLevel = Number(report.rank?.level || 0);
-  const failed = gates
+  return gates
     .filter((item) => item && item.passed === false && Number(item.level || 0) > currentLevel)
     .sort((a, b) => Number(a.level || 0) - Number(b.level || 0))[0]
     || gates.find((item) => item && item.passed === false);
+}
+
+function rankGateLine(report) {
+  const failed = firstFailedGate(report);
   if (!failed) return "当前关键门槛已通过，继续看下一品证据缺口。";
   return `${failed.label || failed.id}未通过：${shortText(failed.reason || "", 56)}`;
+}
+
+function gateUpgradeAdvice(report, fallback = "") {
+  const failed = firstFailedGate(report);
+  if (failed?.id && GATE_UPGRADE_ADVICE[failed.id]) return GATE_UPGRADE_ADVICE[failed.id];
+  if (failed?.reason) return `先补齐这个门槛：${failed.reason}`;
+  return fallback || "继续积累真实项目证据，并把成功做法沉淀成可复用工作流。";
 }
 
 function statsInsight(report) {
@@ -767,6 +798,81 @@ function statsInsight(report) {
   }
 
   return notes[0] || "硬统计用于解释投入强度、样本质量和证据结构，不直接参与段位升品。";
+}
+
+function hardStatCards(report) {
+  const stats = report.hardStats || {};
+  const usage = report.usageStats || {};
+  const totalTokens = stats.total_tokens || usage.total_tokens || 0;
+  const activeDays = stats.active_days || usage.active_days || 0;
+  const activeSessions = stats.active_sessions || usage.active_sessions || 0;
+  const peakDayShare = stats.peak_day_token_share || usage.peak_day_token_share || 0;
+  const scorableRatio = stats.scorable_record_ratio || 0;
+  const strongDensity = stats.strong_evidence_density || 0;
+  const userControlRatio = stats.user_control_ratio || 0;
+  const userDecisionRatio = stats.promotion_user_decision_ratio ?? stats.user_decision_ratio ?? 0;
+  const assistantExecutionRatio = stats.promotion_assistant_execution_ratio || 0;
+  const signalCoverageRatio = stats.signal_coverage_ratio || 0;
+  const establishedDimensions = stats.established_dimension_count || 0;
+
+  return [
+    {
+      id: "ai_investment",
+      label: "AI 投入强度",
+      value: totalTokens ? `${formatTokens(totalTokens)} token` : "暂无",
+      detail: activeDays || activeSessions ? `活跃 ${activeDays || 0} 天 / ${activeSessions || 0} 会话` : "未读取到 token 统计",
+      interpretation: "只说明 AI 使用投入，不直接参与段位升品。",
+    },
+    {
+      id: "sample_stability",
+      label: "样本稳定性",
+      value: activeDays ? `${activeDays} 天` : "暂无",
+      detail: peakDayShare ? `峰值日占比 ${formatPercent(peakDayShare)}` : "缺少峰值日统计",
+      interpretation: peakDayShare >= 0.5 ? "token 过于集中，稳定性会被打折。" : "样本越分散，越能证明稳定工作方式。",
+    },
+    {
+      id: "sample_validity",
+      label: "有效样本",
+      value: scorableRatio ? formatPercent(scorableRatio) : "暂无",
+      detail: `${stats.analyzed_record_count ?? report.analyzedRecordCount ?? 0}/${stats.scoring_candidate_record_count ?? report.recordCount ?? 0} 条可分析`,
+      interpretation: "排除系统上下文、token 统计和工具结果后，只看真实行为。",
+    },
+    {
+      id: "strong_evidence_density",
+      label: "强证据密度",
+      value: strongDensity ? formatPercent(strongDensity) : "0%",
+      detail: `${stats.strong_evidence_count ?? report.strongEvidenceCount ?? 0} 条强证据`,
+      interpretation: "强证据越密，越能支撑高段位；低密度会降低置信度。",
+    },
+    {
+      id: "user_control",
+      label: "用户主动控制",
+      value: userControlRatio ? formatPercent(userControlRatio) : "0%",
+      detail: `${stats.user_control_count ?? report.userControlCount ?? 0} 条主动控制证据`,
+      interpretation: "衡量你是否在定义目标、边界、架构和验收。",
+    },
+    {
+      id: "user_decision",
+      label: "用户决策占比",
+      value: userDecisionRatio ? formatPercent(userDecisionRatio) : "0%",
+      detail: assistantExecutionRatio ? `助手执行 ${formatPercent(assistantExecutionRatio)}` : "缺少行为结构统计",
+      interpretation: "高段位必须看到人的系统级决策，而不是 AI 自述完成。",
+    },
+    {
+      id: "signal_coverage",
+      label: "信号覆盖度",
+      value: signalCoverageRatio ? formatPercent(signalCoverageRatio) : "暂无",
+      detail: `${stats.signal_type_count || 0}/${Object.keys(SIGNAL_LABELS).length} 类信号`,
+      interpretation: "覆盖目标、边界、验证、架构、归属、工作流，才不容易误判。",
+    },
+    {
+      id: "dimension_maturity",
+      label: "维度成熟度",
+      value: `${establishedDimensions}/6`,
+      detail: `${stats.stable_dimension_count || 0} 个稳定维度`,
+      interpretation: "六维能力越均衡，越接近真正拥有系统。",
+    },
+  ];
 }
 
 function translateConfidence(value) {
@@ -808,7 +914,11 @@ function buildShareImagePrompt(report, url = "") {
   const rankGate = rankGateLine(report);
   const insight = statsInsight(report);
   const rankCap = shortText(report.rankCaps?.[0] || report.narrative?.capSummary || "暂无明显封顶原因", 52);
-  const upgrade = shortText(report.upgradePath?.[0] || report.narrative?.upgradeSummary || "继续沉淀可复用工作流", 52);
+  const upgrade = shortText(report.gateUpgradeAdvice || report.upgradePath?.[0] || report.narrative?.upgradeSummary || "继续沉淀可复用工作流", 52);
+  const hardCards = (report.hardStatCards || [])
+    .slice(0, 6)
+    .map((item) => `${item.label} ${item.value}：${shortText(item.interpretation, 24)}`)
+    .join("；");
   const reportUrl = url ? `\n公开链接：${url.length > 140 ? `${url.slice(0, 140)}...` : url}` : "";
 
   return `
@@ -827,6 +937,9 @@ Exact Chinese text to include:
 
 硬统计：
 ${stats}
+
+硬指标卡：
+${hardCards || "AI 投入强度、样本稳定性、有效样本、强证据密度、用户主动控制、用户决策占比"}
 
 证据结构：
 ${evidenceStats}
@@ -908,6 +1021,7 @@ function publicReport(report) {
     usageStats: report.usageStats,
     hardStats: report.hardStats,
     statsInsight: report.statsInsight,
+    hardStatCards: report.hardStatCards,
     dimensionProfile: report.dimensionProfile,
     verdict: report.verdict,
     whyThisRank: report.whyThisRank,
@@ -918,6 +1032,7 @@ function publicReport(report) {
     rankGates: report.rankGates,
     unlockStatus: report.unlockStatus,
     qualityNotes: report.qualityNotes,
+    gateUpgradeAdvice: report.gateUpgradeAdvice,
     upgradePath: report.upgradePath,
     narrative: report.narrative,
     privacy: {
@@ -982,9 +1097,7 @@ function printHuman(report, url, outPath) {
   }
   console.log("");
   console.log("下一步：");
-  for (const item of report.upgradePath) {
-    console.log(`- ${item}`);
-  }
+  console.log(`- ${report.gateUpgradeAdvice || report.upgradePath?.[0] || report.narrative?.upgradeSummary}`);
 }
 
 async function main() {

@@ -45,6 +45,14 @@ async function renderAt(hash, fetchResponse = {}) {
           promotion_assistant_execution_ratio: 0.7,
           user_decision_count: 12,
         },
+        hardStatCards: [
+          {
+            label: "用户决策占比",
+            value: "2%",
+            detail: "助手执行 70%",
+            interpretation: "高段位必须看到人的系统级决策。",
+          },
+        ],
         rankGates: [
           {
             id: "level7_user_decision_ratio",
@@ -86,6 +94,11 @@ assert.equal(
   shortDom.window.document.querySelector("#rank-gate-summary").textContent,
   "七品用户决策占比未通过：七品需要足够用户决策证据，证明人真正做边界、架构、验收或取舍。",
 );
+assert.equal(
+  shortDom.window.document.querySelector("#upgrade-path").textContent,
+  "沉淀 3 次以上用户主导的边界、架构、验收或取舍决策，把“为什么这样设计”留在记录里。",
+);
+assert.equal(shortDom.window.document.querySelector("#hard-stat-grid .hard-stat-card strong").textContent, "2%");
 shortDom.window.document.querySelector("#copy-report-link").click();
 await new Promise((resolveReady) => setTimeout(resolveReady, 0));
 assert.equal(shortDom.window.__copied, "https://vibe.yisec.ai/#id=abc123");

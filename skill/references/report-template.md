@@ -76,9 +76,26 @@
 
 说明：硬统计只描述 AI 投入强度和样本质量，不参与段位升品。
 
+## 硬指标卡
+
+把硬统计翻译成用户能理解的报告卡片：
+
+- AI 投入强度：{ai_investment_card}
+- 样本稳定性：{sample_stability_card}
+- 有效样本：{sample_validity_card}
+- 强证据密度：{strong_evidence_density_card}
+- 用户主动控制：{user_control_card}
+- 用户决策占比：{user_decision_card}
+- 信号覆盖度：{signal_coverage_card}
+- 维度成熟度：{dimension_maturity_card}
+
+每张卡都必须有 `value`、`detail` 和 `interpretation`。不要只报数字，要解释这个数字对评级意味着什么。
+
 ## 下一品升级路线
 
-{upgrade_path}
+优先使用 `gateUpgradeAdvice`。如果存在未通过的下一品门槛，升级路线必须对准这个门槛，而不是只给通用建议。
+
+{gate_upgrade_advice}
 
 ## 证据质量
 
