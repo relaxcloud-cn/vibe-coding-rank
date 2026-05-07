@@ -48,5 +48,5 @@ Visual direction:
 If the report has `excluded_record_count`, add this short note as a small quality badge:
 
 ```text
-已过滤 {excluded_record_count} 条系统上下文，评分只看真实工作证据
+已排除 {excluded_record_count} 条非评分记录，评分只看真实工作证据
 ```

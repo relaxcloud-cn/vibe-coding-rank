@@ -20,19 +20,61 @@ const SAMPLE = {
     systemOwnership: "强",
   },
   signalCount: 56,
-  recordCount: 128,
+  recordCount: 170,
   analyzedRecordCount: 120,
-  excludedRecordCount: 8,
+  excludedRecordCount: 50,
   judgmentMode: "自动初筛",
   judgmentModeLabel: "自动初筛",
   isFinal: false,
   strongEvidenceCount: 12,
   userControlCount: 8,
   usageStats: {
+    usage_record_count: 42,
     total_tokens: 1280000,
-    peak_day_tokens: 420000,
+    input_tokens: 760000,
+    cached_input_tokens: 360000,
+    cache_creation_input_tokens: 90000,
+    output_tokens: 70000,
+    reasoning_output_tokens: 0,
     active_days: 6,
+    active_sessions: 12,
+    peak_record_tokens: 86000,
+    peak_day: "2026-05-07",
+    peak_day_tokens: 420000,
+    peak_session_tokens: 260000,
     token_note: "Token 是 AI 投入强度指标，不参与段位升品。",
+  },
+  hardStats: {
+    raw_record_count: 170,
+    analyzed_record_count: 120,
+    non_scoring_record_count: 50,
+    usage_record_count: 42,
+    tool_result_record_count: 0,
+    context_excluded_record_count: 8,
+    scoring_candidate_record_count: 128,
+    scorable_record_ratio: 0.9375,
+    source_count: 3,
+    signal_count: 56,
+    signal_density: 0.4667,
+    strong_evidence_count: 12,
+    strong_evidence_density: 0.1,
+    promotion_evidence_count: 48,
+    user_control_count: 8,
+    user_control_source_count: 3,
+    user_control_ratio: 0.1667,
+    total_tokens: 1280000,
+    input_tokens: 760000,
+    cached_input_tokens: 360000,
+    cache_creation_input_tokens: 90000,
+    output_tokens: 70000,
+    reasoning_output_tokens: 0,
+    active_days: 6,
+    active_sessions: 12,
+    peak_record_tokens: 86000,
+    peak_day: "2026-05-07",
+    peak_day_tokens: 420000,
+    peak_session_tokens: 260000,
+    note: "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。",
   },
   dimensionProfile: [
     { id: "problem_definition", label: "目标定义", status: "成立", score: 65 },
@@ -125,12 +167,13 @@ function render(report) {
   document.querySelector("#judgment-mode").textContent = judgmentText(report);
   document.querySelector("#strong-evidence").textContent = report.strongEvidenceCount ?? 0;
   document.querySelector("#user-control").textContent = report.userControlCount ?? 0;
-  document.querySelector("#token-total").textContent = formatTokens(report.usageStats?.total_tokens || 0);
   document.querySelector("#signals").textContent = report.signalCount || 0;
   document.querySelector("#records").textContent = report.analyzedRecordCount ?? report.recordCount ?? 0;
   document.querySelector("#rank-cap").textContent = firstText(report.rankCaps) || SAMPLE.rankCaps[0];
   document.querySelector("#upgrade-path").textContent = firstText(report.upgradePath) || SAMPLE.upgradePath[0];
   document.querySelector("#unlock-status").textContent = unlockText(report);
+  document.querySelector("#usage-summary").textContent = usageSummary(report);
+  document.querySelector("#quality-summary").textContent = qualitySummary(report);
   document.querySelector("#why-this-rank").textContent = report.whyThisRank || report.narrative?.rankReason || SAMPLE.whyThisRank;
   document.querySelector("#why-not-next").textContent = report.whyNotNextRank || report.narrative?.nextRankGap || SAMPLE.whyNotNextRank;
   renderQuality(report);
@@ -179,14 +222,43 @@ function formatTokens(value) {
   return String(tokens);
 }
 
+function usageSummary(report) {
+  const usage = { ...(report.usageStats || {}), ...(report.hardStats || {}) };
+  const total = formatTokens(usage.total_tokens || 0);
+  const peak = formatTokens(usage.peak_day_tokens || 0);
+  const activeDays = Number(usage.active_days || 0);
+  const activeSessions = Number(usage.active_sessions || 0);
+  if (!usage.total_tokens) return "暂无 token 统计。";
+  return `总 token ${total}；峰值日 ${peak}；活跃 ${activeDays} 天 / ${activeSessions} 会话。`;
+}
+
+function formatPercent(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number <= 0) return "0%";
+  return `${Math.round(number * 100)}%`;
+}
+
+function qualitySummary(report) {
+  const stats = report.hardStats || {};
+  const analyzed = stats.analyzed_record_count ?? report.analyzedRecordCount ?? 0;
+  const candidate = stats.scoring_candidate_record_count ?? report.recordCount ?? analyzed;
+  const strongDensity = formatPercent(stats.strong_evidence_density || 0);
+  const userControlRatio = formatPercent(stats.user_control_ratio || 0);
+  return `有效样本 ${analyzed}/${candidate}；强证据密度 ${strongDensity}；主动控制占比 ${userControlRatio}。`;
+}
+
 function renderQuality(report) {
   const note = document.querySelector("#quality-note");
-  const excluded = Number(report.excludedRecordCount || 0);
-  const analyzed = Number(report.analyzedRecordCount ?? report.recordCount ?? 0);
-  const total = Number(report.recordCount || analyzed);
-  if (excluded > 0) {
+  const stats = report.hardStats || {};
+  const nonScoring = Number(stats.non_scoring_record_count ?? report.excludedRecordCount ?? 0);
+  const context = Number(stats.context_excluded_record_count || 0);
+  const usage = Number(stats.usage_record_count || 0);
+  const tools = Number(stats.tool_result_record_count || 0);
+  const analyzed = Number(stats.analyzed_record_count ?? report.analyzedRecordCount ?? report.recordCount ?? 0);
+  const total = Number(stats.raw_record_count ?? report.recordCount ?? analyzed);
+  if (nonScoring > 0) {
     note.hidden = false;
-    note.textContent = `已过滤 ${excluded} 条系统上下文，实际分析 ${analyzed}/${total} 条记录。`;
+    note.textContent = `已排除 ${nonScoring} 条非评分记录，其中系统上下文 ${context} 条、token 统计 ${usage} 条、工具结果 ${tools} 条；实际分析 ${analyzed}/${total} 条记录。`;
     return;
   }
   note.hidden = true;

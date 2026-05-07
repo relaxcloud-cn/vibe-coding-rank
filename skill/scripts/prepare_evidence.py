@@ -451,6 +451,79 @@ def build_usage_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def ratio(numerator: int, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return round(numerator / denominator, 4)
+
+
+def build_hard_stats(
+    total_records: int,
+    analyzed_record_count: int,
+    excluded_total: int,
+    excluded_reasons: Counter[str],
+    source_count: int,
+    signal_total: int,
+    strong_evidence_count: int,
+    promotion_evidence_count: int,
+    user_control_count: int,
+    user_control_source_count: int,
+    usage_stats: dict[str, Any],
+) -> dict[str, Any]:
+    usage_record_count = int(usage_stats.get("usage_record_count") or 0)
+    tool_result_count = excluded_reasons.get("role:tool_result", 0)
+    context_excluded_count = max(0, excluded_total - usage_record_count - tool_result_count)
+    scoring_candidate_count = max(0, total_records - usage_record_count)
+    return {
+        "raw_record_count": total_records,
+        "analyzed_record_count": analyzed_record_count,
+        "non_scoring_record_count": excluded_total,
+        "usage_record_count": usage_record_count,
+        "tool_result_record_count": tool_result_count,
+        "context_excluded_record_count": context_excluded_count,
+        "scoring_candidate_record_count": scoring_candidate_count,
+        "scorable_record_ratio": ratio(analyzed_record_count, scoring_candidate_count),
+        "source_count": source_count,
+        "signal_count": signal_total,
+        "signal_density": ratio(signal_total, analyzed_record_count),
+        "strong_evidence_count": strong_evidence_count,
+        "strong_evidence_density": ratio(strong_evidence_count, analyzed_record_count),
+        "promotion_evidence_count": promotion_evidence_count,
+        "user_control_count": user_control_count,
+        "user_control_source_count": user_control_source_count,
+        "user_control_ratio": ratio(user_control_count, promotion_evidence_count),
+        "total_tokens": int(usage_stats.get("total_tokens") or 0),
+        "input_tokens": int(usage_stats.get("input_tokens") or 0),
+        "cached_input_tokens": int(usage_stats.get("cached_input_tokens") or 0),
+        "cache_creation_input_tokens": int(usage_stats.get("cache_creation_input_tokens") or 0),
+        "output_tokens": int(usage_stats.get("output_tokens") or 0),
+        "reasoning_output_tokens": int(usage_stats.get("reasoning_output_tokens") or 0),
+        "active_days": int(usage_stats.get("active_days") or 0),
+        "active_sessions": int(usage_stats.get("active_sessions") or 0),
+        "peak_record_tokens": int(usage_stats.get("peak_record_tokens") or 0),
+        "peak_day": str(usage_stats.get("peak_day") or ""),
+        "peak_day_tokens": int(usage_stats.get("peak_day_tokens") or 0),
+        "peak_session_tokens": int(usage_stats.get("peak_session_tokens") or 0),
+        "note": "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。",
+    }
+
+
+def excluded_note(excluded_reasons: Counter[str]) -> str:
+    total = sum(excluded_reasons.values())
+    usage_count = excluded_reasons.get("role:usage_stats", 0)
+    tool_result_count = excluded_reasons.get("role:tool_result", 0)
+    context_count = max(0, total - usage_count - tool_result_count)
+    parts: list[str] = []
+    if context_count:
+        parts.append(f"{context_count} 条系统/上下文记录")
+    if tool_result_count:
+        parts.append(f"{tool_result_count} 条工具结果")
+    if usage_count:
+        parts.append(f"{usage_count} 条 token 统计")
+    detail = "、".join(parts) if parts else "非评分记录"
+    return f"已排除 {total} 条非评分记录（{detail}）；这些不计入能力评分。"
+
+
 def exclusion_reason(record: dict[str, Any], patterns: list[tuple[str, re.Pattern[str]]]) -> str | None:
     role = str(record.get("role", "")).strip().lower()
     if role in EXCLUDED_ROLES:
@@ -717,6 +790,21 @@ def main() -> int:
     strong_evidence_count = sum(strong_counts.values())
     promotion_evidence_count = sum(promotion_counts.values())
     dimension_profile = build_dimension_profile(counts, strong_counts, signal_sources)
+    source_count = len(analyzed_sources)
+    user_control_source_count = len(user_control_sources)
+    hard_stats = build_hard_stats(
+        len(records),
+        analyzed_record_count,
+        excluded_total,
+        excluded_reasons,
+        source_count,
+        signal_total,
+        strong_evidence_count,
+        promotion_evidence_count,
+        user_control_count,
+        user_control_source_count,
+        usage_stats,
+    )
     method_replication_status = next(
         (
             item["status"]
@@ -728,16 +816,16 @@ def main() -> int:
     level, label, caps, unlocks = choose_rank(
         counts,
         analyzed_record_count,
-        len(analyzed_sources),
+        source_count,
         strong_evidence_count,
         promotion_evidence_count,
         user_control_count,
-        len(user_control_sources),
+        user_control_source_count,
         method_replication_status,
         args.allow_team_rank,
     )
     if excluded_total:
-        caps.insert(0, f"已过滤 {excluded_total} 条系统提示、AGENTS 注入或压缩上下文；这些不计入能力评分。")
+        caps.insert(0, excluded_note(excluded_reasons))
     score = score_for(level, counts, analyzed_record_count)
     preliminary_rank = {
         "level": level,
@@ -763,9 +851,10 @@ def main() -> int:
         "strong_evidence_count": strong_evidence_count,
         "promotion_evidence_count": promotion_evidence_count,
         "user_control_count": user_control_count,
-        "user_control_source_count": len(user_control_sources),
+        "user_control_source_count": user_control_source_count,
         "usage_stats": usage_stats,
-        "source_count": len(analyzed_sources),
+        "hard_stats": hard_stats,
+        "source_count": source_count,
         "preliminary_rank": preliminary_rank,
         "heuristic_rank": preliminary_rank,
         "evidence": evidence,

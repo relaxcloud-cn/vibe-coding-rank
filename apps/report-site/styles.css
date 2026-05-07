@@ -443,7 +443,7 @@ button {
 
 .metrics {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 12px;
   margin: 28px 0 14px;
 }
@@ -676,7 +676,7 @@ button {
 
 .bottom-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 16px;
   margin-top: 16px;
 }
@@ -698,6 +698,14 @@ button {
   color: #111;
   font-size: 17px;
   line-height: 1.55;
+}
+
+.insight-card small {
+  display: block;
+  margin-top: 8px;
+  color: #7a746d;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .section {

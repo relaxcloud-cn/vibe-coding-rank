@@ -71,6 +71,32 @@
     "active_sessions": 12,
     "token_note": "Token 是 AI 投入强度指标，不参与段位升品。"
   },
+  "hardStats": {
+    "raw_record_count": 170,
+    "analyzed_record_count": 120,
+    "non_scoring_record_count": 50,
+    "usage_record_count": 42,
+    "tool_result_record_count": 0,
+    "context_excluded_record_count": 8,
+    "scoring_candidate_record_count": 128,
+    "scorable_record_ratio": 0.9375,
+    "source_count": 3,
+    "signal_count": 56,
+    "signal_density": 0.4667,
+    "strong_evidence_count": 12,
+    "strong_evidence_density": 0.1,
+    "promotion_evidence_count": 48,
+    "user_control_count": 8,
+    "user_control_source_count": 3,
+    "user_control_ratio": 0.1667,
+    "total_tokens": 1280000,
+    "active_days": 6,
+    "active_sessions": 12,
+    "peak_day": "2026-05-07",
+    "peak_day_tokens": 420000,
+    "peak_session_tokens": 260000,
+    "note": "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。"
+  },
   "dimensionProfile": [
     {
       "id": "architecture_judgment",

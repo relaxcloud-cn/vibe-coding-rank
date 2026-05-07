@@ -273,7 +273,7 @@ class ScriptTests(unittest.TestCase):
             self.assertEqual(data["analyzed_record_count"], 1)
             self.assertEqual(data["excluded_record_count"], 3)
             self.assertNotIn("workflow_asset", data["signal_counts"])
-            self.assertIn("已过滤 3 条", " ".join(data["rank_caps"]))
+            self.assertIn("已排除 3 条非评分记录", " ".join(data["rank_caps"]))
 
     def test_prepare_evidence_filters_tool_results_from_scoring(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -359,6 +359,11 @@ class ScriptTests(unittest.TestCase):
             self.assertEqual(data["usage_stats"]["total_tokens"], 400)
             self.assertEqual(data["usage_stats"]["peak_day"], "2026-05-08")
             self.assertEqual(data["usage_stats"]["peak_day_tokens"], 300)
+            self.assertEqual(data["hard_stats"]["total_tokens"], 400)
+            self.assertEqual(data["hard_stats"]["usage_record_count"], 2)
+            self.assertEqual(data["hard_stats"]["non_scoring_record_count"], 2)
+            self.assertEqual(data["hard_stats"]["scoring_candidate_record_count"], 1)
+            self.assertEqual(data["hard_stats"]["scorable_record_ratio"], 1.0)
             self.assertEqual(data["excluded_reason_counts"]["role:usage_stats"], 2)
             self.assertLessEqual(data["preliminary_rank"]["level"], 4)
 

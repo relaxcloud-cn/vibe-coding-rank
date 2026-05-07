@@ -54,6 +54,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("dimensionProfile", payload["report"])
         self.assertIn("userControlCount", payload["report"])
         self.assertIn("usageStats", payload["report"])
+        self.assertIn("hardStats", payload["report"])
+        self.assertEqual(payload["report"]["hardStats"]["usage_record_count"], 42)
         self.assertIn("narrative", payload["report"])
         self.assertIn("你现在是", payload["report"]["narrative"]["oneLine"])
 

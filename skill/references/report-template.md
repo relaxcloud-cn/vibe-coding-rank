@@ -57,9 +57,13 @@
 - 总 token：{total_tokens}
 - 峰值日 token：{peak_day_tokens}
 - 活跃天数：{active_days}
+- 活跃会话：{active_sessions}
 - 峰值会话 token：{peak_session_tokens}
+- 有效样本比例：{scorable_record_ratio}
+- 强证据密度：{strong_evidence_density}
+- 主动控制占比：{user_control_ratio}
 
-说明：Token 是 AI 投入强度，不参与段位升品。
+说明：硬统计只描述 AI 投入强度和样本质量，不参与段位升品。
 
 ## 下一品升级路线
 
@@ -69,7 +73,10 @@
 
 - 原始记录数：{record_count}
 - 有效分析记录：{analyzed_record_count}
-- 已过滤系统上下文：{excluded_record_count}
+- 非评分记录：{excluded_record_count}
+- 其中系统上下文：{context_excluded_record_count}
+- 其中 token 统计：{usage_record_count}
+- 其中工具结果：{tool_result_record_count}
 - 置信度：{confidence}
 - 强证据数：{strong_evidence_count}
 - 高段位锁：{unlock_status}

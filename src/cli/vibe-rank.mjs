@@ -225,12 +225,13 @@ function sampleSummary() {
     analysis_version: "0.2-demo",
     judgment_mode: "自动初筛",
     is_final: false,
-    record_count: 128,
+    record_count: 170,
     analyzed_record_count: 120,
-    excluded_record_count: 8,
+    excluded_record_count: 50,
     excluded_reason_counts: {
       agents_context: 5,
       codex_system_prompt: 3,
+      "role:usage_stats": 42,
     },
     signal_count: 56,
     signal_counts: {
@@ -260,6 +261,38 @@ function sampleSummary() {
       peak_day_tokens: 420000,
       peak_session_tokens: 260000,
       token_note: "Token 是 AI 投入强度指标，不参与段位升品。",
+    },
+    hard_stats: {
+      raw_record_count: 170,
+      analyzed_record_count: 120,
+      non_scoring_record_count: 50,
+      usage_record_count: 42,
+      tool_result_record_count: 0,
+      context_excluded_record_count: 8,
+      scoring_candidate_record_count: 128,
+      scorable_record_ratio: 0.9375,
+      source_count: 3,
+      signal_count: 56,
+      signal_density: 0.4667,
+      strong_evidence_count: 12,
+      strong_evidence_density: 0.1,
+      promotion_evidence_count: 48,
+      user_control_count: 8,
+      user_control_source_count: 3,
+      user_control_ratio: 0.1667,
+      total_tokens: 1280000,
+      input_tokens: 760000,
+      cached_input_tokens: 360000,
+      cache_creation_input_tokens: 90000,
+      output_tokens: 70000,
+      reasoning_output_tokens: 0,
+      active_days: 6,
+      active_sessions: 12,
+      peak_record_tokens: 86000,
+      peak_day: "2026-05-07",
+      peak_day_tokens: 420000,
+      peak_session_tokens: 260000,
+      note: "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。",
     },
     dimension_profile: [
       { id: "problem_definition", label: "目标定义", status: "成立", score: 65, evidence_count: 19, strong_evidence_count: 11 },
@@ -483,6 +516,7 @@ function buildReport(summary, options) {
     userControlCount: summary.user_control_count || 0,
     userControlSourceCount: summary.user_control_source_count || 0,
     usageStats: summary.usage_stats || {},
+    hardStats: summary.hard_stats || {},
     dimensionProfile: summary.dimension_profile || [],
     verdict: copy.verdict,
     whyThisRank: copy.reason,
@@ -538,39 +572,69 @@ function openUrl(url) {
   spawnSync(command, args, { stdio: "ignore", detached: true });
 }
 
+function formatTokens(value) {
+  const tokens = Number(value || 0);
+  if (tokens >= 100000000) return `${(tokens / 100000000).toFixed(1)}亿`;
+  if (tokens >= 10000) return `${Math.round(tokens / 10000)}万`;
+  return String(tokens);
+}
+
+function hardStatsLine(report) {
+  const stats = report.hardStats || {};
+  const usage = report.usageStats || {};
+  const totalTokens = stats.total_tokens || usage.total_tokens || 0;
+  const peakDayTokens = stats.peak_day_tokens || usage.peak_day_tokens || 0;
+  const activeDays = stats.active_days || usage.active_days || 0;
+  const activeSessions = stats.active_sessions || usage.active_sessions || 0;
+  const sourceCount = stats.source_count || report.userControlSourceCount || 0;
+  if (!totalTokens && !activeDays && !sourceCount) return "";
+  const parts = [];
+  if (totalTokens) parts.push(`总 token ${formatTokens(totalTokens)}`);
+  if (peakDayTokens) parts.push(`峰值日 ${formatTokens(peakDayTokens)}`);
+  if (activeDays) parts.push(`活跃 ${activeDays} 天`);
+  if (activeSessions) parts.push(`${activeSessions} 会话`);
+  if (sourceCount) parts.push(`${sourceCount} 个证据来源`);
+  return parts.join(", ");
+}
+
 function printHuman(report, url, outPath) {
   console.log("");
-  console.log("Vibe Coding Rank");
-  console.log(`Rank: ${report.rank.label}`);
-  console.log(`Score: ${report.rank.score}`);
-  console.log(`Confidence: ${report.rank.confidence}`);
-  console.log(`Judgment: ${report.judgmentModeLabel}${report.isFinal ? "" : "（非最终判定）"}`);
-  console.log(`System ownership: ${report.rank.systemOwnership}`);
+  console.log("Vibe Coding 段位报告");
+  console.log(`段位：${report.rank.label}`);
+  console.log(`分数：${report.rank.score}`);
+  console.log(`置信度：${report.rank.confidence}`);
+  console.log(`判定模式：${report.judgmentModeLabel}${report.isFinal ? "" : "（非最终判定）"}`);
+  console.log(`系统归属：${report.rank.systemOwnership}`);
+  const hardStats = hardStatsLine(report);
+  if (hardStats) {
+    console.log(`硬统计：${hardStats}`);
+  }
   console.log("");
-  console.log("Verdict:");
+  console.log("一句话判定：");
   console.log(report.narrative.oneLine);
   console.log("");
-  console.log("Why this rank:");
+  console.log("为什么是这个段位：");
   console.log(report.whyThisRank);
   console.log("");
-  console.log("Why not next:");
+  console.log("为什么还不是下一品：");
   console.log(report.whyNotNextRank);
   if (report.excludedRecordCount) {
     console.log("");
-    console.log(`Evidence analyzed: ${report.analyzedRecordCount}/${report.recordCount} records`);
-    console.log(`Filtered context records: ${report.excludedRecordCount}`);
+    console.log(`证据分析：${report.analyzedRecordCount}/${report.recordCount} 条记录`);
+    console.log(`非评分记录：${report.excludedRecordCount} 条`);
   }
-  console.log(`Cloud report: ${url}`);
-  if (outPath) console.log(`Local report: ${outPath}`);
+  const displayUrl = url.length > 180 ? `${url.slice(0, 180)}...` : url;
+  console.log(`云端报告：${displayUrl}`);
+  if (outPath) console.log(`本地报告：${outPath}`);
   if (report.strongestEvidence.length) {
     console.log("");
-    console.log("Strongest evidence:");
+    console.log("最强证据：");
     for (const item of report.strongestEvidence.slice(0, 3)) {
       console.log(`- ${item.label}: ${item.reason}`);
     }
   }
   console.log("");
-  console.log("Next:");
+  console.log("下一步：");
   for (const item of report.upgradePath) {
     console.log(`- ${item}`);
   }

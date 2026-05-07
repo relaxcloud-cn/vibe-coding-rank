@@ -115,7 +115,7 @@ Vibe Coding Rank 想测的是更深的一层：
 - 判定模式：自动初筛或 AI 深度判定
 - 置信度
 - 系统归属判断
-- AI 投入强度：总 token、峰值日 token、活跃天数、峰值会话
+- 硬统计画像：总 token、峰值日 token、活跃天数、峰值会话、有效样本比例、强证据密度、主动控制占比
 - 六维能力画像：目标定义、边界控制、验证闭环、架构判断、系统归属、方法复制
 - 支撑该段位的行为证据卡
 - 限制段位上限的证据缺口
@@ -137,6 +137,18 @@ Vibe Coding Rank 想测的是更深的一层：
     "peak_day_tokens": 420000,
     "active_days": 6,
     "token_note": "Token 是 AI 投入强度指标，不参与段位升品。"
+  },
+  "hard_stats": {
+    "raw_record_count": 170,
+    "analyzed_record_count": 120,
+    "scoring_candidate_record_count": 128,
+    "scorable_record_ratio": 0.9375,
+    "strong_evidence_density": 0.1,
+    "user_control_ratio": 0.1667,
+    "total_tokens": 1280000,
+    "active_days": 6,
+    "active_sessions": 12,
+    "note": "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。"
   },
   "dimension_profile": [],
   "evidence_cards": [],
