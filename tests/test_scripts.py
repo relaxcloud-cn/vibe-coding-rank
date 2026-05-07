@@ -468,6 +468,56 @@ class ScriptTests(unittest.TestCase):
             self.assertGreater(data["hard_stats"]["promotion_assistant_execution_ratio"], 0.9)
             self.assertIn("用户主动控制", " ".join(data["rank_caps"]))
 
+    def test_prepare_evidence_caps_instruction_heavy_without_decisions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            evidence = root / "evidence.jsonl"
+            summary = root / "summary.json"
+            rows = []
+            for session in range(1, 5):
+                for index in range(16):
+                    rows.append(
+                        {
+                            "source": "claude",
+                            "path": f"session-{session}.jsonl:{index + 1}",
+                            "mtime": f"2026-05-0{session}T10:00:00",
+                            "role": "user",
+                            "text": (
+                                "继续处理这个功能，修一下 bug，跑 test/build/lint。"
+                            ),
+                        }
+                    )
+                rows.append(
+                    {
+                        "source": "claude",
+                        "path": f"session-{session}.jsonl:assistant",
+                        "mtime": f"2026-05-0{session}T10:00:00",
+                        "role": "assistant",
+                        "text": (
+                            "已完成架构模块边界、权限、数据模型、rollback、日志、生产维护、"
+                            "build、test、lint、回归验证，并用 subagent reviewer 复查。"
+                        ),
+                    }
+                )
+            evidence.write_text(
+                "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+                encoding="utf-8",
+            )
+
+            run_script(
+                "prepare_evidence.py",
+                "--input",
+                str(evidence),
+                "--output",
+                str(summary),
+            )
+
+            data = json.loads(summary.read_text(encoding="utf-8"))
+            self.assertLessEqual(data["preliminary_rank"]["level"], 5)
+            self.assertGreater(data["hard_stats"]["user_control_ratio"], 0.7)
+            self.assertLess(data["hard_stats"]["promotion_user_decision_ratio"], 0.03)
+            self.assertIn("用户决策证据", " ".join(data["rank_caps"]))
+
     def test_summarize_wrapper_still_works(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

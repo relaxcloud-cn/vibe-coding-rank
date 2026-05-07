@@ -667,6 +667,7 @@ def choose_rank(
     promotion_evidence_count: int,
     user_control_count: int,
     user_control_sources: int,
+    promotion_user_decision_ratio: float,
     method_replication_status: str,
     allow_team_rank: bool = False,
 ) -> tuple[int, str, list[str], dict[str, Any]]:
@@ -747,6 +748,9 @@ def choose_rank(
     if level >= 7 and ratio(user_control_count, promotion_evidence_count) < 0.08:
         level = 6
         caps.append("七品需要用户主动控制证据占比足够高；当前高阶信号主要来自助手执行或总结，自动初筛先封顶六品。")
+    if level >= 7 and promotion_user_decision_ratio < 0.08:
+        level = 6
+        caps.append("七品需要足够用户决策证据；当前高阶证据里用户真正做边界、架构、验收或取舍的比例不足。")
     if level >= 6 and (total_records < 8 or source_count < 2 or promotion_evidence_count < 4):
         level = 5
         caps.append("六品需要问题定义、架构、验证、交付闭环在多条记录中成立；当前证据跨度不够。")
@@ -756,6 +760,9 @@ def choose_rank(
     if level >= 6 and ratio(user_control_count, promotion_evidence_count) < 0.03:
         level = 5
         caps.append("六品需要用户主动控制在高阶证据里占一定比例；当前更多是 AI 自述完成，不能证明你稳定拥有系统。")
+    if level >= 6 and promotion_user_decision_ratio < 0.03:
+        level = 5
+        caps.append("六品需要用户决策证据占一定比例；普通指令或助手执行痕迹不能替代系统级决策。")
     if level < 8 and unlocks["level8"]["unlocked"]:
         unlocks["level8"] = {
             "unlocked": False,
@@ -935,6 +942,11 @@ def main() -> int:
     dimension_profile = build_dimension_profile(counts, strong_counts, signal_sources)
     source_count = len(analyzed_sources)
     user_control_source_count = len(user_control_sources)
+    promotion_behavior_total = sum(promotion_behavior_counts.values())
+    promotion_user_decision_ratio = ratio(
+        promotion_behavior_counts.get("user_decision", 0),
+        promotion_behavior_total,
+    )
     hard_stats = build_hard_stats(
         len(records),
         analyzed_record_count,
@@ -971,6 +983,7 @@ def main() -> int:
         promotion_evidence_count,
         user_control_count,
         user_control_source_count,
+        promotion_user_decision_ratio,
         method_replication_status,
         args.allow_team_rank,
     )
