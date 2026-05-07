@@ -126,6 +126,7 @@ Vibe Coding Rank 想测的是更深的一层：
 - 八品/九品是否解锁
 - 下一品升级路径：优先绑定第一个未通过的下一品门槛，而不是给泛泛建议
 - 图片报告提示词：可直接交给 Imagen / imagegen 生成朋友圈海报
+- 深度判定提示词：脱敏后交给 AI judge 或评审人复核，输出最终中文报告
 
 示例结构：
 
@@ -279,6 +280,7 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 --usd-per-million-reasoning-tokens <n>  reasoning token 每百万美元单价，用于成本估算
 --out <path>                    本地报告 JSON 输出路径
 --write-share-prompt <path>     输出脱敏后的图片报告提示词
+--write-judge-prompt <path>     输出脱敏后的 AI 深度判定提示词
 --no-write                      不写本地报告文件
 --print-json                    输出机器可读 JSON
 --open                          自动打开报告链接
@@ -293,6 +295,16 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 ```
 
 这个文件只包含段位、分数、硬统计、证据摘要、封顶原因和下一步，不包含原始日志、本地路径、session id、源码或密钥。可以直接交给 Imagen、imagegen 或其他图片模型生成中文报告图。
+
+生成 AI 深度判定提示词：
+
+```bash
+npx github:relaxcloud-cn/vibe-coding-rank \
+  --source codex \
+  --write-judge-prompt .airank/deep-judge-prompt.txt
+```
+
+这个提示词用于把自动初筛升级为最终复核：要求 AI judge 先看封顶条件，再看证据链，明确是否维持、上调或下调自动初筛结果。它同样只使用脱敏报告摘要，不包含原始日志、本地路径、session id、源码或密钥。
 
 成本估算是可选项。不同模型、套餐、缓存策略和供应商折扣会变化，所以 CLI 不内置固定价格。需要展示美元成本时，把你当前实际价格传进去：
 

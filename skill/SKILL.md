@@ -71,6 +71,7 @@ The script only performs local cleaning, evidence classification, and conservati
 - Use `qualityFlags` to surface sample or judgment risks such as low user control, low user decision ratio, assistant-heavy evidence, or token concentration.
 - Use `dragFactors` to explain behaviors dragging the rank down, especially bug loops, demo-heavy work, snippet-heavy work, weak-signal-heavy logs, or thin strong records.
 - Prefer `gateUpgradeAdvice` for the next step because it is tied to the first failed rank gate above the current rank.
+- If the CLI report contains `judgePrompt`, use it as the first draft for AI deep judgment because it is already sanitized and aligned with the rank gates.
 - Use `rank_caps` and `unlock_status` before assigning a high rank.
 - 八品 requires proof that the method was used by others or became a team mechanism.
 - 九品 requires public paradigm-level influence, not just private logs.
@@ -101,6 +102,7 @@ The script only performs local cleaning, evidence classification, and conservati
 - If evidence is thin, say so and lower confidence.
 - Do not assign 八品 or 九品 from private logs alone unless there is clear team-level or public paradigm-level evidence.
 - The CLI result is an 自动初筛 unless an AI judge reads the evidence cards and produces the final report.
+- Deep judgment must explicitly say whether it maintains, upgrades, or downgrades the auto pre-screen result.
 - Do not assign 六品以上 from a single record or single session; high ranks require evidence span across multiple records, sessions, projects, or repeated workflows.
 - Distinguish generation from ownership:
   - 五品/六品 can generate and shape.

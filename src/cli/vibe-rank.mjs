@@ -173,6 +173,7 @@ function parseArgs(argv) {
     printJson: false,
     write: true,
     writeSharePrompt: "",
+    writeJudgePrompt: "",
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -231,6 +232,7 @@ Options:
   --demo                          Generate a demo report without reading local logs
   --print-json                    Print machine-readable report JSON
   --write-share-prompt <path>     Write a sanitized Imagen/imagegen poster prompt
+  --write-judge-prompt <path>     Write a sanitized AI deep-judgment prompt
   --no-write                      Do not write a local report file
 `.trim();
 }
@@ -1218,6 +1220,87 @@ Visual direction:
 `.trim();
 }
 
+function buildJudgePrompt(report, url = "") {
+  const rank = report.rank || {};
+  const nextRank = report.nextRank || {};
+  const hardCards = shareHardStatCards(report.hardStatCards)
+    .map((item) => `- ${item.label}：${item.value}；${item.detail || ""}；${item.interpretation || ""}`)
+    .join("\n");
+  const dimensions = (report.dimensionProfile || [])
+    .slice(0, 6)
+    .map((item) => `- ${item.label || item.id}：${item.status || "缺失"}，${Number(item.score || 0)}/100，证据 ${item.evidence_count ?? item.evidenceCount ?? "未知"} 条`)
+    .join("\n");
+  const gates = (report.rankGates || [])
+    .map((item) => `- ${item.label || item.id}：${item.passed ? "通过" : "未通过"}；观测=${JSON.stringify(item.observed)}；要求=${JSON.stringify(item.required)}；原因=${item.reason || ""}`)
+    .join("\n");
+  const evidence = (report.strongestEvidence || report.evidence || [])
+    .slice(0, 8)
+    .map((item, index) => `${index + 1}. ${item.label || item.signal || "证据"}｜${item.dimension || ""}｜${item.strength || ""}｜${item.reason || item.summary || ""}`)
+    .join("\n");
+  const qualityFlags = qualityFlagLine(report);
+  const dragFactors = dragFactorLine(report);
+  const rankCaps = (report.rankCaps || []).slice(0, 5).map((item) => `- ${item}`).join("\n") || "- 暂无明显封顶原因";
+  const reportUrl = url ? `\n公开报告链接：${url}` : "";
+
+  return `
+你是 Airank Vibe Coding 九品体系的 AI 深度判定官。请基于下面这份已脱敏报告做最终复核。
+
+核心命题：
+强者不是“会写代码的人”，而是“能在不亲手写每一行代码的情况下，仍然拥有系统结果的人”。
+
+判定规则：
+1. 先看封顶条件，再看正向证据，不要先加分。
+2. token、成本、工具事件只解释投入强度和样本结构，不能直接升品。
+3. 六品以上必须看到用户主导的目标、边界、架构、验收或取舍决策。
+4. 七品需要稳定系统归属；八品需要团队复用证据；九品需要公开范式影响。
+5. 如果高阶证据主要来自助手自述，而不是用户决策，要降级或降低置信度。
+6. 不要使用原始日志、源码、本地路径、session id 或任何隐私信息；只使用下面的脱敏字段。
+
+自动初筛结果：
+- 当前段位：${rank.label || "未知"}（level ${Number(rank.level || 0)}，${Number(rank.score || 0)}/100）
+- 下一品：${nextRank.label || "未知"}
+- 判定模式：${report.judgmentModeLabel || report.judgmentMode || "自动初筛"}，${report.isFinal ? "已最终判定" : "未最终判定"}
+- 置信度：${translateConfidence(rank.confidence)}
+- 系统归属：${translateOwnership(rank.systemOwnership)}
+- 一句话：${report.verdict || report.narrative?.oneLine || ""}
+
+硬指标卡：
+${hardCards || "- 暂无硬指标卡"}
+
+证据结构：
+- ${evidenceStatsLine(report) || "暂无证据结构统计"}
+- ${behaviorMixLine(report) || "暂无行为结构统计"}
+- 统计解读：${statsInsight(report)}
+
+六维画像：
+${dimensions || "- 暂无六维画像"}
+
+关键门槛：
+${gates || "- 暂无机器门槛"}
+
+质量提示：
+${qualityFlags}
+
+拖累项：
+${dragFactors}
+
+段位封顶原因：
+${rankCaps}
+
+最强证据链：
+${evidence || "1. 证据不足"}
+
+请输出中文最终报告，严格包含以下小节：
+1. 最终段位：是否维持、上调或下调自动初筛结果。
+2. 一句话判定：直接说这个人的系统归属状态。
+3. 为什么是这个段位：用 3 到 5 条证据说明。
+4. 为什么还不是下一品：引用未通过门槛或封顶原因。
+5. 证据可信度：说明样本强弱、用户决策占比、助手自述风险和 token/成本统计如何解读。
+6. 下一品升级路线：给 3 条具体行动，必须绑定第一个未通过的下一品门槛。
+7. 不确定性：列出还需要补充的证据。${reportUrl}
+`.trim();
+}
+
 function writeTextFile(path, content) {
   const target = resolve(path);
   mkdirSync(dirname(target), { recursive: true });
@@ -1339,6 +1422,7 @@ function printHuman(report, url, outPath) {
   console.log(`云端报告：${displayUrl}`);
   if (outPath) console.log(`本地报告：${outPath}`);
   if (report.shareImagePromptPath) console.log(`图片报告提示词：${report.shareImagePromptPath}`);
+  if (report.judgePromptPath) console.log(`深度判定提示词：${report.judgePromptPath}`);
   if (report.strongestEvidence.length) {
     console.log("");
     console.log("最强证据：");
@@ -1398,11 +1482,18 @@ async function main() {
   let publicPayload = publicReport(report);
   let url = siteUrl(options.site, publicPayload);
   let shareImagePrompt = buildShareImagePrompt(publicPayload, url);
+  let judgePrompt = buildJudgePrompt(publicPayload, url);
   report.shareImagePrompt = shareImagePrompt;
+  report.judgePrompt = judgePrompt;
   let shareImagePromptPath = "";
+  let judgePromptPath = "";
   if (options.writeSharePrompt) {
     shareImagePromptPath = writeTextFile(options.writeSharePrompt, shareImagePrompt);
     report.shareImagePromptPath = shareImagePromptPath;
+  }
+  if (options.writeJudgePrompt) {
+    judgePromptPath = writeTextFile(options.writeJudgePrompt, judgePrompt);
+    report.judgePromptPath = judgePromptPath;
   }
   const uploadBaseUrl = options.uploadUrl || (options.shortLink ? options.site : "");
   if (uploadBaseUrl) {
@@ -1410,15 +1501,21 @@ async function main() {
     const uploaded = await uploadReport(uploadBaseUrl, publicPayload);
     url = uploaded.url || `${uploadBaseUrl.replace(/\/$/, "")}/#id=${uploaded.id}`;
     shareImagePrompt = buildShareImagePrompt(publicPayload, url);
+    judgePrompt = buildJudgePrompt(publicPayload, url);
     report.shareImagePrompt = shareImagePrompt;
+    report.judgePrompt = judgePrompt;
     if (options.writeSharePrompt) {
       shareImagePromptPath = writeTextFile(options.writeSharePrompt, shareImagePrompt);
       report.shareImagePromptPath = shareImagePromptPath;
     }
+    if (options.writeJudgePrompt) {
+      judgePromptPath = writeTextFile(options.writeJudgePrompt, judgePrompt);
+      report.judgePromptPath = judgePromptPath;
+    }
   }
   const outPath = options.write && options.out ? writeReport(options.out, report) : "";
   if (options.printJson) {
-    console.log(JSON.stringify({ report, url, outPath, shareImagePromptPath }, null, 2));
+    console.log(JSON.stringify({ report, url, outPath, shareImagePromptPath, judgePromptPath }, null, 2));
   } else {
     printHuman(report, url, outPath);
   }

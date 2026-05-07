@@ -150,6 +150,12 @@ await new Promise((resolveReady) => setTimeout(resolveReady, 0));
 assert.match(shortDom.window.__copied, /用户决策占比 2%/);
 assert.match(shortDom.window.__copied, /验证闭环密度 12%/);
 assert.match(shortDom.window.__copied, /返工压力 2%/);
+shortDom.window.document.querySelector("#copy-judge-prompt").click();
+await new Promise((resolveReady) => setTimeout(resolveReady, 0));
+assert.match(shortDom.window.__copied, /AI 深度判定官/);
+assert.match(shortDom.window.__copied, /最终段位/);
+assert.match(shortDom.window.__copied, /维持、上调或下调/);
+assert.match(shortDom.window.__copied, /七品用户决策占比/);
 assert.equal(
   shortDom.window.document.querySelector("#quality-flags").textContent,
   "主动控制偏低 1%：高阶信号主要不是由用户主动定义目标、边界、架构或验收触发。",

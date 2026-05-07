@@ -79,6 +79,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("qualityFlags", payload["report"])
         self.assertIn("dragFactors", payload["report"])
         self.assertIn("costEstimate", payload["report"])
+        self.assertIn("judgePrompt", payload["report"])
         self.assertFalse(payload["report"]["costEstimate"]["configured"])
         self.assertEqual(payload["report"]["hardStats"]["usage_record_count"], 42)
         self.assertEqual(payload["report"]["hardStats"]["promotion_record_count"], 32)
@@ -105,6 +106,11 @@ class CliTests(unittest.TestCase):
         self.assertIn("返工压力", payload["report"]["shareImagePrompt"])
         self.assertIn("narrative", payload["report"])
         self.assertIn("你现在是", payload["report"]["narrative"]["oneLine"])
+        self.assertIn("AI 深度判定官", payload["report"]["judgePrompt"])
+        self.assertIn("最终段位", payload["report"]["judgePrompt"])
+        self.assertIn("维持、上调或下调", payload["report"]["judgePrompt"])
+        self.assertIn("用户决策占比", payload["report"]["judgePrompt"])
+        self.assertNotIn("demo/session.jsonl", payload["report"]["judgePrompt"])
         self.assertIn("statsInsight", payload["report"])
         self.assertEqual(payload["report"]["usageStats"]["average_day_tokens"], 213333)
         self.assertEqual(payload["report"]["hardStats"]["signal_coverage_ratio"], 0.6364)
@@ -143,6 +149,7 @@ class CliTests(unittest.TestCase):
     def test_demo_can_write_share_image_prompt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             prompt_path = Path(tmp) / "share-prompt.txt"
+            judge_path = Path(tmp) / "judge-prompt.txt"
             result = subprocess.run(
                 [
                     "node",
@@ -150,6 +157,8 @@ class CliTests(unittest.TestCase):
                     "--demo",
                     "--write-share-prompt",
                     str(prompt_path),
+                    "--write-judge-prompt",
+                    str(judge_path),
                     "--print-json",
                     "--no-write",
                 ],
@@ -159,10 +168,15 @@ class CliTests(unittest.TestCase):
             )
             payload = json.loads(result.stdout)
             prompt = prompt_path.read_text(encoding="utf-8")
+            judge_prompt = judge_path.read_text(encoding="utf-8")
             self.assertTrue(payload["shareImagePromptPath"].endswith("share-prompt.txt"))
+            self.assertTrue(payload["judgePromptPath"].endswith("judge-prompt.txt"))
             self.assertIn("Asset type: 4:5 vertical Chinese social-share poster", prompt)
             self.assertIn("主评级：六品 · 已有大成", prompt)
+            self.assertIn("AI 深度判定官", judge_prompt)
+            self.assertIn("最终段位", judge_prompt)
             self.assertNotIn(str(ROOT), prompt)
+            self.assertNotIn(str(ROOT), judge_prompt)
 
     def test_short_link_uploads_report_and_uses_id_url(self) -> None:
         received = {}
@@ -220,6 +234,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("qualityFlags", uploaded)
         self.assertIn("dragFactors", uploaded)
         self.assertIn("costEstimate", uploaded)
+        self.assertNotIn("judgePrompt", uploaded)
         self.assertNotIn("root", uploaded)
         self.assertNotIn("snippet", uploaded["evidence"][0])
         self.assertNotIn("source", uploaded["evidence"][0])

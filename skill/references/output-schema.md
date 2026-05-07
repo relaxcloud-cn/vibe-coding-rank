@@ -74,6 +74,7 @@
     "脚本只做证据清洗和自动初筛，不是最终 AI 段位判定。"
   ],
   "shareImagePrompt": "Use case: infographic-diagram...",
+  "judgePrompt": "你是 Airank Vibe Coding 九品体系的 AI 深度判定官...",
   "userControlCount": 14,
   "usageStats": {
     "usage_record_count": 42,
@@ -240,6 +241,8 @@
   }
 }
 ```
+
+`shareImagePrompt` 和 `judgePrompt` 只出现在本地 CLI 报告或显式写出的提示词文件里。公开 `#data` 链接和短链接 payload 不包含这两个长文本字段；网页会基于脱敏报告即时生成对应提示词。
 
 ## 中文报告要求
 
