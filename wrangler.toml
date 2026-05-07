@@ -1,10 +1,12 @@
 name = "vibe-coding-rank"
 main = "worker/index.js"
 compatibility_date = "2026-05-07"
+account_id = "b211f40e3a1bf7502103718b9b6c683b"
+workers_dev = true
 
-# Change this to the final yisec subdomain before deploy.
+# Custom domain requires the Cloudflare account that owns the yisec.ai zone.
 routes = [
-  { pattern = "vibe.yisec.com", custom_domain = true }
+  { pattern = "vibe.yisec.ai", custom_domain = true }
 ]
 
 [assets]
@@ -13,6 +15,9 @@ binding = "ASSETS"
 not_found_handling = "single-page-application"
 run_worker_first = ["/api/*"]
 
-[[kv_namespaces]]
-binding = "REPORTS"
-id = "replace-with-cloudflare-kv-namespace-id"
+# Optional short-link storage. Uncomment after creating a KV namespace:
+# pnpm dlx wrangler kv namespace create REPORTS
+#
+# [[kv_namespaces]]
+# binding = "REPORTS"
+# id = "replace-with-cloudflare-kv-namespace-id"
