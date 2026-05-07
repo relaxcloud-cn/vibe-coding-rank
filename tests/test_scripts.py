@@ -331,6 +331,61 @@ class ScriptTests(unittest.TestCase):
             self.assertNotIn("architecture", data["signal_counts"])
             self.assertLessEqual(data["preliminary_rank"]["level"], 4)
 
+    def test_prepare_evidence_filters_tool_event_roles_from_scoring(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            evidence = root / "evidence.jsonl"
+            summary = root / "summary.json"
+            rows = [
+                {
+                    "source": "codex",
+                    "path": "session.jsonl:1",
+                    "role": "exec_command_end",
+                    "text": "npm test passed build lint workflow architecture rollback module boundary.",
+                },
+                {
+                    "source": "codex",
+                    "path": "session.jsonl:2",
+                    "role": "patch_apply_end",
+                    "text": "Success. Updated AGENTS.md workflow checklist and production rollback docs.",
+                },
+                {
+                    "source": "codex",
+                    "path": "session.jsonl:3",
+                    "role": "web_search_call",
+                    "text": "Cloudflare deployment architecture build test docs.",
+                },
+                {
+                    "source": "codex",
+                    "path": "session.jsonl:4",
+                    "role": "user",
+                    "text": "先给计划，验收条件是 test 通过。",
+                },
+            ]
+            evidence.write_text(
+                "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+                encoding="utf-8",
+            )
+
+            run_script(
+                "prepare_evidence.py",
+                "--input",
+                str(evidence),
+                "--output",
+                str(summary),
+            )
+
+            data = json.loads(summary.read_text(encoding="utf-8"))
+            self.assertEqual(data["excluded_record_count"], 3)
+            self.assertEqual(data["hard_stats"]["tool_event_record_count"], 3)
+            self.assertEqual(data["hard_stats"]["context_excluded_record_count"], 0)
+            self.assertEqual(data["excluded_reason_counts"]["role:exec_command_end"], 1)
+            self.assertEqual(data["excluded_reason_counts"]["role:patch_apply_end"], 1)
+            self.assertEqual(data["excluded_reason_counts"]["role:web_search_call"], 1)
+            self.assertNotIn("architecture", data["signal_counts"])
+            self.assertNotIn("workflow_asset", data["signal_counts"])
+            self.assertLessEqual(data["preliminary_rank"]["level"], 4)
+
     def test_prepare_evidence_reports_usage_stats_without_scoring(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

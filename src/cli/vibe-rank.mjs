@@ -301,6 +301,7 @@ function sampleSummary() {
       non_scoring_record_count: 50,
       usage_record_count: 42,
       tool_result_record_count: 0,
+      tool_event_record_count: 0,
       context_excluded_record_count: 8,
       scoring_candidate_record_count: 128,
       scorable_record_ratio: 0.9375,

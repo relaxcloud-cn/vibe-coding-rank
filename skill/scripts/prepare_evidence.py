@@ -279,7 +279,21 @@ SCORE_BANDS = {
     9: (95, 100),
 }
 
+TOOL_EVENT_ROLES = {
+    "assistant_tool",
+    "exec_command",
+    "exec_command_begin",
+    "exec_command_end",
+    "patch_apply_begin",
+    "patch_apply_end",
+    "web_search_call",
+    "web_search_result",
+    "item_completed",
+    "error",
+}
+
 EXCLUDED_ROLES = {
+    "assistant_tool",
     "system",
     "developer",
     "session_meta",
@@ -291,7 +305,7 @@ EXCLUDED_ROLES = {
     "queue-operation",
     "tool_result",
     "usage_stats",
-}
+} | TOOL_EVENT_ROLES
 
 EXCLUDED_TEXT_PATTERNS: list[tuple[str, str]] = [
     ("codex_system_prompt", r"\bYou are Codex, a coding agent\b"),
@@ -540,7 +554,8 @@ def build_hard_stats(
 ) -> dict[str, Any]:
     usage_record_count = int(usage_stats.get("usage_record_count") or 0)
     tool_result_count = excluded_reasons.get("role:tool_result", 0)
-    context_excluded_count = max(0, excluded_total - usage_record_count - tool_result_count)
+    tool_event_count = sum(excluded_reasons.get(f"role:{role}", 0) for role in TOOL_EVENT_ROLES)
+    context_excluded_count = max(0, excluded_total - usage_record_count - tool_result_count - tool_event_count)
     scoring_candidate_count = max(0, total_records - usage_record_count)
     signal_type_count = sum(1 for signal in SIGNALS if counts[signal] > 0)
     strong_signal_type_count = sum(1 for signal in SIGNALS if strong_counts[signal] > 0)
@@ -562,6 +577,7 @@ def build_hard_stats(
         "non_scoring_record_count": excluded_total,
         "usage_record_count": usage_record_count,
         "tool_result_record_count": tool_result_count,
+        "tool_event_record_count": tool_event_count,
         "context_excluded_record_count": context_excluded_count,
         "scoring_candidate_record_count": scoring_candidate_count,
         "scorable_record_ratio": ratio(analyzed_record_count, scoring_candidate_count),
@@ -634,12 +650,15 @@ def excluded_note(excluded_reasons: Counter[str]) -> str:
     total = sum(excluded_reasons.values())
     usage_count = excluded_reasons.get("role:usage_stats", 0)
     tool_result_count = excluded_reasons.get("role:tool_result", 0)
-    context_count = max(0, total - usage_count - tool_result_count)
+    tool_event_count = sum(excluded_reasons.get(f"role:{role}", 0) for role in TOOL_EVENT_ROLES)
+    context_count = max(0, total - usage_count - tool_result_count - tool_event_count)
     parts: list[str] = []
     if context_count:
         parts.append(f"{context_count} 条系统/上下文记录")
     if tool_result_count:
         parts.append(f"{tool_result_count} 条工具结果")
+    if tool_event_count:
+        parts.append(f"{tool_event_count} 条工具事件")
     if usage_count:
         parts.append(f"{usage_count} 条 token 统计")
     detail = "、".join(parts) if parts else "非评分记录"

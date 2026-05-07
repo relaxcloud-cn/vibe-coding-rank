@@ -61,6 +61,7 @@ const SAMPLE = {
     non_scoring_record_count: 50,
     usage_record_count: 42,
     tool_result_record_count: 0,
+    tool_event_record_count: 0,
     context_excluded_record_count: 8,
     scoring_candidate_record_count: 128,
     scorable_record_ratio: 0.9375,
@@ -684,11 +685,12 @@ function renderQuality(report) {
   const context = Number(stats.context_excluded_record_count || 0);
   const usage = Number(stats.usage_record_count || 0);
   const tools = Number(stats.tool_result_record_count || 0);
+  const toolEvents = Number(stats.tool_event_record_count || 0);
   const analyzed = Number(stats.analyzed_record_count ?? report.analyzedRecordCount ?? report.recordCount ?? 0);
   const total = Number(stats.raw_record_count ?? report.recordCount ?? analyzed);
   if (nonScoring > 0) {
     note.hidden = false;
-    note.textContent = `已排除 ${nonScoring} 条非评分记录，其中系统上下文 ${context} 条、token 统计 ${usage} 条、工具结果 ${tools} 条；实际分析 ${analyzed}/${total} 条记录。`;
+    note.textContent = `已排除 ${nonScoring} 条非评分记录，其中系统上下文 ${context} 条、token 统计 ${usage} 条、工具结果 ${tools} 条、工具事件 ${toolEvents} 条；实际分析 ${analyzed}/${total} 条记录。`;
     return;
   }
   note.hidden = true;
