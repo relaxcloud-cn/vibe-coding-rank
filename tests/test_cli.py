@@ -1,3 +1,4 @@
+import base64
 import json
 import subprocess
 import sys
@@ -9,6 +10,12 @@ from threading import Thread
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def decode_hash_report(url: str) -> dict:
+    data = url.split("#data=", 1)[1]
+    padded = data + ("=" * (-len(data) % 4))
+    return json.loads(base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8"))
 
 
 class CliTests(unittest.TestCase):
@@ -27,6 +34,15 @@ class CliTests(unittest.TestCase):
         )
         payload = json.loads(result.stdout)
         self.assertTrue(payload["url"].startswith("https://vibe.yisec.ai/#data="))
+        shared = decode_hash_report(payload["url"])
+        self.assertTrue(shared["privacy"]["localPathsRemoved"])
+        self.assertFalse(shared["privacy"]["rawLogsUploaded"])
+        self.assertIn("costEstimate", shared)
+        self.assertNotIn("root", shared)
+        self.assertNotIn("snippet", shared["evidence"][0])
+        self.assertNotIn("source", shared["evidence"][0])
+        self.assertNotIn("role", shared["evidence"][0])
+        self.assertNotIn("demo/session.jsonl", json.dumps(shared, ensure_ascii=False))
 
     def test_demo_print_json_contains_cloud_report_url(self) -> None:
         result = subprocess.run(
@@ -62,9 +78,16 @@ class CliTests(unittest.TestCase):
         self.assertIn("gateUpgradeAdvice", payload["report"])
         self.assertIn("qualityFlags", payload["report"])
         self.assertIn("dragFactors", payload["report"])
+        self.assertIn("costEstimate", payload["report"])
+        self.assertFalse(payload["report"]["costEstimate"]["configured"])
         self.assertEqual(payload["report"]["hardStats"]["usage_record_count"], 42)
         self.assertEqual(payload["report"]["hardStats"]["promotion_record_count"], 32)
+        self.assertEqual(payload["report"]["hardStats"]["validation_density"], 0.1083)
+        self.assertEqual(payload["report"]["hardStats"]["strong_record_density"], 0.1)
         self.assertEqual(payload["report"]["hardStatCards"][0]["label"], "AI 投入强度")
+        self.assertTrue(any(item["id"] == "estimated_cost" for item in payload["report"]["hardStatCards"]))
+        self.assertTrue(any(item["id"] == "validation_density" for item in payload["report"]["hardStatCards"]))
+        self.assertTrue(any(item["id"] == "rework_pressure" for item in payload["report"]["hardStatCards"]))
         self.assertTrue(any(item["id"] == "promotion_record_quality" for item in payload["report"]["hardStatCards"]))
         self.assertIn("其他人或项目复用", payload["report"]["gateUpgradeAdvice"])
         self.assertEqual(payload["report"]["qualityFlags"][0]["label"], "助手执行占比较高")
@@ -86,6 +109,34 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["report"]["hardStats"]["established_dimension_count"], 5)
         self.assertIn("behaviorCounts", payload["report"])
         self.assertIn("用户决策", payload["report"]["shareImagePrompt"])
+
+    def test_demo_can_estimate_token_cost_from_user_prices(self) -> None:
+        result = subprocess.run(
+            [
+                "node",
+                str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                "--demo",
+                "--usd-per-million-input-tokens",
+                "1",
+                "--usd-per-million-cached-input-tokens",
+                "0.1",
+                "--usd-per-million-output-tokens",
+                "5",
+                "--print-json",
+                "--no-write",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        payload = json.loads(result.stdout)
+        cost = payload["report"]["costEstimate"]
+        self.assertTrue(cost["configured"])
+        self.assertEqual(cost["estimatedUsd"], 0.786)
+        self.assertEqual(cost["billableInputTokens"], 400000)
+        self.assertIn("估算成本 $0.79", payload["report"]["shareImagePrompt"])
+        shared = decode_hash_report(payload["url"])
+        self.assertEqual(shared["costEstimate"]["estimatedUsd"], 0.786)
 
     def test_demo_can_write_share_image_prompt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -166,6 +217,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("gateUpgradeAdvice", uploaded)
         self.assertIn("qualityFlags", uploaded)
         self.assertIn("dragFactors", uploaded)
+        self.assertIn("costEstimate", uploaded)
         self.assertNotIn("root", uploaded)
         self.assertNotIn("snippet", uploaded["evidence"][0])
         self.assertNotIn("source", uploaded["evidence"][0])

@@ -576,6 +576,7 @@ def build_hard_stats(
     stable_dimension_count = sum(1 for item in dimension_profile if item.get("status") == "稳定")
     promotion_signal_behavior_total = sum(promotion_signal_behavior_counts.values())
     promotion_record_behavior_total = sum(promotion_record_behavior_counts.values())
+    weak_signal_count = counts["snippet_generation"] + counts["demo_generation"] + counts["bug_loop"]
     return {
         "raw_record_count": total_records,
         "analyzed_record_count": analyzed_record_count,
@@ -598,13 +599,25 @@ def build_hard_stats(
         "dominant_signal": dominant_signal,
         "dominant_signal_count": dominant_signal_count,
         "dominant_signal_ratio": ratio(dominant_signal_count, signal_total),
+        "validation_count": counts["validation"],
+        "validation_density": ratio(counts["validation"], analyzed_record_count),
+        "validation_signal_share": ratio(counts["validation"], signal_total),
+        "bug_loop_count": counts["bug_loop"],
+        "bug_loop_density": ratio(counts["bug_loop"], analyzed_record_count),
+        "bug_loop_signal_share": ratio(counts["bug_loop"], signal_total),
+        "demo_generation_count": counts["demo_generation"],
+        "snippet_generation_count": counts["snippet_generation"],
+        "weak_signal_count": weak_signal_count,
+        "weak_signal_ratio": ratio(weak_signal_count, signal_total),
         "strong_evidence_count": strong_evidence_count,
         "strong_evidence_density": ratio(strong_evidence_count, analyzed_record_count),
         "strong_signal_type_count": strong_signal_type_count,
         "strong_evidence_source_count": len(strong_sources),
+        "strong_record_density": ratio(strong_evidence_record_count, analyzed_record_count),
         "average_strong_evidence_per_source": ratio(strong_evidence_count, source_count),
         "promotion_evidence_count": promotion_evidence_count,
         "promotion_record_count": promotion_record_count,
+        "promotion_record_density": ratio(promotion_record_count, analyzed_record_count),
         "strong_evidence_record_count": strong_evidence_record_count,
         "average_promotion_signals_per_record": ratio(promotion_evidence_count, promotion_record_count),
         "user_control_count": user_control_record_count,
@@ -622,6 +635,9 @@ def build_hard_stats(
         "assistant_execution_count": behavior_counts.get("assistant_execution", 0),
         "assistant_summary_count": behavior_counts.get("assistant_summary", 0),
         "user_decision_ratio": ratio(behavior_counts.get("user_decision", 0), analyzed_record_count),
+        "user_instruction_ratio": ratio(behavior_counts.get("user_instruction", 0), analyzed_record_count),
+        "assistant_execution_ratio": ratio(behavior_counts.get("assistant_execution", 0), analyzed_record_count),
+        "assistant_summary_ratio": ratio(behavior_counts.get("assistant_summary", 0), analyzed_record_count),
         "promotion_user_decision_ratio": ratio(
             promotion_record_behavior_counts.get("user_decision", 0),
             promotion_record_behavior_total,
@@ -663,6 +679,9 @@ def build_hard_stats(
         "cached_input_token_share": float(usage_stats.get("cached_input_token_share") or 0),
         "output_token_share": float(usage_stats.get("output_token_share") or 0),
         "reasoning_token_share": float(usage_stats.get("reasoning_token_share") or 0),
+        "tool_event_record_ratio": ratio(tool_event_count, total_records),
+        "tool_result_record_ratio": ratio(tool_result_count, total_records),
+        "non_scoring_record_ratio": ratio(excluded_total, total_records),
         "note": "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。",
     }
 

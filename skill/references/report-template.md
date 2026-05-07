@@ -63,10 +63,15 @@
 - 会话均 token：{average_session_tokens}
 - 峰值会话 token：{peak_session_tokens}
 - 峰值日 token 占比：{peak_day_token_share}
+- 成本估算：{estimated_usd}
 - 有效样本比例：{scorable_record_ratio}
 - 强证据密度：{strong_evidence_density}
+- 强记录占比：{strong_record_density}
 - 高阶记录数：{promotion_record_count}
 - 每条高阶记录平均信号数：{average_promotion_signals_per_record}
+- 验证闭环密度：{validation_density}
+- 返工压力：{bug_loop_density}
+- 工具事件占比：{tool_event_record_ratio}
 - 主动控制占比：{user_control_ratio}
 - 用户决策占比：{promotion_user_decision_ratio}
 - 助手执行占比：{promotion_assistant_execution_ratio}

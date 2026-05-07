@@ -89,6 +89,11 @@
     "peak_session_token_share": 0.2031,
     "token_note": "Token 是 AI 投入强度指标，不参与段位升品。"
   },
+  "costEstimate": {
+    "estimatedUsd": 0,
+    "configured": false,
+    "note": "未配置 token 单价；只展示 token 强度，不估算美元成本。"
+  },
   "hardStats": {
     "raw_record_count": 170,
     "analyzed_record_count": 120,
@@ -108,8 +113,14 @@
     "signal_coverage_ratio": 0.6364,
     "dominant_signal": "validation",
     "dominant_signal_ratio": 0.2321,
+    "validation_count": 13,
+    "validation_density": 0.1083,
+    "bug_loop_count": 0,
+    "bug_loop_density": 0,
+    "weak_signal_ratio": 0.1786,
     "strong_evidence_count": 12,
     "strong_evidence_density": 0.1,
+    "strong_record_density": 0.1,
     "strong_signal_type_count": 3,
     "strong_evidence_source_count": 3,
     "promotion_evidence_count": 48,
@@ -149,6 +160,7 @@
     "peak_session_tokens": 260000,
     "peak_day_token_share": 0.3281,
     "peak_session_token_share": 0.2031,
+    "tool_event_record_ratio": 0,
     "note": "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。"
   },
   "hardStatCards": [
@@ -158,6 +170,13 @@
       "value": "128万 token",
       "detail": "活跃 6 天 / 12 会话",
       "interpretation": "只说明 AI 使用投入，不直接参与段位升品。"
+    },
+    {
+      "id": "estimated_cost",
+      "label": "成本估算",
+      "value": "未配置",
+      "detail": "可传入 token 单价",
+      "interpretation": "成本用于理解 AI 投入强度，不参与段位升品。"
     },
     {
       "id": "user_decision",

@@ -36,6 +36,11 @@ const SAMPLE = {
     cache_creation_input_tokens: 90000,
     output_tokens: 70000,
     reasoning_output_tokens: 0,
+    cost_estimate: {
+      estimatedUsd: 0,
+      configured: false,
+      note: "未配置 token 单价；只展示 token 强度，不估算美元成本。",
+    },
     active_days: 6,
     active_sessions: 12,
     first_active_day: "2026-05-02",
@@ -77,13 +82,25 @@ const SAMPLE = {
     dominant_signal: "validation",
     dominant_signal_count: 13,
     dominant_signal_ratio: 0.2321,
+    validation_count: 13,
+    validation_density: 0.1083,
+    validation_signal_share: 0.2321,
+    bug_loop_count: 0,
+    bug_loop_density: 0,
+    bug_loop_signal_share: 0,
+    demo_generation_count: 10,
+    snippet_generation_count: 0,
+    weak_signal_count: 10,
+    weak_signal_ratio: 0.1786,
     strong_evidence_count: 12,
     strong_evidence_density: 0.1,
     strong_signal_type_count: 3,
     strong_evidence_source_count: 3,
+    strong_record_density: 0.1,
     average_strong_evidence_per_source: 4,
     promotion_evidence_count: 48,
     promotion_record_count: 32,
+    promotion_record_density: 0.2667,
     strong_evidence_record_count: 12,
     average_promotion_signals_per_record: 1.5,
     user_control_count: 8,
@@ -118,6 +135,9 @@ const SAMPLE = {
     assistant_execution_count: 64,
     assistant_summary_count: 16,
     user_decision_ratio: 0.15,
+    user_instruction_ratio: 0.1833,
+    assistant_execution_ratio: 0.5333,
+    assistant_summary_ratio: 0.1333,
     promotion_user_decision_ratio: 0.1667,
     promotion_assistant_execution_ratio: 0.75,
     established_dimension_count: 5,
@@ -145,7 +165,15 @@ const SAMPLE = {
     cached_input_token_share: 0.2813,
     output_token_share: 0.0547,
     reasoning_token_share: 0,
+    tool_event_record_ratio: 0,
+    tool_result_record_ratio: 0,
+    non_scoring_record_ratio: 0.2941,
     note: "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。",
+  },
+  costEstimate: {
+    estimatedUsd: 0,
+    configured: false,
+    note: "未配置 token 单价；只展示 token 强度，不估算美元成本。",
   },
   dimensionProfile: [
     { id: "problem_definition", label: "目标定义", status: "成立", score: 65 },
@@ -227,11 +255,16 @@ const SAMPLE = {
   upgradePath: ["把成功协作沉淀成 AGENTS.md、rules、skill 或团队 playbook。"],
   hardStatCards: [
     { id: "ai_investment", label: "AI 投入强度", value: "128万 token", detail: "活跃 6 天 / 12 会话", interpretation: "只说明 AI 使用投入，不直接参与段位升品。" },
+    { id: "estimated_cost", label: "成本估算", value: "未配置", detail: "可传入 token 单价", interpretation: "成本用于理解 AI 投入强度，不参与段位升品。" },
     { id: "sample_stability", label: "样本稳定性", value: "6 天", detail: "峰值日占比 33%", interpretation: "样本越分散，越能证明稳定工作方式。" },
     { id: "sample_validity", label: "有效样本", value: "94%", detail: "120/128 条可分析", interpretation: "排除系统上下文、token 统计和工具结果后，只看真实行为。" },
     { id: "strong_evidence_density", label: "强证据密度", value: "10%", detail: "12 条强证据", interpretation: "强证据越密，越能支撑高段位；低密度会降低置信度。" },
+    { id: "strong_record_density", label: "强记录占比", value: "10%", detail: "12/120 条记录", interpretation: "按记录去重看强证据，防止一条长消息反复命中。" },
     { id: "user_control", label: "用户主动控制", value: "17%", detail: "8 条主动控制证据", interpretation: "衡量你是否在定义目标、边界、架构和验收。" },
     { id: "user_decision", label: "用户决策占比", value: "17%", detail: "助手执行 75%", interpretation: "高段位必须看到人的系统级决策，而不是 AI 自述完成。" },
+    { id: "validation_density", label: "验证闭环密度", value: "11%", detail: "13 条验证信号", interpretation: "测试、构建、lint、截图和人工验收越稳定，结果越可托付。" },
+    { id: "rework_pressure", label: "返工压力", value: "0%", detail: "0 条 Bug 循环信号", interpretation: "返工信号不高，说明协作没有明显困在修补循环。" },
+    { id: "automation_noise", label: "工具事件占比", value: "0%", detail: "0 条工具事件已排除", interpretation: "工具调用、补丁事件和命令结果不直接评分，只用于解释样本结构。" },
   ],
 };
 
@@ -409,14 +442,24 @@ function usageSummary(report) {
   const peak = formatTokens(usage.peak_day_tokens || 0);
   const activeDays = Number(usage.active_days || 0);
   const activeSessions = Number(usage.active_sessions || 0);
+  const cost = report.costEstimate || usage.cost_estimate || {};
   if (!usage.total_tokens) return "暂无 token 统计。";
-  return `总 token ${total}；峰值日 ${peak}；活跃 ${activeDays} 天 / ${activeSessions} 会话。`;
+  const costText = cost.configured ? `；估算成本 ${formatMoney(cost.estimatedUsd)}` : "";
+  return `总 token ${total}；峰值日 ${peak}；活跃 ${activeDays} 天 / ${activeSessions} 会话${costText}。`;
 }
 
 function formatPercent(value) {
   const number = Number(value || 0);
   if (!Number.isFinite(number) || number <= 0) return "0%";
   return `${Math.round(number * 100)}%`;
+}
+
+function formatMoney(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number <= 0) return "$0";
+  if (number < 1) return `$${number.toFixed(2)}`;
+  if (number < 100) return `$${number.toFixed(1)}`;
+  return `$${Math.round(number)}`;
 }
 
 function qualitySummary(report) {
@@ -436,6 +479,8 @@ function evidenceStructureSummary(report) {
   if (stats.dominant_signal_ratio) parts.push(`最高信号集中度 ${formatPercent(stats.dominant_signal_ratio)}`);
   if (stats.established_dimension_count) parts.push(`成立维度 ${stats.established_dimension_count}/6`);
   if (stats.peak_day_token_share) parts.push(`峰值日 token 占比 ${formatPercent(stats.peak_day_token_share)}`);
+  if (stats.validation_density) parts.push(`验证密度 ${formatPercent(stats.validation_density)}`);
+  if (stats.strong_record_density) parts.push(`强记录占比 ${formatPercent(stats.strong_record_density)}`);
   return parts.length ? `${parts.join("；")}。` : "暂无证据结构统计。";
 }
 
@@ -447,6 +492,7 @@ function behaviorMixSummary(report) {
   if (userDecision) parts.push(`用户决策 ${formatPercent(userDecision)}`);
   if (assistantExecution) parts.push(`助手执行 ${formatPercent(assistantExecution)}`);
   if (stats.user_decision_count) parts.push(`决策证据 ${stats.user_decision_count} 条`);
+  if (stats.bug_loop_density) parts.push(`返工压力 ${formatPercent(stats.bug_loop_density)}`);
   return parts.length ? `${parts.join("；")}。` : "暂无行为结构统计。";
 }
 
@@ -557,6 +603,7 @@ function hardStatsLine(report) {
 function fallbackHardStatCards(report) {
   const stats = report.hardStats || {};
   const usage = { ...(report.usageStats || {}), ...stats };
+  const cost = report.costEstimate || usage.cost_estimate || {};
   return [
     {
       id: "ai_investment",
@@ -564,6 +611,13 @@ function fallbackHardStatCards(report) {
       value: usage.total_tokens ? `${formatTokens(usage.total_tokens)} token` : "暂无",
       detail: usage.active_days || usage.active_sessions ? `活跃 ${usage.active_days || 0} 天 / ${usage.active_sessions || 0} 会话` : "未读取到 token 统计",
       interpretation: "只说明 AI 使用投入，不直接参与段位升品。",
+    },
+    {
+      id: "estimated_cost",
+      label: "成本估算",
+      value: cost.configured ? formatMoney(cost.estimatedUsd) : "未配置",
+      detail: cost.configured ? "按用户传入单价粗估" : "可传入 token 单价",
+      interpretation: "成本用于理解 AI 投入强度，不参与段位升品。",
     },
     {
       id: "sample_stability",
@@ -587,6 +641,13 @@ function fallbackHardStatCards(report) {
       interpretation: "强证据越密，越能支撑高段位；低密度会降低置信度。",
     },
     {
+      id: "strong_record_density",
+      label: "强记录占比",
+      value: stats.strong_record_density ? formatPercent(stats.strong_record_density) : "0%",
+      detail: `${stats.strong_evidence_record_count ?? 0}/${stats.analyzed_record_count ?? report.analyzedRecordCount ?? 0} 条记录`,
+      interpretation: "按记录去重看强证据，防止一条长消息反复命中。",
+    },
+    {
       id: "promotion_record_quality",
       label: "高阶记录质量",
       value: stats.promotion_record_count ? `${stats.promotion_record_count} 条` : "暂无",
@@ -607,6 +668,27 @@ function fallbackHardStatCards(report) {
       detail: stats.promotion_assistant_execution_ratio ? `助手执行 ${formatPercent(stats.promotion_assistant_execution_ratio)}` : "缺少行为结构统计",
       interpretation: "高段位必须看到人的系统级决策，而不是 AI 自述完成。",
     },
+    {
+      id: "validation_density",
+      label: "验证闭环密度",
+      value: stats.validation_density ? formatPercent(stats.validation_density) : "0%",
+      detail: `${stats.validation_count || 0} 条验证信号`,
+      interpretation: "测试、构建、lint、截图和人工验收越稳定，结果越可托付。",
+    },
+    {
+      id: "rework_pressure",
+      label: "返工压力",
+      value: stats.bug_loop_density ? formatPercent(stats.bug_loop_density) : "0%",
+      detail: `${stats.bug_loop_count || 0} 条 Bug 循环信号`,
+      interpretation: Number(stats.bug_loop_density || 0) >= 0.08 ? "返工压力高，说明迭代控制可能还停在局部 patch。" : "返工信号不高，说明协作没有明显困在修补循环。",
+    },
+    {
+      id: "automation_noise",
+      label: "工具事件占比",
+      value: stats.tool_event_record_ratio ? formatPercent(stats.tool_event_record_ratio) : "0%",
+      detail: `${stats.tool_event_record_count || 0} 条工具事件已排除`,
+      interpretation: "工具调用、补丁事件和命令结果不直接评分，只用于解释样本结构。",
+    },
   ];
 }
 
@@ -614,7 +696,7 @@ function renderHardStatCards(report) {
   const grid = document.querySelector("#hard-stat-grid");
   const rows = report.hardStatCards?.length ? report.hardStatCards : fallbackHardStatCards(report);
   grid.innerHTML = "";
-  for (const row of rows.slice(0, 8)) {
+  for (const row of rows) {
     const item = document.createElement("article");
     item.className = "hard-stat-card";
     item.innerHTML = `<span>${row.label || "硬指标"}</span><strong>${row.value || "暂无"}</strong><em>${row.detail || ""}</em><p>${row.interpretation || ""}</p>`;
@@ -714,6 +796,10 @@ function renderShareState(report) {
     return;
   }
   if (hash.has("data")) {
+    if (report.privacy?.localPathsRemoved) {
+      note.textContent = "当前是本地浏览器链接，URL hash 只包含脱敏报告摘要，原始日志不会上传。";
+      return;
+    }
     note.textContent = "当前是本地浏览器链接，报告数据只在 URL hash 中渲染。";
     return;
   }

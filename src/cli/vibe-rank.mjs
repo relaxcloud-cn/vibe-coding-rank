@@ -146,6 +146,10 @@ function parseArgs(argv) {
     out: ".airank/vibe-report.json",
     limit: "5000",
     maxChars: "1200",
+    usdPerMillionInputTokens: "",
+    usdPerMillionCachedInputTokens: "",
+    usdPerMillionOutputTokens: "",
+    usdPerMillionReasoningTokens: "",
     open: false,
     demo: false,
     shortLink: false,
@@ -201,6 +205,10 @@ Options:
   --site <url>                    Report site. Default: https://vibe.yisec.ai
   --upload-url <url>              Optional Worker API base URL for short cloud links
   --short-link                    Upload final report JSON and use a short #id link
+  --usd-per-million-input-tokens <n>      Optional input-token price for cost estimate
+  --usd-per-million-cached-input-tokens <n> Optional cached-input price for cost estimate
+  --usd-per-million-output-tokens <n>     Optional output-token price for cost estimate
+  --usd-per-million-reasoning-tokens <n>  Optional reasoning-token price for cost estimate
   --out <path>                    Local report JSON. Default: .airank/vibe-report.json
   --open                          Open the cloud report URL
   --demo                          Generate a demo report without reading local logs
@@ -317,13 +325,25 @@ function sampleSummary() {
       dominant_signal: "validation",
       dominant_signal_count: 13,
       dominant_signal_ratio: 0.2321,
+      validation_count: 13,
+      validation_density: 0.1083,
+      validation_signal_share: 0.2321,
+      bug_loop_count: 0,
+      bug_loop_density: 0,
+      bug_loop_signal_share: 0,
+      demo_generation_count: 10,
+      snippet_generation_count: 0,
+      weak_signal_count: 10,
+      weak_signal_ratio: 0.1786,
       strong_evidence_count: 12,
       strong_evidence_density: 0.1,
       strong_signal_type_count: 3,
       strong_evidence_source_count: 3,
+      strong_record_density: 0.1,
       average_strong_evidence_per_source: 4,
       promotion_evidence_count: 48,
       promotion_record_count: 32,
+      promotion_record_density: 0.2667,
       strong_evidence_record_count: 12,
       average_promotion_signals_per_record: 1.5,
       user_control_count: 8,
@@ -358,6 +378,9 @@ function sampleSummary() {
       assistant_execution_count: 64,
       assistant_summary_count: 16,
       user_decision_ratio: 0.15,
+      user_instruction_ratio: 0.1833,
+      assistant_execution_ratio: 0.5333,
+      assistant_summary_ratio: 0.1333,
       promotion_user_decision_ratio: 0.1667,
       promotion_assistant_execution_ratio: 0.75,
       established_dimension_count: 5,
@@ -385,6 +408,9 @@ function sampleSummary() {
       cached_input_token_share: 0.2813,
       output_token_share: 0.0547,
       reasoning_token_share: 0,
+      tool_event_record_ratio: 0,
+      tool_result_record_ratio: 0,
+      non_scoring_record_ratio: 0.2941,
       note: "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。",
     },
     dimension_profile: [
@@ -676,6 +702,7 @@ function buildReport(summary, options) {
     rankGates: summary.rank_gates || [],
     qualityFlags,
     dragFactors: summary.drag_factors || [],
+    costEstimate: {},
     unlockStatus: summary.unlock_status || {},
     qualityNotes,
     upgradePath,
@@ -688,6 +715,7 @@ function buildReport(summary, options) {
       upgradeSummary: upgradePath[0] || "继续积累真实项目证据，并把成功做法沉淀成可复用工作流。",
     },
   };
+  report.costEstimate = costEstimate(report, options);
   report.statsInsight = statsInsight(report);
   report.gateUpgradeAdvice = gateUpgradeAdvice(report, upgradePath[0]);
   report.hardStatCards = hardStatCards(report);
@@ -747,6 +775,62 @@ function formatPercent(value) {
   return `${Math.round(number * 100)}%`;
 }
 
+function money(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number <= 0) return "$0";
+  if (number < 1) return `$${number.toFixed(2)}`;
+  if (number < 100) return `$${number.toFixed(1)}`;
+  return `$${Math.round(number)}`;
+}
+
+function metricNumber(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function costEstimate(report, options = {}) {
+  const stats = report.hardStats || {};
+  const usage = report.usageStats || {};
+  const inputPrice = metricNumber(options.usdPerMillionInputTokens);
+  const cachedPrice = metricNumber(options.usdPerMillionCachedInputTokens);
+  const outputPrice = metricNumber(options.usdPerMillionOutputTokens);
+  const reasoningPrice = metricNumber(options.usdPerMillionReasoningTokens);
+  const hasAnyPrice = inputPrice || cachedPrice || outputPrice || reasoningPrice;
+  if (!hasAnyPrice) {
+    return {
+      estimatedUsd: 0,
+      configured: false,
+      note: "未配置 token 单价；只展示 token 强度，不估算美元成本。",
+    };
+  }
+  const cachedInputTokens = metricNumber(stats.cached_input_tokens ?? usage.cached_input_tokens);
+  const inputTokens = metricNumber(stats.input_tokens ?? usage.input_tokens);
+  const billableInputTokens = Math.max(0, inputTokens - cachedInputTokens);
+  const outputTokens = metricNumber(stats.output_tokens ?? usage.output_tokens);
+  const reasoningTokens = metricNumber(stats.reasoning_output_tokens ?? usage.reasoning_output_tokens);
+  const cachedCost = cachedInputTokens * cachedPrice / 1_000_000;
+  const inputCost = billableInputTokens * inputPrice / 1_000_000;
+  const outputCost = outputTokens * outputPrice / 1_000_000;
+  const reasoningCost = reasoningTokens * reasoningPrice / 1_000_000;
+  const estimatedUsd = inputCost + cachedCost + outputCost + reasoningCost;
+  return {
+    estimatedUsd: Number(estimatedUsd.toFixed(4)),
+    configured: true,
+    currency: "USD",
+    billableInputTokens,
+    cachedInputTokens,
+    outputTokens,
+    reasoningTokens,
+    pricesPerMillionTokens: {
+      input: inputPrice,
+      cachedInput: cachedPrice,
+      output: outputPrice,
+      reasoning: reasoningPrice,
+    },
+    note: "成本为用户提供单价后的粗略估算；套餐、缓存计费和模型价格可能不同，不参与段位升品。",
+  };
+}
+
 function hardStatsLine(report) {
   const stats = report.hardStats || {};
   const usage = report.usageStats || {};
@@ -763,6 +847,7 @@ function hardStatsLine(report) {
   if (peakDayTokens) parts.push(`峰值日 ${formatTokens(peakDayTokens)}`);
   if (activeDays) parts.push(`活跃 ${activeDays} 天`);
   if (activeSessions) parts.push(`${activeSessions} 会话`);
+  if (report.costEstimate?.configured) parts.push(`估算成本 ${money(report.costEstimate.estimatedUsd)}`);
   if (sourceCount) parts.push(`${sourceCount} 个证据来源`);
   if (strongDensity) parts.push(`强证据密度 ${formatPercent(strongDensity)}`);
   if (userControlRatio) parts.push(`主动控制 ${formatPercent(userControlRatio)}`);
@@ -879,11 +964,16 @@ function hardStatCards(report) {
   const peakDayShare = stats.peak_day_token_share || usage.peak_day_token_share || 0;
   const scorableRatio = stats.scorable_record_ratio || 0;
   const strongDensity = stats.strong_evidence_density || 0;
+  const strongRecordDensity = stats.strong_record_density || 0;
   const userControlRatio = stats.user_control_ratio || 0;
   const userDecisionRatio = stats.promotion_user_decision_ratio ?? stats.user_decision_ratio ?? 0;
   const assistantExecutionRatio = stats.promotion_assistant_execution_ratio || 0;
   const signalCoverageRatio = stats.signal_coverage_ratio || 0;
   const establishedDimensions = stats.established_dimension_count || 0;
+  const validationDensity = stats.validation_density || 0;
+  const bugLoopDensity = stats.bug_loop_density || 0;
+  const toolEventRatio = stats.tool_event_record_ratio || 0;
+  const cost = report.costEstimate || {};
 
   return [
     {
@@ -892,6 +982,13 @@ function hardStatCards(report) {
       value: totalTokens ? `${formatTokens(totalTokens)} token` : "暂无",
       detail: activeDays || activeSessions ? `活跃 ${activeDays || 0} 天 / ${activeSessions || 0} 会话` : "未读取到 token 统计",
       interpretation: "只说明 AI 使用投入，不直接参与段位升品。",
+    },
+    {
+      id: "estimated_cost",
+      label: "成本估算",
+      value: cost.configured ? money(cost.estimatedUsd) : "未配置",
+      detail: cost.configured ? "按用户传入单价粗估" : "可传入 token 单价",
+      interpretation: "成本用于理解 AI 投入强度，不参与段位升品。",
     },
     {
       id: "sample_stability",
@@ -915,6 +1012,13 @@ function hardStatCards(report) {
       interpretation: "强证据越密，越能支撑高段位；低密度会降低置信度。",
     },
     {
+      id: "strong_record_density",
+      label: "强记录占比",
+      value: strongRecordDensity ? formatPercent(strongRecordDensity) : "0%",
+      detail: `${stats.strong_evidence_record_count ?? 0}/${stats.analyzed_record_count ?? report.analyzedRecordCount ?? 0} 条记录`,
+      interpretation: "按记录去重看强证据，防止一条长消息反复命中。",
+    },
+    {
       id: "promotion_record_quality",
       label: "高阶记录质量",
       value: stats.promotion_record_count ? `${stats.promotion_record_count} 条` : "暂无",
@@ -934,6 +1038,27 @@ function hardStatCards(report) {
       value: userDecisionRatio ? formatPercent(userDecisionRatio) : "0%",
       detail: assistantExecutionRatio ? `助手执行 ${formatPercent(assistantExecutionRatio)}` : "缺少行为结构统计",
       interpretation: "高段位必须看到人的系统级决策，而不是 AI 自述完成。",
+    },
+    {
+      id: "validation_density",
+      label: "验证闭环密度",
+      value: validationDensity ? formatPercent(validationDensity) : "0%",
+      detail: `${stats.validation_count || 0} 条验证信号`,
+      interpretation: "测试、构建、lint、截图和人工验收越稳定，结果越可托付。",
+    },
+    {
+      id: "rework_pressure",
+      label: "返工压力",
+      value: bugLoopDensity ? formatPercent(bugLoopDensity) : "0%",
+      detail: `${stats.bug_loop_count || 0} 条 Bug 循环信号`,
+      interpretation: bugLoopDensity >= 0.08 ? "返工压力高，说明迭代控制可能还停在局部 patch。" : "返工信号不高，说明协作没有明显困在修补循环。",
+    },
+    {
+      id: "automation_noise",
+      label: "工具事件占比",
+      value: toolEventRatio ? formatPercent(toolEventRatio) : "0%",
+      detail: `${stats.tool_event_record_count || 0} 条工具事件已排除`,
+      interpretation: "工具调用、补丁事件和命令结果不直接评分，只用于解释样本结构。",
     },
     {
       id: "signal_coverage",
@@ -1076,6 +1201,7 @@ function publicEvidence(item) {
     signal: item.signal || "",
     label: item.label || item.evidence_type || "证据",
     reason: item.reason || item.proves || "",
+    summary: item.dimension || item.behavior_class_label || "",
     dimension: item.dimension || "",
     strength: item.strength || "",
     supportsLevels: item.supportsLevels || item.supports_levels || [],
@@ -1105,6 +1231,7 @@ function publicReport(report) {
     promotionBehaviorCounts: report.promotionBehaviorCounts,
     usageStats: report.usageStats,
     hardStats: report.hardStats,
+    costEstimate: report.costEstimate,
     statsInsight: report.statsInsight,
     hardStatCards: report.hardStatCards,
     dimensionProfile: report.dimensionProfile,
@@ -1239,8 +1366,9 @@ async function main() {
   }
 
   const report = buildReport(summary, options);
-  let url = siteUrl(options.site, report);
-  let shareImagePrompt = buildShareImagePrompt(report, url);
+  let publicPayload = publicReport(report);
+  let url = siteUrl(options.site, publicPayload);
+  let shareImagePrompt = buildShareImagePrompt(publicPayload, url);
   report.shareImagePrompt = shareImagePrompt;
   let shareImagePromptPath = "";
   if (options.writeSharePrompt) {
@@ -1249,10 +1377,10 @@ async function main() {
   }
   const uploadBaseUrl = options.uploadUrl || (options.shortLink ? options.site : "");
   if (uploadBaseUrl) {
-    const publicPayload = publicReport(report);
+    publicPayload = publicReport(report);
     const uploaded = await uploadReport(uploadBaseUrl, publicPayload);
     url = uploaded.url || `${uploadBaseUrl.replace(/\/$/, "")}/#id=${uploaded.id}`;
-    shareImagePrompt = buildShareImagePrompt(report, url);
+    shareImagePrompt = buildShareImagePrompt(publicPayload, url);
     report.shareImagePrompt = shareImagePrompt;
     if (options.writeSharePrompt) {
       shareImagePromptPath = writeTextFile(options.writeSharePrompt, shareImagePrompt);

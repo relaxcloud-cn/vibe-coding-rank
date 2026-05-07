@@ -40,9 +40,15 @@ async function renderAt(hash, fetchResponse = {}) {
           dominant_signal_ratio: 0.25,
           established_dimension_count: 3,
           peak_day_token_share: 0.4,
+          validation_density: 0.12,
+          strong_record_density: 0.08,
           user_control_ratio: 0.01,
           promotion_user_decision_ratio: 0.2,
           promotion_assistant_execution_ratio: 0.7,
+          bug_loop_density: 0.02,
+          bug_loop_count: 2,
+          tool_event_record_ratio: 0.1,
+          tool_event_record_count: 10,
           user_decision_count: 12,
         },
         hardStatCards: [
@@ -98,7 +104,7 @@ assert.equal(
 );
 assert.equal(
   shortDom.window.document.querySelector("#evidence-structure").textContent,
-  "证据跨度 4 天；信号覆盖度 50%；最高信号集中度 25%；成立维度 3/6；峰值日 token 占比 40%。",
+  "证据跨度 4 天；信号覆盖度 50%；最高信号集中度 25%；成立维度 3/6；峰值日 token 占比 40%；验证密度 12%；强记录占比 8%。",
 );
 assert.equal(
   shortDom.window.document.querySelector("#stats-insight").textContent,
@@ -106,7 +112,7 @@ assert.equal(
 );
 assert.equal(
   shortDom.window.document.querySelector("#behavior-mix").textContent,
-  "用户决策 20%；助手执行 70%；决策证据 12 条。",
+  "用户决策 20%；助手执行 70%；决策证据 12 条；返工压力 2%。",
 );
 assert.equal(
   shortDom.window.document.querySelector("#rank-gate-summary").textContent,

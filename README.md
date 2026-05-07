@@ -115,8 +115,8 @@ Vibe Coding Rank 想测的是更深的一层：
 - 判定模式：自动初筛或 AI 深度判定
 - 置信度
 - 系统归属判断
-- 硬统计画像：总 token、峰值日 token、活跃天数、日均/会话均 token、峰值集中度、有效样本比例、强证据密度、主动控制占比、用户决策占比、助手执行占比、信号覆盖度，以及对应的统计解读
-- 硬指标卡：把 token、活跃天数、有效样本、强证据密度、用户主动控制、用户决策占比翻译成评级意义
+- 硬统计画像：总 token、峰值日 token、活跃天数、日均/会话均 token、可选美元成本估算、峰值集中度、有效样本比例、强证据密度、强记录占比、验证闭环密度、返工压力、工具事件占比、主动控制占比、用户决策占比、助手执行占比、信号覆盖度，以及对应的统计解读
+- 硬指标卡：把 token、成本、活跃天数、有效样本、强证据密度、强记录占比、验证密度、返工压力、用户主动控制、用户决策占比翻译成评级意义
 - 质量提示：主动控制偏低、用户决策偏低、助手执行过重、token 单日集中、信号过于集中等样本风险
 - 拖累项：Bug 循环、Demo 偏重、片段偏重、弱信号偏重等会拉低系统归属的行为
 - 六维能力画像：目标定义、边界控制、验证闭环、架构判断、系统归属、方法复制
@@ -147,6 +147,11 @@ Vibe Coding Rank 想测的是更深的一层：
     "peak_day_token_share": 0.3281,
     "token_note": "Token 是 AI 投入强度指标，不参与段位升品。"
   },
+  "costEstimate": {
+    "estimatedUsd": 0,
+    "configured": false,
+    "note": "未配置 token 单价；只展示 token 强度，不估算美元成本。"
+  },
   "hard_stats": {
     "raw_record_count": 170,
     "analyzed_record_count": 120,
@@ -163,6 +168,10 @@ Vibe Coding Rank 想测的是更深的一层：
     "signal_coverage_ratio": 0.6364,
     "dominant_signal_ratio": 0.2321,
     "established_dimension_count": 5,
+    "strong_record_density": 0.1,
+    "validation_density": 0.1083,
+    "bug_loop_density": 0,
+    "tool_event_record_ratio": 0,
     "total_tokens": 1280000,
     "active_days": 6,
     "active_sessions": 12,
@@ -175,6 +184,12 @@ Vibe Coding Rank 想测的是更深的一层：
       "value": "128万 token",
       "detail": "活跃 6 天 / 12 会话",
       "interpretation": "只说明 AI 使用投入，不直接参与段位升品。"
+    },
+    {
+      "label": "成本估算",
+      "value": "未配置",
+      "detail": "可传入 token 单价",
+      "interpretation": "成本用于理解 AI 投入强度，不参与段位升品。"
     },
     {
       "label": "用户决策占比",
@@ -258,6 +273,10 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 --site <url>                    报告站点地址
 --upload-url <url>              上传最终报告 JSON，生成短链接
 --short-link                    上传最终报告 JSON，使用默认站点短链接
+--usd-per-million-input-tokens <n>      输入 token 每百万美元单价，用于成本估算
+--usd-per-million-cached-input-tokens <n> 缓存输入 token 每百万美元单价，用于成本估算
+--usd-per-million-output-tokens <n>     输出 token 每百万美元单价，用于成本估算
+--usd-per-million-reasoning-tokens <n>  reasoning token 每百万美元单价，用于成本估算
 --out <path>                    本地报告 JSON 输出路径
 --write-share-prompt <path>     输出脱敏后的图片报告提示词
 --no-write                      不写本地报告文件
@@ -274,6 +293,16 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 ```
 
 这个文件只包含段位、分数、硬统计、证据摘要、封顶原因和下一步，不包含原始日志、本地路径、session id、源码或密钥。可以直接交给 Imagen、imagegen 或其他图片模型生成中文报告图。
+
+成本估算是可选项。不同模型、套餐、缓存策略和供应商折扣会变化，所以 CLI 不内置固定价格。需要展示美元成本时，把你当前实际价格传进去：
+
+```bash
+npx github:relaxcloud-cn/vibe-coding-rank \
+  --source codex \
+  --usd-per-million-input-tokens 1.25 \
+  --usd-per-million-cached-input-tokens 0.125 \
+  --usd-per-million-output-tokens 10
+```
 
 ## 作为 Codex skill 使用
 
@@ -341,7 +370,7 @@ Use $vibe-coding-rank to analyze my local Codex sessions and produce a Vibe Codi
 
 ## 隐私原则
 
-原始会话记录可能包含源码、客户信息、业务上下文或 token。默认流程会先在本地提取和脱敏，再生成摘要。
+原始会话记录可能包含源码、客户信息、业务上下文或 token。默认流程会先在本地提取和脱敏，再生成摘要。默认 `#data` 链接只包含脱敏后的公开报告摘要；完整本地报告仍会写到 `.airank/vibe-report.json`，方便你自己审计证据。
 
 不要把这些文件提交到公开仓库：
 
