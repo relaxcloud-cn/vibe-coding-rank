@@ -18,7 +18,9 @@
   "scripts": {
     "check": "node --check src/cli/vibe-rank.mjs && node --check src/worker/index.js && python3 -B -m unittest discover -s tests",
     "demo": "node src/cli/vibe-rank.mjs --demo",
-    "site": "python3 -m http.server 4173 -d apps/report-site"
+    "site": "python3 -m http.server 4173 -d apps/report-site",
+    "deploy:dry-run": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy"
   },
   "engines": {
     "node": ">=20"
@@ -39,5 +41,8 @@
     "ai-assessment",
     "codex-skill"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^4.90.0"
+  }
 }
