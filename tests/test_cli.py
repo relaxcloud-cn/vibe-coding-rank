@@ -247,6 +247,51 @@ class CliTests(unittest.TestCase):
             self.assertEqual(link_path.read_text(encoding="utf-8").strip(), payload["url"])
             self.assertTrue(payload["url"].startswith("https://vibe.yisec.ai/#data="))
 
+    def test_doctor_reports_missing_default_root_without_reading_logs(self) -> None:
+        result = subprocess.run(
+            [
+                "node",
+                str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                "--doctor",
+                "--source",
+                "generic",
+                "--root",
+                "/tmp/airank-vibe-missing-root-for-test",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        text = result.stdout
+        self.assertIn("Vibe Coding Rank 本地诊断", text)
+        self.assertIn("来源：generic", text)
+        self.assertIn("路径状态：不存在", text)
+        self.assertIn("--root <path>", text)
+        self.assertIn("--demo --open", text)
+
+    def test_doctor_reports_ready_state_for_existing_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = subprocess.run(
+                [
+                    "node",
+                    str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                    "--doctor",
+                    "--source",
+                    "generic",
+                    "--root",
+                    tmp,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            text = result.stdout
+            self.assertIn(f"tmp{Path(tmp).name.removeprefix('tmp')}", text)
+            self.assertIn("路径状态：存在", text)
+            self.assertIn("Python：", text)
+            self.assertIn("可以运行：", text)
+            self.assertIn("--root", text)
+
     def test_short_link_uploads_report_and_uses_id_url(self) -> None:
         received = {}
 

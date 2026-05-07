@@ -219,6 +219,7 @@ function parseArgs(argv) {
     usdPerMillionReasoningTokens: "",
     open: false,
     demo: false,
+    doctor: false,
     shortLink: false,
     printJson: false,
     write: true,
@@ -234,6 +235,8 @@ function parseArgs(argv) {
       options.help = true;
     } else if (arg === "--demo") {
       options.demo = true;
+    } else if (arg === "--doctor") {
+      options.doctor = true;
     } else if (arg === "--open") {
       options.open = true;
     } else if (arg === "--short-link") {
@@ -266,6 +269,7 @@ Usage:
   npx github:relaxcloud-cn/vibe-coding-rank --source codex
   npx github:relaxcloud-cn/vibe-coding-rank --source claude --open
   vibe-rank --demo
+  vibe-rank --doctor --source codex
 
 Options:
   --source codex|claude|generic   Session source. Default: codex
@@ -281,6 +285,7 @@ Options:
   --out <path>                    Local report JSON. Default: .airank/vibe-report.json
   --open                          Open the cloud report URL
   --demo                          Generate a demo report without reading local logs
+  --doctor                        Check local prerequisites and default session paths
   --print-json                    Print machine-readable report JSON
   --write-link <path>             Write the full public report URL to a file
   --write-share-prompt <path>     Write a sanitized Imagen/imagegen poster prompt
@@ -319,6 +324,65 @@ function runPython(script, args) {
     throw new Error(result.stderr || result.stdout || `${script} failed`);
   }
   throw new Error(last?.error?.message || "Python is required but was not found.");
+}
+
+function findPython() {
+  for (const python of ["python3", "python"]) {
+    const result = spawnSync(python, ["--version"], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (result.status === 0) {
+      return {
+        command: python,
+        version: String(result.stdout || result.stderr).trim(),
+      };
+    }
+  }
+  return { command: "", version: "" };
+}
+
+function sourceHint(source) {
+  if (source === "codex") return "Codex 默认路径通常是 ~/.codex/sessions。";
+  if (source === "claude") return "Claude Code 默认路径通常是 ~/.claude/projects。";
+  return "generic 模式需要用 --root 指向 JSONL 文件或目录。";
+}
+
+function shellQuote(value) {
+  const text = String(value || "");
+  if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(text)) return text;
+  return `'${text.replaceAll("'", "'\\''")}'`;
+}
+
+function doctor(options) {
+  const root = resolve(expandHome(options.root || defaultRoot(options.source)));
+  const python = findPython();
+  const rootExists = existsSync(root);
+  const rootArg = options.root ? ` --root ${shellQuote(root)}` : "";
+  const lines = [
+    "Vibe Coding Rank 本地诊断",
+    `来源：${options.source}`,
+    `会话路径：${root}`,
+    `路径状态：${rootExists ? "存在" : "不存在"}`,
+    `Python：${python.command ? `${python.command} (${python.version})` : "未找到"}`,
+    `报告站点：${options.site}`,
+    "",
+    "建议：",
+  ];
+  if (!rootExists) {
+    lines.push(`- ${sourceHint(options.source)}`);
+    lines.push("- 如果你的记录在别处，使用 --root <path> 指定。");
+    lines.push("- 只想看样例：npx github:relaxcloud-cn/vibe-coding-rank --demo --open");
+  }
+  if (!python.command) {
+    lines.push("- 需要安装 Python 3，CLI 会用它做本地证据清洗。");
+  }
+  if (rootExists && python.command) {
+    lines.push(`- 可以运行：npx github:relaxcloud-cn/vibe-coding-rank --source ${options.source}${rootArg} --open`);
+  }
+  lines.push("- 需要完整长链接文件：加 --write-link .airank/report-url.txt。");
+  lines.push("- 想分享短链接：加 --short-link --open。");
+  return lines.join("\n");
 }
 
 function sampleSummary() {
@@ -1630,6 +1694,10 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
     console.log(help());
+    return;
+  }
+  if (options.doctor) {
+    console.log(doctor(options));
     return;
   }
 

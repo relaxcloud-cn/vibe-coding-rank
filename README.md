@@ -28,6 +28,12 @@ npx github:relaxcloud-cn/vibe-coding-rank --source claude --open
 npx github:relaxcloud-cn/vibe-coding-rank --demo --open
 ```
 
+检查本机是否能读取默认记录路径：
+
+```bash
+npx github:relaxcloud-cn/vibe-coding-rank --doctor --source codex
+```
+
 ## 为什么做这个
 
 AI 编程能力不应该只靠自评，也不应该只问“你平时用什么工具”“一天烧多少 token”“会不会写 prompt”。
@@ -308,6 +314,7 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 --usd-per-million-output-tokens <n>     输出 token 每百万美元单价，用于成本估算
 --usd-per-million-reasoning-tokens <n>  reasoning token 每百万美元单价，用于成本估算
 --out <path>                    本地报告 JSON 输出路径
+--doctor                        检查本机依赖、默认记录路径和建议命令
 --write-link <path>             输出完整公开报告链接
 --write-share-prompt <path>     输出脱敏后的图片报告提示词
 --write-judge-prompt <path>     输出脱敏后的 AI 深度判定提示词
