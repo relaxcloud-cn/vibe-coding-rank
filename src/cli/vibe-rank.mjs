@@ -283,7 +283,44 @@ function parseArgs(argv) {
     throw new Error(`Unsupported --source "${options.source}". Use codex, claude, or generic.`);
   }
 
+  validateArgs(options);
+
   return options;
+}
+
+function validatePositiveInteger(name, value) {
+  if (!/^[1-9]\d*$/.test(String(value))) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+}
+
+function validateOptionalNonNegativeNumber(name, value) {
+  if (value === "") return;
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) {
+    throw new Error(`${name} must be a non-negative number.`);
+  }
+}
+
+function validateDate(value) {
+  if (!value) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error("--since must use YYYY-MM-DD.");
+  }
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw new Error("--since must be a real calendar date.");
+  }
+}
+
+function validateArgs(options) {
+  validatePositiveInteger("--limit", options.limit);
+  validatePositiveInteger("--max-chars", options.maxChars);
+  validateDate(options.since);
+  validateOptionalNonNegativeNumber("--usd-per-million-input-tokens", options.usdPerMillionInputTokens);
+  validateOptionalNonNegativeNumber("--usd-per-million-cached-input-tokens", options.usdPerMillionCachedInputTokens);
+  validateOptionalNonNegativeNumber("--usd-per-million-output-tokens", options.usdPerMillionOutputTokens);
+  validateOptionalNonNegativeNumber("--usd-per-million-reasoning-tokens", options.usdPerMillionReasoningTokens);
 }
 
 function help() {

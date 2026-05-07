@@ -315,6 +315,44 @@ class CliTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Unknown argument: codex", result.stderr)
 
+    def test_rejects_invalid_numeric_options_before_scanning(self) -> None:
+        cases = [
+            (["--doctor", "--limit", "nope"], "--limit must be a positive integer."),
+            (["--doctor", "--max-chars", "0"], "--max-chars must be a positive integer."),
+            (
+                ["--demo", "--usd-per-million-input-tokens", "abc"],
+                "--usd-per-million-input-tokens must be a non-negative number.",
+            ),
+            (
+                ["--demo", "--usd-per-million-output-tokens", "-1"],
+                "--usd-per-million-output-tokens must be a non-negative number.",
+            ),
+        ]
+        for args, message in cases:
+            with self.subTest(args=args):
+                result = subprocess.run(
+                    ["node", str(ROOT / "src" / "cli" / "vibe-rank.mjs"), *args],
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+
+    def test_rejects_invalid_since_dates_before_scanning(self) -> None:
+        cases = [
+            (["--doctor", "--since", "20260507"], "--since must use YYYY-MM-DD."),
+            (["--doctor", "--since", "2026-99-99"], "--since must be a real calendar date."),
+        ]
+        for args, message in cases:
+            with self.subTest(args=args):
+                result = subprocess.run(
+                    ["node", str(ROOT / "src" / "cli" / "vibe-rank.mjs"), *args],
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+
     def test_doctor_reports_ready_state_for_existing_root(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             result = subprocess.run(
