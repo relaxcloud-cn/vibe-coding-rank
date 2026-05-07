@@ -109,6 +109,8 @@ const SAMPLE = {
   upgradePath: ["把成功协作沉淀成 AGENTS.md、rules、skill 或团队 playbook。"],
 };
 
+let currentReport = SAMPLE;
+
 function decodeBase64Url(value) {
   const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
   const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
@@ -157,6 +159,7 @@ function renderEvidence(report) {
 }
 
 function render(report) {
+  currentReport = report;
   const rank = report.rank || SAMPLE.rank;
   const level = Number(rank.level || 0);
   document.querySelector("#rank-label").textContent = rank.label || RANKS[level][1];
@@ -247,6 +250,77 @@ function qualitySummary(report) {
   return `有效样本 ${analyzed}/${candidate}；强证据密度 ${strongDensity}；主动控制占比 ${userControlRatio}。`;
 }
 
+function shortText(value, length = 42) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= length) return text;
+  return `${text.slice(0, length - 1)}…`;
+}
+
+function hardStatsLine(report) {
+  const usage = { ...(report.usageStats || {}), ...(report.hardStats || {}) };
+  const total = usage.total_tokens ? `总 token ${formatTokens(usage.total_tokens)}` : "";
+  const peak = usage.peak_day_tokens ? `峰值日 ${formatTokens(usage.peak_day_tokens)}` : "";
+  const days = usage.active_days ? `活跃 ${usage.active_days} 天` : "";
+  const sessions = usage.active_sessions ? `${usage.active_sessions} 会话` : "";
+  const parts = [total, peak, days, sessions].filter(Boolean);
+  return parts.length ? parts.join("，") : "暂无硬统计";
+}
+
+function buildSharePrompt(report) {
+  const rank = report.rank || SAMPLE.rank;
+  const evidenceRows = (report.strongestEvidence?.length ? report.strongestEvidence : report.evidence?.length ? report.evidence : SAMPLE.evidence)
+    .slice(0, 3)
+    .map((item) => `${item.label || item.signal || "证据"}：${shortText(item.reason || item.snippet || "", 36)}`);
+  while (evidenceRows.length < 3) evidenceRows.push("证据不足：继续积累真实 AI 工作记录");
+  const dimensions = (report.dimensionProfile?.length ? report.dimensionProfile : SAMPLE.dimensionProfile)
+    .slice(0, 6)
+    .map((item) => `${item.label || item.id} ${item.status || "缺失"} ${Number(item.score || 0)}/100`)
+    .join("；");
+  const url = location.href;
+  return `
+Use case: infographic-diagram
+Asset type: 4:5 vertical Chinese social-share poster for Airank Vibe Coding Rank
+Primary request: Create a premium Chinese AI ability report poster. It must look like a polished product report, not a meme or generic certificate.
+
+Exact Chinese text to include:
+标题：Vibe Coding 九品报告
+主评级：${rank.label || "未知段位"}
+分数：${Number(rank.score || 0)}/100
+置信度：${translateConfidence(rank.confidence || "low")}
+系统归属：${translateOwnership(rank.systemOwnership || "weak")}
+核心问题：这系统是你的，还是 AI 的？
+一句话：${shortText(report.verdict || report.narrative?.oneLine || "", 46)}
+
+硬统计：
+${hardStatsLine(report)}
+
+六维画像：
+${dimensions}
+
+证据摘要：
+1. ${evidenceRows[0]}
+2. ${evidenceRows[1]}
+3. ${evidenceRows[2]}
+
+评级限制：
+${shortText(firstText(report.rankCaps) || "暂无明显封顶原因", 52)}
+
+下一步：
+${shortText(firstText(report.upgradePath) || "继续沉淀可复用工作流", 52)}
+
+Footer:
+Airank · 3 分钟测出你的 AI 段位
+公开链接：${url.length > 140 ? `${url.slice(0, 140)}...` : url}
+
+Visual direction:
+- Chinese text must be readable, large, and clean.
+- Use Airank product-report style: deep green and blue background, ivory panels, gold rank accent, subtle grid lines.
+- Make the rank label and score the strongest visual elements.
+- Use compact dashboard cards for hard stats and six dimensions.
+- No raw logs, no local file paths, no session IDs, no code snippets, no secrets.
+`.trim();
+}
+
 function renderQuality(report) {
   const note = document.querySelector("#quality-note");
   const stats = report.hardStats || {};
@@ -290,6 +364,18 @@ document.querySelector("#copy-command").addEventListener("click", async () => {
   setTimeout(() => {
     button.innerHTML = previous;
   }, 1200);
+});
+
+document.querySelector("#copy-share-prompt").addEventListener("click", async () => {
+  const button = document.querySelector("#copy-share-prompt");
+  const status = document.querySelector("#share-copy-status");
+  await navigator.clipboard.writeText(buildSharePrompt(currentReport));
+  button.textContent = "已复制";
+  status.textContent = "可直接交给 Imagen / imagegen 生成分享图";
+  setTimeout(() => {
+    button.textContent = "复制图片报告提示词";
+    status.textContent = "";
+  }, 1600);
 });
 
 loadReport().then(render).catch(() => render(SAMPLE));

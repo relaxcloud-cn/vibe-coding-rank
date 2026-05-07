@@ -85,6 +85,8 @@ The script only performs local cleaning, evidence classification, and conservati
 - Use only sanitized report facts: rank, score, confidence, top signal summaries, rank caps, and next step.
 - Do not include raw transcript snippets, local file paths, session IDs, customer data, source code, tokens, or secrets.
 - Keep Chinese copy short and large enough to read.
+- If a CLI report contains `shareImagePrompt`, use it as the first draft because it is already sanitized for image generation.
+- The report site also exposes a "复制图片报告提示词" button for the same sanitized prompt.
 - Use `references/image-report-prompt.md` as the prompt template.
 
 ## Ranking Rules

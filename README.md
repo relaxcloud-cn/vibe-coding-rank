@@ -121,6 +121,7 @@ Vibe Coding Rank 想测的是更深的一层：
 - 限制段位上限的证据缺口
 - 八品/九品是否解锁
 - 下一品升级路径
+- 图片报告提示词：可直接交给 Imagen / imagegen 生成朋友圈海报
 
 示例结构：
 
@@ -155,7 +156,8 @@ Vibe Coding Rank 想测的是更深的一层：
   "rank_caps": [],
   "unlock_status": {},
   "next_rank": "六品 · 已有大成",
-  "upgrade_path": []
+  "upgrade_path": [],
+  "share_image_prompt": "Use case: infographic-diagram..."
 }
 ```
 
@@ -192,10 +194,21 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 --root <path>                   自定义会话目录或文件
 --since YYYY-MM-DD              只扫描指定日期后的记录
 --out <path>                    本地报告 JSON 输出路径
+--write-share-prompt <path>     输出脱敏后的图片报告提示词
 --no-write                      不写本地报告文件
 --print-json                    输出机器可读 JSON
 --open                          自动打开报告链接
 ```
+
+生成朋友圈/海报提示词：
+
+```bash
+npx github:relaxcloud-cn/vibe-coding-rank \
+  --source codex \
+  --write-share-prompt .airank/share-poster-prompt.txt
+```
+
+这个文件只包含段位、分数、硬统计、证据摘要、封顶原因和下一步，不包含原始日志、本地路径、session id、源码或密钥。可以直接交给 Imagen、imagegen 或其他图片模型生成中文报告图。
 
 ## 作为 Codex skill 使用
 

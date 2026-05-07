@@ -61,6 +61,7 @@
   "qualityNotes": [
     "脚本只做证据清洗和自动初筛，不是最终 AI 段位判定。"
   ],
+  "shareImagePrompt": "Use case: infographic-diagram...",
   "userControlCount": 14,
   "usageStats": {
     "usage_record_count": 42,

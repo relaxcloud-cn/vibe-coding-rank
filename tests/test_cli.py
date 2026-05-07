@@ -56,8 +56,35 @@ class CliTests(unittest.TestCase):
         self.assertIn("usageStats", payload["report"])
         self.assertIn("hardStats", payload["report"])
         self.assertEqual(payload["report"]["hardStats"]["usage_record_count"], 42)
+        self.assertIn("shareImagePrompt", payload["report"])
+        self.assertIn("Vibe Coding 九品报告", payload["report"]["shareImagePrompt"])
+        self.assertIn("No raw logs", payload["report"]["shareImagePrompt"])
         self.assertIn("narrative", payload["report"])
         self.assertIn("你现在是", payload["report"]["narrative"]["oneLine"])
+
+    def test_demo_can_write_share_image_prompt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            prompt_path = Path(tmp) / "share-prompt.txt"
+            result = subprocess.run(
+                [
+                    "node",
+                    str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                    "--demo",
+                    "--write-share-prompt",
+                    str(prompt_path),
+                    "--print-json",
+                    "--no-write",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            payload = json.loads(result.stdout)
+            prompt = prompt_path.read_text(encoding="utf-8")
+            self.assertTrue(payload["shareImagePromptPath"].endswith("share-prompt.txt"))
+            self.assertIn("Asset type: 4:5 vertical Chinese social-share poster", prompt)
+            self.assertIn("主评级：六品 · 已有大成", prompt)
+            self.assertNotIn(str(ROOT), prompt)
 
     def test_generic_source_uses_moved_evidence_scripts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -134,6 +134,7 @@ function parseArgs(argv) {
     demo: false,
     printJson: false,
     write: true,
+    writeSharePrompt: "",
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -184,6 +185,7 @@ Options:
   --open                          Open the cloud report URL
   --demo                          Generate a demo report without reading local logs
   --print-json                    Print machine-readable report JSON
+  --write-share-prompt <path>     Write a sanitized Imagen/imagegen poster prompt
   --no-write                      Do not write a local report file
 `.trim();
 }
@@ -597,6 +599,94 @@ function hardStatsLine(report) {
   return parts.join(", ");
 }
 
+function translateConfidence(value) {
+  return {
+    low: "低",
+    medium: "中",
+    high: "高",
+  }[value] || value || "未知";
+}
+
+function translateOwnership(value) {
+  return {
+    weak: "弱",
+    emerging: "形成中",
+    strong: "强",
+    exceptional: "极强",
+  }[value] || value || "未知";
+}
+
+function shortText(value, length = 42) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= length) return text;
+  return `${text.slice(0, length - 1)}…`;
+}
+
+function buildShareImagePrompt(report, url = "") {
+  const rank = report.rank || {};
+  const evidence = (report.strongestEvidence || report.evidence || [])
+    .slice(0, 3)
+    .map((item) => `${item.label || item.signal || "证据"}：${shortText(item.reason || item.snippet || "", 36)}`);
+  while (evidence.length < 3) evidence.push("证据不足：继续积累真实 AI 工作记录");
+  const dimensions = (report.dimensionProfile || [])
+    .slice(0, 6)
+    .map((item) => `${item.label || item.id} ${item.status || "缺失"} ${Number(item.score || 0)}/100`)
+    .join("；");
+  const stats = hardStatsLine(report) || "暂无硬统计";
+  const rankCap = shortText(report.rankCaps?.[0] || report.narrative?.capSummary || "暂无明显封顶原因", 52);
+  const upgrade = shortText(report.upgradePath?.[0] || report.narrative?.upgradeSummary || "继续沉淀可复用工作流", 52);
+  const reportUrl = url ? `\n公开链接：${url.length > 140 ? `${url.slice(0, 140)}...` : url}` : "";
+
+  return `
+Use case: infographic-diagram
+Asset type: 4:5 vertical Chinese social-share poster for Airank Vibe Coding Rank
+Primary request: Create a premium Chinese AI ability report poster. It must look like a polished product report, not a meme or generic certificate.
+
+Exact Chinese text to include:
+标题：Vibe Coding 九品报告
+主评级：${rank.label || "未知段位"}
+分数：${Number(rank.score || 0)}/100
+置信度：${translateConfidence(rank.confidence)}
+系统归属：${translateOwnership(rank.systemOwnership)}
+核心问题：这系统是你的，还是 AI 的？
+一句话：${shortText(report.verdict || report.narrative?.oneLine || "", 46)}
+
+硬统计：
+${stats}
+
+六维画像：
+${dimensions || "目标定义、边界控制、验证闭环、架构判断、系统归属、方法复制"}
+
+证据摘要：
+1. ${evidence[0]}
+2. ${evidence[1]}
+3. ${evidence[2]}
+
+评级限制：
+${rankCap}
+
+下一步：
+${upgrade}
+
+Footer:
+Airank · 3 分钟测出你的 AI 段位${reportUrl}
+
+Visual direction:
+- Chinese text must be readable, large, and clean.
+- Use Airank product-report style: deep green and blue background, ivory panels, gold rank accent, subtle grid lines.
+- Make the rank label and score the strongest visual elements.
+- Use compact dashboard cards for hard stats and six dimensions.
+- No raw logs, no local file paths, no session IDs, no code snippets, no secrets, no QR code unless a public URL is intentionally provided.
+`.trim();
+}
+
+function writeTextFile(path, content) {
+  const target = resolve(path);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, `${content.trim()}\n`, "utf-8");
+  return target;
+}
+
 function printHuman(report, url, outPath) {
   console.log("");
   console.log("Vibe Coding 段位报告");
@@ -626,6 +716,7 @@ function printHuman(report, url, outPath) {
   const displayUrl = url.length > 180 ? `${url.slice(0, 180)}...` : url;
   console.log(`云端报告：${displayUrl}`);
   if (outPath) console.log(`本地报告：${outPath}`);
+  if (report.shareImagePromptPath) console.log(`图片报告提示词：${report.shareImagePromptPath}`);
   if (report.strongestEvidence.length) {
     console.log("");
     console.log("最强证据：");
@@ -690,9 +781,16 @@ async function main() {
     url = uploaded.url || `${options.uploadUrl.replace(/\/$/, "")}/#id=${uploaded.id}`;
   }
 
+  const shareImagePrompt = buildShareImagePrompt(report, url);
+  report.shareImagePrompt = shareImagePrompt;
+  let shareImagePromptPath = "";
+  if (options.writeSharePrompt) {
+    shareImagePromptPath = writeTextFile(options.writeSharePrompt, shareImagePrompt);
+    report.shareImagePromptPath = shareImagePromptPath;
+  }
   const outPath = options.write && options.out ? writeReport(options.out, report) : "";
   if (options.printJson) {
-    console.log(JSON.stringify({ report, url, outPath }, null, 2));
+    console.log(JSON.stringify({ report, url, outPath, shareImagePromptPath }, null, 2));
   } else {
     printHuman(report, url, outPath);
   }
