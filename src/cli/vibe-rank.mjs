@@ -503,6 +503,15 @@ function sampleSummary() {
         message: "这不代表能力低，但需要更多用户决策证据来证明人在控。",
       },
     ],
+    drag_factors: [
+      {
+        id: "demo_heavy",
+        label: "Demo 生成偏重",
+        metric: "18%",
+        impact: "Demo 多说明生成速度强，但不能证明生产质量和系统拥有感。",
+        advice: "为 Demo 补上验收、异常处理、数据边界和上线风险记录。",
+      },
+    ],
     rank_gates: [
       {
         id: "level7_user_decision_ratio",
@@ -666,6 +675,7 @@ function buildReport(summary, options) {
     rankCaps,
     rankGates: summary.rank_gates || [],
     qualityFlags,
+    dragFactors: summary.drag_factors || [],
     unlockStatus: summary.unlock_status || {},
     qualityNotes,
     upgradePath,
@@ -816,6 +826,15 @@ function qualityFlagLine(report) {
   return flags
     .slice(0, 3)
     .map((item) => `${item.label || item.id}${item.metric ? ` ${item.metric}` : ""}：${item.message || ""}`)
+    .join("；");
+}
+
+function dragFactorLine(report) {
+  const factors = Array.isArray(report.dragFactors) ? report.dragFactors : [];
+  if (!factors.length) return "暂无明显拖累项。";
+  return factors
+    .slice(0, 3)
+    .map((item) => `${item.label || item.id}${item.metric ? ` ${item.metric}` : ""}：${item.impact || item.advice || ""}`)
     .join("；");
 }
 
@@ -971,6 +990,7 @@ function buildShareImagePrompt(report, url = "") {
   const behaviorMix = behaviorMixLine(report) || "暂无行为结构统计";
   const rankGate = rankGateLine(report);
   const qualityFlags = qualityFlagLine(report);
+  const dragFactors = dragFactorLine(report);
   const insight = statsInsight(report);
   const rankCap = shortText(report.rankCaps?.[0] || report.narrative?.capSummary || "暂无明显封顶原因", 52);
   const upgrade = shortText(report.gateUpgradeAdvice || report.upgradePath?.[0] || report.narrative?.upgradeSummary || "继续沉淀可复用工作流", 52);
@@ -1014,6 +1034,9 @@ ${rankGate}
 
 质量提示：
 ${qualityFlags}
+
+拖累项：
+${dragFactors}
 
 六维画像：
 ${dimensions || "目标定义、边界控制、验证闭环、架构判断、系统归属、方法复制"}
@@ -1093,6 +1116,7 @@ function publicReport(report) {
     rankCaps: report.rankCaps,
     rankGates: report.rankGates,
     qualityFlags: report.qualityFlags,
+    dragFactors: report.dragFactors,
     unlockStatus: report.unlockStatus,
     qualityNotes: report.qualityNotes,
     gateUpgradeAdvice: report.gateUpgradeAdvice,
@@ -1136,6 +1160,10 @@ function printHuman(report, url, outPath) {
   const qualityFlags = qualityFlagLine(report);
   if (qualityFlags) {
     console.log(`质量提示：${qualityFlags}`);
+  }
+  const dragFactors = dragFactorLine(report);
+  if (dragFactors) {
+    console.log(`拖累项：${dragFactors}`);
   }
   console.log("");
   console.log("一句话判定：");

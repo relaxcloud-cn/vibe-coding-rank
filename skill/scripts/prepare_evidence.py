@@ -706,6 +706,105 @@ def quality_flag(
     }
 
 
+def drag_factor(
+    factor_id: str,
+    label: str,
+    metric: str,
+    impact: str,
+    advice: str,
+) -> dict[str, str]:
+    return {
+        "id": factor_id,
+        "label": label,
+        "metric": metric,
+        "impact": impact,
+        "advice": advice,
+    }
+
+
+def build_drag_factors(counts: Counter[str], hard_stats: dict[str, Any]) -> list[dict[str, str]]:
+    signal_total = int(hard_stats.get("signal_count") or 0)
+    analyzed_records = int(hard_stats.get("analyzed_record_count") or 0)
+    promotion_record_count = int(hard_stats.get("promotion_record_count") or 0)
+    strong_evidence_record_count = int(hard_stats.get("strong_evidence_record_count") or 0)
+    weak_count = counts["snippet_generation"] + counts["demo_generation"] + counts["bug_loop"]
+    weak_ratio = ratio(weak_count, signal_total)
+    demo_ratio = ratio(counts["demo_generation"], signal_total)
+    snippet_ratio = ratio(counts["snippet_generation"], signal_total)
+    bug_loop_ratio = ratio(counts["bug_loop"], signal_total)
+    promotion_record_ratio = ratio(promotion_record_count, analyzed_records)
+    strong_record_ratio = ratio(strong_evidence_record_count, promotion_record_count)
+    factors: list[dict[str, str]] = []
+
+    if weak_count >= 8 and weak_ratio >= 0.25:
+        factors.append(
+            drag_factor(
+                "weak_signal_heavy",
+                "弱信号偏重",
+                percent(weak_ratio),
+                "片段、Demo 或修 bug 信号占比较高，会削弱系统归属判断。",
+                "下一轮减少展示“能跑”，多留下目标边界、架构取舍和验收证据。",
+            )
+        )
+
+    if counts["bug_loop"] >= 3 and bug_loop_ratio >= 0.08:
+        factors.append(
+            drag_factor(
+                "bug_loop_heavy",
+                "Bug 循环偏重",
+                percent(bug_loop_ratio),
+                "反复让 AI 修同一类问题，说明迭代控制可能停在局部 patch。",
+                "失败两轮后先做根因分析，决定重构、缩小边界或补测试，再让 AI 执行。",
+            )
+        )
+
+    if counts["demo_generation"] >= 5 and demo_ratio >= 0.12:
+        factors.append(
+            drag_factor(
+                "demo_heavy",
+                "Demo 生成偏重",
+                percent(demo_ratio),
+                "Demo 多说明生成速度强，但不能证明生产质量和系统拥有感。",
+                "为 Demo 补上验收、异常处理、数据边界和上线风险记录。",
+            )
+        )
+
+    if counts["snippet_generation"] >= 5 and snippet_ratio >= 0.12:
+        factors.append(
+            drag_factor(
+                "snippet_heavy",
+                "片段生成偏重",
+                percent(snippet_ratio),
+                "片段和补全能提高速度，但对段位支撑有限。",
+                "把局部实现升级为完整任务：目标、非目标、验收和复盘都要留下记录。",
+            )
+        )
+
+    if promotion_record_count > 0 and strong_record_ratio < 0.25:
+        factors.append(
+            drag_factor(
+                "thin_strong_records",
+                "强记录占比偏低",
+                percent(strong_record_ratio),
+                "高阶记录里真正能支撑架构、验证、归属的强证据不够密。",
+                "每个关键任务至少留下一条用户主导决策和一条验证闭环记录。",
+            )
+        )
+
+    if analyzed_records >= 20 and promotion_record_ratio < 0.1:
+        factors.append(
+            drag_factor(
+                "low_promotion_record_density",
+                "高阶记录密度低",
+                percent(promotion_record_ratio),
+                "大量会话没有形成可评分的高阶行为记录。",
+                "减少闲聊式使用，把真实任务拆成可验收的 AI 协作记录。",
+            )
+        )
+
+    return factors
+
+
 def build_quality_flags(hard_stats: dict[str, Any]) -> list[dict[str, str]]:
     flags: list[dict[str, str]] = []
     raw_records = int(hard_stats.get("raw_record_count") or 0)
@@ -1390,6 +1489,7 @@ def main() -> int:
         args.allow_team_rank,
     )
     quality_flags = build_quality_flags(hard_stats)
+    drag_factors = build_drag_factors(counts, hard_stats)
     level, label, caps, unlocks = choose_rank(
         counts,
         analyzed_record_count,
@@ -1451,6 +1551,7 @@ def main() -> int:
         "rank_gates": rank_gates,
         "rank_caps": caps,
         "quality_flags": quality_flags,
+        "drag_factors": drag_factors,
         "unlock_status": unlocks,
         "quality_notes": [
             "脚本只做证据清洗和自动初筛，不是最终 AI 段位判定。",

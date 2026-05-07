@@ -68,6 +68,7 @@ The script only performs local cleaning, evidence classification, and conservati
 - Treat `usage_stats` and `hard_stats` as objective usage/sample-quality facts, not promotion evidence.
 - Use `hardStatCards` to explain objective stats to users; do not turn token volume into a rank boost.
 - Use `qualityFlags` to surface sample or judgment risks such as low user control, low user decision ratio, assistant-heavy evidence, or token concentration.
+- Use `dragFactors` to explain behaviors dragging the rank down, especially bug loops, demo-heavy work, snippet-heavy work, weak-signal-heavy logs, or thin strong records.
 - Prefer `gateUpgradeAdvice` for the next step because it is tied to the first failed rank gate above the current rank.
 - Use `rank_caps` and `unlock_status` before assigning a high rank.
 - 八品 requires proof that the method was used by others or became a team mechanism.

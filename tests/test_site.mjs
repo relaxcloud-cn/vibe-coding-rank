@@ -73,6 +73,15 @@ async function renderAt(hash, fetchResponse = {}) {
             message: "高阶信号主要不是由用户主动定义目标、边界、架构或验收触发。",
           },
         ],
+        dragFactors: [
+          {
+            id: "bug_loop_heavy",
+            label: "Bug 循环偏重",
+            metric: "12%",
+            impact: "反复让 AI 修同一类问题，说明迭代控制可能停在局部 patch。",
+            advice: "失败两轮后先做根因分析。",
+          },
+        ],
         privacy: { rawLogsUploaded: false },
       },
     }),
@@ -111,6 +120,10 @@ assert.equal(shortDom.window.document.querySelector("#hard-stat-grid .hard-stat-
 assert.equal(
   shortDom.window.document.querySelector("#quality-flags").textContent,
   "主动控制偏低 1%：高阶信号主要不是由用户主动定义目标、边界、架构或验收触发。",
+);
+assert.equal(
+  shortDom.window.document.querySelector("#drag-factors").textContent,
+  "Bug 循环偏重 12%：反复让 AI 修同一类问题，说明迭代控制可能停在局部 patch。",
 );
 shortDom.window.document.querySelector("#copy-report-link").click();
 await new Promise((resolveReady) => setTimeout(resolveReady, 0));

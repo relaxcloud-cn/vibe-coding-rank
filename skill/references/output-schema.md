@@ -183,6 +183,15 @@
       "message": "这不代表能力低，但需要更多用户决策证据来证明人在控。"
     }
   ],
+  "dragFactors": [
+    {
+      "id": "bug_loop_heavy",
+      "label": "Bug 循环偏重",
+      "metric": "12%",
+      "impact": "反复让 AI 修同一类问题，说明迭代控制可能停在局部 patch。",
+      "advice": "失败两轮后先做根因分析，决定重构、缩小边界或补测试，再让 AI 执行。"
+    }
+  ],
   "statsInsight": "主动控制占比充足，用户在目标、边界、架构和验收上有明确主导痕迹。",
   "dimensionProfile": [
     {

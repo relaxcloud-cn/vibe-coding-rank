@@ -245,6 +245,48 @@ class ScriptTests(unittest.TestCase):
             self.assertFalse(data["unlock_status"]["level8"]["unlocked"])
             self.assertIn("九品", " ".join(data["rank_caps"]))
 
+    def test_prepare_evidence_reports_drag_factors_for_weak_signal_heavy_logs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            evidence = root / "evidence.jsonl"
+            summary = root / "summary.json"
+            rows = []
+            for index in range(8):
+                rows.append(
+                    {
+                        "source": "generic",
+                        "path": f"session.jsonl:{index + 1}",
+                        "role": "user",
+                        "text": "做一个 demo 页面，原型先跑起来，继续修 bug，还是不对，再修一下。",
+                    }
+                )
+            rows.append(
+                {
+                    "source": "generic",
+                    "path": "session.jsonl:20",
+                    "role": "user",
+                    "text": "先给计划，验收条件是 test 通过，不要改支付模块。",
+                }
+            )
+            evidence.write_text(
+                "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+                encoding="utf-8",
+            )
+
+            run_script(
+                "prepare_evidence.py",
+                "--input",
+                str(evidence),
+                "--output",
+                str(summary),
+            )
+
+            data = json.loads(summary.read_text(encoding="utf-8"))
+            factor_ids = {item["id"] for item in data["drag_factors"]}
+            self.assertIn("weak_signal_heavy", factor_ids)
+            self.assertIn("bug_loop_heavy", factor_ids)
+            self.assertIn("demo_heavy", factor_ids)
+
     def test_prepare_evidence_filters_system_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -452,6 +494,7 @@ class ScriptTests(unittest.TestCase):
             self.assertEqual(data["excluded_reason_counts"]["role:usage_stats"], 2)
             self.assertIn("quality_flags", data)
             self.assertTrue(any(item["id"] == "peak_day_concentrated" for item in data["quality_flags"]))
+            self.assertIn("drag_factors", data)
             self.assertLessEqual(data["preliminary_rank"]["level"], 4)
 
     def test_prepare_evidence_caps_single_dense_record(self) -> None:

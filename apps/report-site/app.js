@@ -201,6 +201,15 @@ const SAMPLE = {
       message: "这不代表能力低，但需要更多用户决策证据来证明人在控。",
     },
   ],
+  dragFactors: [
+    {
+      id: "demo_heavy",
+      label: "Demo 生成偏重",
+      metric: "18%",
+      impact: "Demo 多说明生成速度强，但不能证明生产质量和系统拥有感。",
+      advice: "为 Demo 补上验收、异常处理、数据边界和上线风险记录。",
+    },
+  ],
   statsInsight: "样本跨越多个工作日，稳定性比单次会话更可信。",
   unlockStatus: {
     level8: {
@@ -308,6 +317,7 @@ function render(report) {
   document.querySelector("#stats-insight").textContent = statsInsight(report);
   document.querySelector("#rank-gate-summary").textContent = rankGateSummary(report);
   document.querySelector("#quality-flags").textContent = qualityFlagSummary(report);
+  document.querySelector("#drag-factors").textContent = dragFactorSummary(report);
   document.querySelector("#why-this-rank").textContent = report.whyThisRank || report.narrative?.rankReason || SAMPLE.whyThisRank;
   document.querySelector("#why-not-next").textContent = report.whyNotNextRank || report.narrative?.nextRankGap || SAMPLE.whyNotNextRank;
   renderQuality(report);
@@ -349,6 +359,7 @@ function renderError(error) {
   document.querySelector("#stats-insight").textContent = "暂无";
   document.querySelector("#rank-gate-summary").textContent = "暂无";
   document.querySelector("#quality-flags").textContent = "暂无";
+  document.querySelector("#drag-factors").textContent = "暂无";
   document.querySelector("#hard-stat-grid").innerHTML = "";
 }
 
@@ -518,6 +529,15 @@ function qualityFlagSummary(report) {
     .join("；");
 }
 
+function dragFactorSummary(report) {
+  const factors = Array.isArray(report.dragFactors) ? report.dragFactors : [];
+  if (!factors.length) return "暂无明显拖累项。";
+  return factors
+    .slice(0, 2)
+    .map((item) => `${item.label || item.id}${item.metric ? ` ${item.metric}` : ""}：${item.impact || item.advice || ""}`)
+    .join("；");
+}
+
 function shortText(value, length = 42) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   if (text.length <= length) return text;
@@ -651,6 +671,9 @@ ${rankGateSummary(report)}
 
 质量提示：
 ${qualityFlagSummary(report)}
+
+拖累项：
+${dragFactorSummary(report)}
 
 六维画像：
 ${dimensions}
