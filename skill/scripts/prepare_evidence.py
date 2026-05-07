@@ -12,6 +12,7 @@ import argparse
 import json
 import re
 from collections import Counter, defaultdict
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -405,6 +406,32 @@ def usage_from_record(record: dict[str, Any]) -> dict[str, int] | None:
     }
 
 
+def ratio(numerator: int, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return round(numerator / denominator, 4)
+
+
+def parse_iso_day(day: str) -> date | None:
+    try:
+        return date.fromisoformat(day)
+    except ValueError:
+        return None
+
+
+def day_span(days: set[str]) -> tuple[str, str, int]:
+    known_days = sorted(day for day in days if day != "unknown")
+    if not known_days:
+        return "", "", 0
+    first = known_days[0]
+    last = known_days[-1]
+    first_date = parse_iso_day(first)
+    last_date = parse_iso_day(last)
+    if first_date and last_date:
+        return first, last, (last_date - first_date).days + 1
+    return first, last, len(known_days)
+
+
 def build_usage_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
     totals: Counter[str] = Counter()
     by_day: Counter[str] = Counter()
@@ -432,29 +459,38 @@ def build_usage_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
     peak_session, peak_session_tokens = ("", 0)
     if by_session:
         peak_session, peak_session_tokens = by_session.most_common(1)[0]
+    active_day_count = len([day for day in by_day if day != "unknown"])
+    active_session_count = len(by_session)
+    first_day, last_day, active_span_days = day_span(set(by_day))
+    total_tokens = totals["total_tokens"]
 
     return {
         "usage_record_count": usage_records,
-        "total_tokens": totals["total_tokens"],
+        "total_tokens": total_tokens,
         "input_tokens": totals["input_tokens"],
         "cached_input_tokens": totals["cached_input_tokens"],
         "cache_creation_input_tokens": totals["cache_creation_input_tokens"],
         "output_tokens": totals["output_tokens"],
         "reasoning_output_tokens": totals["reasoning_output_tokens"],
-        "active_days": len([day for day in by_day if day != "unknown"]),
-        "active_sessions": len(by_session),
+        "active_days": active_day_count,
+        "active_sessions": active_session_count,
+        "first_active_day": first_day,
+        "last_active_day": last_day,
+        "active_span_days": active_span_days,
+        "average_day_tokens": round(total_tokens / active_day_count) if active_day_count else 0,
+        "average_session_tokens": round(total_tokens / active_session_count) if active_session_count else 0,
         "peak_record_tokens": peak_record,
         "peak_day": peak_day,
         "peak_day_tokens": peak_day_tokens,
         "peak_session_tokens": peak_session_tokens,
+        "peak_record_token_share": ratio(peak_record, total_tokens),
+        "peak_day_token_share": ratio(peak_day_tokens, total_tokens),
+        "peak_session_token_share": ratio(peak_session_tokens, total_tokens),
+        "cached_input_token_share": ratio(totals["cached_input_tokens"], total_tokens),
+        "output_token_share": ratio(totals["output_tokens"], total_tokens),
+        "reasoning_token_share": ratio(totals["reasoning_output_tokens"], total_tokens),
         "token_note": "Token 是 AI 投入强度指标，不参与段位升品。",
     }
-
-
-def ratio(numerator: int, denominator: int) -> float:
-    if denominator <= 0:
-        return 0.0
-    return round(numerator / denominator, 4)
 
 
 def build_hard_stats(
@@ -469,11 +505,29 @@ def build_hard_stats(
     user_control_count: int,
     user_control_source_count: int,
     usage_stats: dict[str, Any],
+    counts: Counter[str],
+    strong_counts: Counter[str],
+    strong_signal_sources: dict[str, set[str]],
+    dimension_profile: list[dict[str, Any]],
+    analyzed_days: set[str],
 ) -> dict[str, Any]:
     usage_record_count = int(usage_stats.get("usage_record_count") or 0)
     tool_result_count = excluded_reasons.get("role:tool_result", 0)
     context_excluded_count = max(0, excluded_total - usage_record_count - tool_result_count)
     scoring_candidate_count = max(0, total_records - usage_record_count)
+    signal_type_count = sum(1 for signal in SIGNALS if counts[signal] > 0)
+    strong_signal_type_count = sum(1 for signal in SIGNALS if strong_counts[signal] > 0)
+    dominant_signal, dominant_signal_count = ("", 0)
+    if counts:
+        dominant_signal, dominant_signal_count = counts.most_common(1)[0]
+    strong_sources: set[str] = set()
+    for sources in strong_signal_sources.values():
+        strong_sources.update(sources)
+    evidence_first_day, evidence_last_day, evidence_span_days = day_span(analyzed_days)
+    established_dimension_count = sum(
+        1 for item in dimension_profile if item.get("status") in {"成立", "稳定"}
+    )
+    stable_dimension_count = sum(1 for item in dimension_profile if item.get("status") == "稳定")
     return {
         "raw_record_count": total_records,
         "analyzed_record_count": analyzed_record_count,
@@ -484,14 +538,28 @@ def build_hard_stats(
         "scoring_candidate_record_count": scoring_candidate_count,
         "scorable_record_ratio": ratio(analyzed_record_count, scoring_candidate_count),
         "source_count": source_count,
+        "evidence_first_day": evidence_first_day,
+        "evidence_last_day": evidence_last_day,
+        "evidence_span_days": evidence_span_days,
+        "average_records_per_source": ratio(analyzed_record_count, source_count),
         "signal_count": signal_total,
         "signal_density": ratio(signal_total, analyzed_record_count),
+        "signal_type_count": signal_type_count,
+        "signal_coverage_ratio": ratio(signal_type_count, len(SIGNALS)),
+        "dominant_signal": dominant_signal,
+        "dominant_signal_count": dominant_signal_count,
+        "dominant_signal_ratio": ratio(dominant_signal_count, signal_total),
         "strong_evidence_count": strong_evidence_count,
         "strong_evidence_density": ratio(strong_evidence_count, analyzed_record_count),
+        "strong_signal_type_count": strong_signal_type_count,
+        "strong_evidence_source_count": len(strong_sources),
+        "average_strong_evidence_per_source": ratio(strong_evidence_count, source_count),
         "promotion_evidence_count": promotion_evidence_count,
         "user_control_count": user_control_count,
         "user_control_source_count": user_control_source_count,
         "user_control_ratio": ratio(user_control_count, promotion_evidence_count),
+        "established_dimension_count": established_dimension_count,
+        "stable_dimension_count": stable_dimension_count,
         "total_tokens": int(usage_stats.get("total_tokens") or 0),
         "input_tokens": int(usage_stats.get("input_tokens") or 0),
         "cached_input_tokens": int(usage_stats.get("cached_input_tokens") or 0),
@@ -500,10 +568,21 @@ def build_hard_stats(
         "reasoning_output_tokens": int(usage_stats.get("reasoning_output_tokens") or 0),
         "active_days": int(usage_stats.get("active_days") or 0),
         "active_sessions": int(usage_stats.get("active_sessions") or 0),
+        "first_active_day": str(usage_stats.get("first_active_day") or ""),
+        "last_active_day": str(usage_stats.get("last_active_day") or ""),
+        "active_span_days": int(usage_stats.get("active_span_days") or 0),
+        "average_day_tokens": int(usage_stats.get("average_day_tokens") or 0),
+        "average_session_tokens": int(usage_stats.get("average_session_tokens") or 0),
         "peak_record_tokens": int(usage_stats.get("peak_record_tokens") or 0),
         "peak_day": str(usage_stats.get("peak_day") or ""),
         "peak_day_tokens": int(usage_stats.get("peak_day_tokens") or 0),
         "peak_session_tokens": int(usage_stats.get("peak_session_tokens") or 0),
+        "peak_record_token_share": float(usage_stats.get("peak_record_token_share") or 0),
+        "peak_day_token_share": float(usage_stats.get("peak_day_token_share") or 0),
+        "peak_session_token_share": float(usage_stats.get("peak_session_token_share") or 0),
+        "cached_input_token_share": float(usage_stats.get("cached_input_token_share") or 0),
+        "output_token_share": float(usage_stats.get("output_token_share") or 0),
+        "reasoning_token_share": float(usage_stats.get("reasoning_token_share") or 0),
         "note": "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。",
     }
 
@@ -742,9 +821,11 @@ def main() -> int:
     evidence_cards: list[dict[str, Any]] = []
     weak_signals: list[dict[str, Any]] = []
     analyzed_sources: set[str] = set()
+    analyzed_days: set[str] = set()
     strong_counts: Counter[str] = Counter()
     promotion_counts: Counter[str] = Counter()
     signal_sources: dict[str, set[str]] = defaultdict(set)
+    strong_signal_sources: dict[str, set[str]] = defaultdict(set)
     user_control_count = 0
     user_control_sources: set[str] = set()
 
@@ -757,6 +838,7 @@ def main() -> int:
             continue
         session = source_session(record)
         analyzed_sources.add(session)
+        analyzed_days.add(source_day(record))
         signals = detect_signals(text, patterns)
         for signal in signals:
             counts[signal] += 1
@@ -769,6 +851,7 @@ def main() -> int:
                     user_control_sources.add(session)
             if meta["strength"] == "强" and is_promotion_signal(signal):
                 strong_counts[signal] += 1
+                strong_signal_sources[signal].add(session)
             if len(evidence[signal]) < args.max_evidence:
                 evidence[signal].append(
                     {
@@ -804,6 +887,11 @@ def main() -> int:
         user_control_count,
         user_control_source_count,
         usage_stats,
+        counts,
+        strong_counts,
+        strong_signal_sources,
+        dimension_profile,
+        analyzed_days,
     )
     method_replication_status = next(
         (

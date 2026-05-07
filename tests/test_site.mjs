@@ -34,6 +34,13 @@ async function renderAt(hash, fetchResponse = {}) {
         verdict: "测试报告",
         strongestEvidence: [{ label: "架构判断证据", reason: "关注系统边界。" }],
         dimensionProfile: [{ label: "架构判断", status: "成立", score: 65 }],
+        hardStats: {
+          evidence_span_days: 4,
+          signal_coverage_ratio: 0.5,
+          dominant_signal_ratio: 0.25,
+          established_dimension_count: 3,
+          peak_day_token_share: 0.4,
+        },
         privacy: { rawLogsUploaded: false },
       },
     }),
@@ -47,6 +54,10 @@ const shortDom = await renderAt("#id=abc123");
 assert.equal(
   shortDom.window.document.querySelector("#share-note").textContent,
   "当前是短链接，报告 JSON 已脱敏后存储，原始日志不会上传。",
+);
+assert.equal(
+  shortDom.window.document.querySelector("#evidence-structure").textContent,
+  "证据跨度 4 天；信号覆盖度 50%；最高信号集中度 25%；成立维度 3/6；峰值日 token 占比 40%。",
 );
 shortDom.window.document.querySelector("#copy-report-link").click();
 await new Promise((resolveReady) => setTimeout(resolveReady, 0));

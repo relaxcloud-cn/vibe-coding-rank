@@ -38,10 +38,21 @@ const SAMPLE = {
     reasoning_output_tokens: 0,
     active_days: 6,
     active_sessions: 12,
+    first_active_day: "2026-05-02",
+    last_active_day: "2026-05-07",
+    active_span_days: 6,
+    average_day_tokens: 213333,
+    average_session_tokens: 106667,
     peak_record_tokens: 86000,
     peak_day: "2026-05-07",
     peak_day_tokens: 420000,
     peak_session_tokens: 260000,
+    peak_record_token_share: 0.0672,
+    peak_day_token_share: 0.3281,
+    peak_session_token_share: 0.2031,
+    cached_input_token_share: 0.2813,
+    output_token_share: 0.0547,
+    reasoning_token_share: 0,
     token_note: "Token 是 AI 投入强度指标，不参与段位升品。",
   },
   hardStats: {
@@ -54,14 +65,28 @@ const SAMPLE = {
     scoring_candidate_record_count: 128,
     scorable_record_ratio: 0.9375,
     source_count: 3,
+    evidence_first_day: "2026-05-02",
+    evidence_last_day: "2026-05-07",
+    evidence_span_days: 6,
+    average_records_per_source: 40,
     signal_count: 56,
     signal_density: 0.4667,
+    signal_type_count: 7,
+    signal_coverage_ratio: 0.6364,
+    dominant_signal: "validation",
+    dominant_signal_count: 13,
+    dominant_signal_ratio: 0.2321,
     strong_evidence_count: 12,
     strong_evidence_density: 0.1,
+    strong_signal_type_count: 3,
+    strong_evidence_source_count: 3,
+    average_strong_evidence_per_source: 4,
     promotion_evidence_count: 48,
     user_control_count: 8,
     user_control_source_count: 3,
     user_control_ratio: 0.1667,
+    established_dimension_count: 5,
+    stable_dimension_count: 1,
     total_tokens: 1280000,
     input_tokens: 760000,
     cached_input_tokens: 360000,
@@ -70,10 +95,21 @@ const SAMPLE = {
     reasoning_output_tokens: 0,
     active_days: 6,
     active_sessions: 12,
+    first_active_day: "2026-05-02",
+    last_active_day: "2026-05-07",
+    active_span_days: 6,
+    average_day_tokens: 213333,
+    average_session_tokens: 106667,
     peak_record_tokens: 86000,
     peak_day: "2026-05-07",
     peak_day_tokens: 420000,
     peak_session_tokens: 260000,
+    peak_record_token_share: 0.0672,
+    peak_day_token_share: 0.3281,
+    peak_session_token_share: 0.2031,
+    cached_input_token_share: 0.2813,
+    output_token_share: 0.0547,
+    reasoning_token_share: 0,
     note: "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。",
   },
   dimensionProfile: [
@@ -186,6 +222,7 @@ function render(report) {
   document.querySelector("#unlock-status").textContent = unlockText(report);
   document.querySelector("#usage-summary").textContent = usageSummary(report);
   document.querySelector("#quality-summary").textContent = qualitySummary(report);
+  document.querySelector("#evidence-structure").textContent = evidenceStructureSummary(report);
   document.querySelector("#why-this-rank").textContent = report.whyThisRank || report.narrative?.rankReason || SAMPLE.whyThisRank;
   document.querySelector("#why-not-next").textContent = report.whyNotNextRank || report.narrative?.nextRankGap || SAMPLE.whyNotNextRank;
   renderQuality(report);
@@ -221,6 +258,7 @@ function renderError(error) {
   document.querySelector("#unlock-status").textContent = "未加载";
   document.querySelector("#usage-summary").textContent = "暂无";
   document.querySelector("#quality-summary").textContent = "暂无";
+  document.querySelector("#evidence-structure").textContent = "暂无";
 }
 
 function judgmentText(report) {
@@ -288,6 +326,17 @@ function qualitySummary(report) {
   return `有效样本 ${analyzed}/${candidate}；强证据密度 ${strongDensity}；主动控制占比 ${userControlRatio}。`;
 }
 
+function evidenceStructureSummary(report) {
+  const stats = report.hardStats || {};
+  const parts = [];
+  if (stats.evidence_span_days) parts.push(`证据跨度 ${stats.evidence_span_days} 天`);
+  if (stats.signal_coverage_ratio) parts.push(`信号覆盖度 ${formatPercent(stats.signal_coverage_ratio)}`);
+  if (stats.dominant_signal_ratio) parts.push(`最高信号集中度 ${formatPercent(stats.dominant_signal_ratio)}`);
+  if (stats.established_dimension_count) parts.push(`成立维度 ${stats.established_dimension_count}/6`);
+  if (stats.peak_day_token_share) parts.push(`峰值日 token 占比 ${formatPercent(stats.peak_day_token_share)}`);
+  return parts.length ? `${parts.join("；")}。` : "暂无证据结构统计。";
+}
+
 function shortText(value, length = 42) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   if (text.length <= length) return text;
@@ -331,6 +380,9 @@ Exact Chinese text to include:
 
 硬统计：
 ${hardStatsLine(report)}
+
+证据结构：
+${evidenceStructureSummary(report)}
 
 六维画像：
 ${dimensions}

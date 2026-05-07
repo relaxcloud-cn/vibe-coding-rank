@@ -61,8 +61,12 @@ class CliTests(unittest.TestCase):
         self.assertIn("shareImagePrompt", payload["report"])
         self.assertIn("Vibe Coding 九品报告", payload["report"]["shareImagePrompt"])
         self.assertIn("No raw logs", payload["report"]["shareImagePrompt"])
+        self.assertIn("证据结构", payload["report"]["shareImagePrompt"])
         self.assertIn("narrative", payload["report"])
         self.assertIn("你现在是", payload["report"]["narrative"]["oneLine"])
+        self.assertEqual(payload["report"]["usageStats"]["average_day_tokens"], 213333)
+        self.assertEqual(payload["report"]["hardStats"]["signal_coverage_ratio"], 0.6364)
+        self.assertEqual(payload["report"]["hardStats"]["established_dimension_count"], 5)
 
     def test_demo_can_write_share_image_prompt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

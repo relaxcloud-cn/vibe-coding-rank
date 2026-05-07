@@ -58,10 +58,18 @@
 - 峰值日 token：{peak_day_tokens}
 - 活跃天数：{active_days}
 - 活跃会话：{active_sessions}
+- 活跃跨度：{active_span_days}
+- 日均 token：{average_day_tokens}
+- 会话均 token：{average_session_tokens}
 - 峰值会话 token：{peak_session_tokens}
+- 峰值日 token 占比：{peak_day_token_share}
 - 有效样本比例：{scorable_record_ratio}
 - 强证据密度：{strong_evidence_density}
 - 主动控制占比：{user_control_ratio}
+- 证据跨度：{evidence_span_days}
+- 信号覆盖度：{signal_coverage_ratio}
+- 最高信号集中度：{dominant_signal_ratio}
+- 成立维度数：{established_dimension_count}/6
 
 说明：硬统计只描述 AI 投入强度和样本质量，不参与段位升品。
 
