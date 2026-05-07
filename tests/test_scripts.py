@@ -87,6 +87,57 @@ class ScriptTests(unittest.TestCase):
             self.assertGreaterEqual(data["heuristic_rank"]["level"], 6)
             self.assertIn("九品", " ".join(data["rank_caps"]))
 
+    def test_summarize_evidence_filters_system_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            evidence = root / "evidence.jsonl"
+            summary = root / "summary.json"
+            rows = [
+                {
+                    "source": "codex",
+                    "path": "session.jsonl:1",
+                    "role": "session_meta",
+                    "text": "You are Codex, a coding agent based on GPT-5. Use workflow and tests.",
+                },
+                {
+                    "source": "codex",
+                    "path": "session.jsonl:2",
+                    "role": "response_item",
+                    "text": "# AGENTS.md instructions for /repo <INSTRUCTIONS> team playbook workflow",
+                },
+                {
+                    "source": "codex",
+                    "path": "session.jsonl:3",
+                    "role": "compacted",
+                    "text": "<permissions instructions> Filesystem sandboxing defines build test scope.",
+                },
+                {
+                    "source": "codex",
+                    "path": "session.jsonl:4",
+                    "role": "user",
+                    "text": "先给计划，验收条件是 test 通过，不要改支付模块，解释模块边界和 rollback。",
+                },
+            ]
+            evidence.write_text(
+                "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+                encoding="utf-8",
+            )
+
+            run_script(
+                "summarize_evidence.py",
+                "--input",
+                str(evidence),
+                "--output",
+                str(summary),
+            )
+
+            data = json.loads(summary.read_text(encoding="utf-8"))
+            self.assertEqual(data["record_count"], 4)
+            self.assertEqual(data["analyzed_record_count"], 1)
+            self.assertEqual(data["excluded_record_count"], 3)
+            self.assertNotIn("workflow_asset", data["signal_counts"])
+            self.assertIn("已过滤 3 条", " ".join(data["rank_caps"]))
+
 
 if __name__ == "__main__":
     unittest.main()

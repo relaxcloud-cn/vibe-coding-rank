@@ -20,6 +20,9 @@ const SAMPLE = {
     systemOwnership: "强",
   },
   signalCount: 56,
+  recordCount: 128,
+  analyzedRecordCount: 120,
+  excludedRecordCount: 8,
   evidence: [
     { signal: "目标", snippet: "实现这个用户故事，验收条件如下；不要改支付模块，先给计划再动代码。" },
     { signal: "验证", snippet: "已运行 build、lint、单元测试和截图 smoke check，并复查 diff。" },
@@ -27,6 +30,7 @@ const SAMPLE = {
     { signal: "工作流", snippet: "把这次成功流程沉淀进 AGENTS.md，后续同类任务按 gate 执行。" },
   ],
   rankCaps: ["缺少团队级 playbook、共享 workflow 或方法复制证据。"],
+  upgradePath: ["把成功协作沉淀成 AGENTS.md、rules、skill 或团队 playbook。"],
 };
 
 function decodeBase64Url(value) {
@@ -84,8 +88,32 @@ function render(report) {
   document.querySelector("#confidence").textContent = translateConfidence(rank.confidence || "low");
   document.querySelector("#ownership").textContent = translateOwnership(rank.systemOwnership || "weak");
   document.querySelector("#signals").textContent = report.signalCount || 0;
+  document.querySelector("#records").textContent = report.analyzedRecordCount ?? report.recordCount ?? 0;
+  document.querySelector("#rank-cap").textContent = firstText(report.rankCaps) || SAMPLE.rankCaps[0];
+  document.querySelector("#upgrade-path").textContent = firstText(report.upgradePath) || SAMPLE.upgradePath[0];
+  renderQuality(report);
   renderRail(level);
   renderEvidence(report);
+}
+
+function firstText(items) {
+  if (!Array.isArray(items) || !items.length) return "";
+  const first = items[0];
+  if (typeof first === "string") return first;
+  return first.cap || first.summary || "";
+}
+
+function renderQuality(report) {
+  const note = document.querySelector("#quality-note");
+  const excluded = Number(report.excludedRecordCount || 0);
+  const analyzed = Number(report.analyzedRecordCount ?? report.recordCount ?? 0);
+  const total = Number(report.recordCount || analyzed);
+  if (excluded > 0) {
+    note.hidden = false;
+    note.textContent = `已过滤 ${excluded} 条系统上下文，实际分析 ${analyzed}/${total} 条记录。`;
+    return;
+  }
+  note.hidden = true;
 }
 
 function translateConfidence(value) {

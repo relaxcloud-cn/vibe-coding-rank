@@ -134,6 +134,12 @@ function sampleSummary() {
   return {
     analysis_version: "0.1-demo",
     record_count: 128,
+    analyzed_record_count: 120,
+    excluded_record_count: 8,
+    excluded_reason_counts: {
+      agents_context: 5,
+      codex_system_prompt: 3,
+    },
     signal_count: 56,
     signal_counts: {
       context_boundary: 11,
@@ -220,6 +226,9 @@ function buildReport(summary, options) {
       label: RANKS[nextLevel],
     },
     recordCount: summary.record_count || 0,
+    analyzedRecordCount: summary.analyzed_record_count ?? summary.record_count ?? 0,
+    excludedRecordCount: summary.excluded_record_count || 0,
+    excludedReasonCounts: summary.excluded_reason_counts || {},
     signalCount: summary.signal_count || 0,
     signalCounts: summary.signal_counts || {},
     evidence: flattenEvidence(summary.evidence),
@@ -269,6 +278,10 @@ function printHuman(report, url, outPath) {
   console.log(`Score: ${report.rank.score}`);
   console.log(`Confidence: ${report.rank.confidence}`);
   console.log(`System ownership: ${report.rank.systemOwnership}`);
+  if (report.excludedRecordCount) {
+    console.log(`Evidence analyzed: ${report.analyzedRecordCount}/${report.recordCount} records`);
+    console.log(`Filtered context records: ${report.excludedRecordCount}`);
+  }
   console.log(`Cloud report: ${url}`);
   if (outPath) console.log(`Local report: ${outPath}`);
   console.log("");

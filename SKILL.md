@@ -55,6 +55,7 @@ python3 "$SKILL_DIR/scripts/summarize_evidence.py" \
 - `references/vibe-coding-rank.md` for the rank model.
 - `references/evidence-rubric.md` for signal interpretation.
 - `references/output-schema.md` for the expected report shape.
+- `references/image-report-prompt.md` when the user asks for a share image or image report.
 
 4. Produce a concise report:
 
@@ -64,9 +65,17 @@ python3 "$SKILL_DIR/scripts/summarize_evidence.py" \
 - Evidence that caps the rank.
 - Next-rank upgrade path.
 
+5. If the user asks for a 图片报告, 海报, 朋友圈图, or share image, generate it with Imagen/imagegen:
+
+- Use only sanitized report facts: rank, score, confidence, top signal summaries, rank caps, and next step.
+- Do not include raw transcript snippets, local file paths, session IDs, customer data, source code, tokens, or secrets.
+- Keep Chinese copy short and large enough to read.
+- Use `references/image-report-prompt.md` as the prompt template.
+
 ## Ranking Rules
 
 - Rank by observed behavior, not claimed intent.
+- Exclude system prompts, developer instructions, AGENTS auto-injected context, tool policies, environment context, and compacted conversation summaries from scoring.
 - If evidence is thin, say so and lower confidence.
 - Do not assign 八品 or 九品 from private logs alone unless there is clear team-level or public paradigm-level evidence.
 - Distinguish generation from ownership:

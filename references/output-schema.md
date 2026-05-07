@@ -8,6 +8,13 @@ Return a concise JSON-like report plus a short human explanation.
   "score": 72,
   "confidence": "medium",
   "system_ownership": "weak | emerging | strong | exceptional",
+  "record_count": 128,
+  "analyzed_record_count": 120,
+  "excluded_record_count": 8,
+  "excluded_reason_counts": {
+    "agents_context": 5,
+    "codex_system_prompt": 3
+  },
   "evidence": [
     {
       "signal": "context_boundary",

@@ -133,6 +133,25 @@ RANKS = [
     (9, "九品 · 大宗师"),
 ]
 
+EXCLUDED_ROLES = {
+    "system",
+    "developer",
+    "session_meta",
+    "compacted",
+}
+
+EXCLUDED_TEXT_PATTERNS: list[tuple[str, str]] = [
+    ("codex_system_prompt", r"\bYou are Codex, a coding agent\b"),
+    ("chatgpt_system_prompt", r"\bYou are ChatGPT\b"),
+    ("permissions_context", r"<permissions instructions>|Filesystem sandboxing defines"),
+    ("agents_context", r"# AGENTS\.md instructions for|<INSTRUCTIONS>"),
+    ("environment_context", r"<environment_context>|</environment_context>"),
+    ("collaboration_context", r"<collaboration_mode>|</collaboration_mode>"),
+    ("skills_context", r"<skills_instructions>|</skills_instructions>|## Skills\s+A skill is"),
+    ("tool_schema", r"^# Tools\b|Namespace:\s+\w+|tool for accessing the internet"),
+    ("system_policy", r"Knowledge cutoff:|Current date:|system message|developer message"),
+]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -147,6 +166,13 @@ def compile_patterns() -> dict[str, list[re.Pattern[str]]]:
         name: [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
         for name, patterns in SIGNALS.items()
     }
+
+
+def compile_excluded_patterns() -> list[tuple[str, re.Pattern[str]]]:
+    return [
+        (name, re.compile(pattern, re.IGNORECASE | re.MULTILINE))
+        for name, pattern in EXCLUDED_TEXT_PATTERNS
+    ]
 
 
 def load_records(path: Path) -> list[dict[str, Any]]:
@@ -176,6 +202,19 @@ def snippet(text: str, length: int = 180) -> str:
     return compact[:length]
 
 
+def exclusion_reason(record: dict[str, Any], patterns: list[tuple[str, re.Pattern[str]]]) -> str | None:
+    role = str(record.get("role", "")).strip().lower()
+    if role in EXCLUDED_ROLES:
+        return f"role:{role}"
+
+    text = str(record.get("text", ""))
+    for name, pattern in patterns:
+        if pattern.search(text):
+            return name
+
+    return None
+
+
 def choose_rank(counts: Counter[str], total_records: int) -> tuple[int, str, list[str]]:
     caps: list[str] = []
     if total_records == 0:
@@ -202,7 +241,7 @@ def choose_rank(counts: Counter[str], total_records: int) -> tuple[int, str, lis
         level = max(level, 6)
     if has_architecture and has_ownership and has_validation and has_orchestration:
         level = max(level, 7)
-    if has_team and has_workflow:
+    if has_team and has_workflow and counts["team_system"] >= 3 and counts["workflow_asset"] >= 3:
         level = max(level, 8)
 
     if level >= 7 and not has_ownership:
@@ -217,6 +256,8 @@ def choose_rank(counts: Counter[str], total_records: int) -> tuple[int, str, lis
     if level >= 8 and not has_team:
         level = 7
         caps.append("缺少团队级 playbook、共享 workflow 或方法复制证据。")
+    if level < 8 and has_team and has_workflow:
+        caps.append("团队/工作流信号还不够强；八品需要清晰证明方法被他人复用，而不只是文本里出现 team、playbook 或 rules。")
 
     caps.append("九品 · 大宗师 需要公开范式影响证据，不能仅凭私有会话自动判定。")
     return level, RANKS[level][1], caps
@@ -234,13 +275,19 @@ def main() -> int:
     args = parse_args()
     records = load_records(Path(args.input))
     patterns = compile_patterns()
+    excluded_patterns = compile_excluded_patterns()
     counts: Counter[str] = Counter()
+    excluded_reasons: Counter[str] = Counter()
     evidence: dict[str, list[dict[str, str]]] = defaultdict(list)
 
     for record in records:
         text = str(record.get("text", ""))
         path = str(record.get("path", ""))
         role = str(record.get("role", "unknown"))
+        reason = exclusion_reason(record, excluded_patterns)
+        if reason:
+            excluded_reasons[reason] += 1
+            continue
         for signal in detect_signals(text, patterns):
             counts[signal] += 1
             if len(evidence[signal]) < args.max_evidence:
@@ -252,18 +299,25 @@ def main() -> int:
                     }
                 )
 
-    level, label, caps = choose_rank(counts, len(records))
+    excluded_total = sum(excluded_reasons.values())
+    analyzed_record_count = len(records) - excluded_total
+    level, label, caps = choose_rank(counts, analyzed_record_count)
     signal_total = sum(counts.values())
+    if excluded_total:
+        caps.insert(0, f"已过滤 {excluded_total} 条系统提示、AGENTS 注入或压缩上下文；这些不计入能力评分。")
     summary = {
         "analysis_version": "0.1",
         "record_count": len(records),
+        "analyzed_record_count": analyzed_record_count,
+        "excluded_record_count": excluded_total,
+        "excluded_reason_counts": dict(sorted(excluded_reasons.items())),
         "signal_count": signal_total,
         "signal_counts": dict(sorted(counts.items())),
         "heuristic_rank": {
             "level": level,
             "label": label,
             "score": min(99, max(1, level * 11 + min(10, signal_total // 5))),
-            "confidence": confidence(len(records), signal_total),
+            "confidence": confidence(analyzed_record_count, signal_total),
         },
         "evidence": evidence,
         "rank_caps": caps,

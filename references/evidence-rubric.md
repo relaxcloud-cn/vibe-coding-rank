@@ -2,6 +2,18 @@
 
 Use observed evidence, not self-description.
 
+## Invalid Evidence
+
+Do not score these as user ability evidence:
+
+- System prompts, developer instructions, tool policies, permission notes, or environment context.
+- Auto-injected `AGENTS.md` / `CLAUDE.md` context shown to the model before work begins.
+- Compacted conversation summaries unless they clearly summarize user-directed work and not policy/context.
+- File paths, repo names, or keyword mentions without an observed behavior.
+- Raw snippets that only say a tool exists, a framework exists, or a rule file exists.
+
+Valid evidence must show the user or agent actually doing work: defining a goal, setting constraints, reviewing a plan, validating output, redesigning a module, creating a reusable workflow, or teaching the method to others.
+
 ## Positive Signals
 
 ### Context and Boundary
