@@ -444,6 +444,7 @@ button {
 .report-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 16px;
 }
@@ -464,7 +465,23 @@ button {
   background: rgba(32, 97, 153, 0.12);
 }
 
+.report-action.primary {
+  color: white;
+  background: #164a74;
+}
+
+.report-action.primary:hover {
+  background: #0f385a;
+}
+
 #share-copy-status {
+  color: #7a746d;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.share-note {
+  margin: 8px 0 0;
   color: #7a746d;
   font-size: 12px;
   font-weight: 750;

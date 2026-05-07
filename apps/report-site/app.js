@@ -183,6 +183,7 @@ function render(report) {
   renderDimensions(report);
   renderRail(level);
   renderEvidence(report);
+  renderShareState(report);
 }
 
 function judgmentText(report) {
@@ -321,6 +322,28 @@ Visual direction:
 `.trim();
 }
 
+function shareLink() {
+  return location.href;
+}
+
+function renderShareState(report) {
+  const note = document.querySelector("#share-note");
+  const hash = new URLSearchParams(location.hash.slice(1));
+  if (hash.has("id")) {
+    note.textContent = "当前是短链接，报告 JSON 已脱敏后存储，原始日志不会上传。";
+    return;
+  }
+  if (hash.has("data")) {
+    note.textContent = "当前是本地浏览器链接，报告数据只在 URL hash 中渲染。";
+    return;
+  }
+  if (report.privacy?.rawLogsUploaded === false) {
+    note.textContent = "当前报告不包含原始日志，可复制链接分享。";
+    return;
+  }
+  note.textContent = "当前是样例报告。运行 CLI 后可生成你的个人链接。";
+}
+
 function renderQuality(report) {
   const note = document.querySelector("#quality-note");
   const stats = report.hardStats || {};
@@ -364,6 +387,18 @@ document.querySelector("#copy-command").addEventListener("click", async () => {
   setTimeout(() => {
     button.innerHTML = previous;
   }, 1200);
+});
+
+document.querySelector("#copy-report-link").addEventListener("click", async () => {
+  const button = document.querySelector("#copy-report-link");
+  const status = document.querySelector("#share-copy-status");
+  await navigator.clipboard.writeText(shareLink());
+  button.textContent = "已复制链接";
+  status.textContent = location.hash.includes("id=") ? "短链接已复制" : "链接已复制";
+  setTimeout(() => {
+    button.textContent = "复制报告链接";
+    status.textContent = "";
+  }, 1600);
 });
 
 document.querySelector("#copy-share-prompt").addEventListener("click", async () => {
