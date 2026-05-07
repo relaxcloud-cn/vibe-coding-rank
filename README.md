@@ -133,13 +133,21 @@ Vibe Coding Rank 想测的是更深的一层：
 
 ```json
 {
-  "rank": "五品 · 炉火纯青",
-  "score": 72,
-  "confidence": "medium",
-  "judgment_mode": "自动初筛",
-  "is_final": false,
-  "system_ownership": "strong",
-  "usage_stats": {
+  "rank": {
+    "level": 6,
+    "label": "六品 · 已有大成",
+    "score": 76,
+    "confidence": "high",
+    "systemOwnership": "strong"
+  },
+  "nextRank": {
+    "level": 7,
+    "label": "七品 · 已臻化境"
+  },
+  "judgmentMode": "自动初筛",
+  "judgmentModeLabel": "自动初筛",
+  "isFinal": false,
+  "usageStats": {
     "total_tokens": 1280000,
     "peak_day_tokens": 420000,
     "active_days": 6,
@@ -154,7 +162,7 @@ Vibe Coding Rank 想测的是更深的一层：
     "configured": false,
     "note": "未配置 token 单价；只展示 token 强度，不估算美元成本。"
   },
-  "hard_stats": {
+  "hardStats": {
     "raw_record_count": 170,
     "analyzed_record_count": 120,
     "scoring_candidate_record_count": 128,
@@ -179,7 +187,7 @@ Vibe Coding Rank 想测的是更深的一层：
     "active_sessions": 12,
     "note": "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。"
   },
-  "stats_insight": "主动控制占比充足，用户在目标、边界、架构和验收上有明确主导痕迹。",
+  "statsInsight": "主动控制占比充足，用户在目标、边界、架构和验收上有明确主导痕迹。",
   "hardStatCards": [
     {
       "label": "AI 投入强度",
@@ -202,16 +210,20 @@ Vibe Coding Rank 想测的是更深的一层：
   ],
   "metricGroups": [
     {
+      "id": "investment",
       "label": "投入强度",
       "value": "128万 token",
       "signal": "活跃 6 天 / 12 会话",
-      "ratingImpact": "只解释 AI 使用投入和样本稳定性，不直接升品。"
+      "ratingImpact": "只解释 AI 使用投入和样本稳定性，不直接升品。",
+      "risk": "投入分布没有明显单日集中风险。"
     },
     {
+      "id": "human_control",
       "label": "人类控制",
       "value": "17%",
       "signal": "主动控制 17%，用户决策 17%",
-      "ratingImpact": "决定六品、七品能否成立；高段位必须看到人的系统级决策。"
+      "ratingImpact": "决定六品、七品能否成立；高段位必须看到人的系统级决策。",
+      "risk": "用户决策足以支撑更高段位复核。"
     }
   ],
   "qualityFlags": [
@@ -232,16 +244,18 @@ Vibe Coding Rank 想测的是更深的一层：
       "advice": "失败两轮后先做根因分析。"
     }
   ],
-  "dimension_profile": [],
-  "evidence_cards": [],
-  "rank_caps": [],
-  "unlock_status": {},
-  "next_rank": "六品 · 已有大成",
+  "dimensionProfile": [],
+  "strongestEvidence": [],
+  "rankCaps": [],
+  "rankGates": [],
+  "unlockStatus": {},
   "gateUpgradeAdvice": "沉淀 3 次以上用户主导的边界、架构、验收或取舍决策，把“为什么这样设计”留在记录里。",
   "upgradePath": [],
   "shareImagePrompt": "Use case: infographic-diagram..."
 }
 ```
+
+说明：CLI 的本地完整报告使用 camelCase 字段，并包含 `shareImagePrompt` / `judgePrompt` 这类长文本，方便自查和二次生成。公开 `#data` 链接和短链接使用压缩后的 public payload，不包含原始日志、本地路径、源码片段、session id 或提示词长文本。
 
 ## 适合谁
 

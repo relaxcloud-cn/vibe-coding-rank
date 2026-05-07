@@ -187,6 +187,26 @@
       "interpretation": "高段位必须看到人的系统级决策，而不是 AI 自述完成。"
     }
   ],
+  "metricGroups": [
+    {
+      "id": "investment",
+      "label": "投入强度",
+      "value": "128万 token",
+      "signal": "活跃 6 天 / 12 会话",
+      "basis": "峰值日占比 33%",
+      "ratingImpact": "只解释 AI 使用投入和样本稳定性，不直接升品。",
+      "risk": "投入分布没有明显单日集中风险。"
+    },
+    {
+      "id": "human_control",
+      "label": "人类控制",
+      "value": "17%",
+      "signal": "主动控制 17%，用户决策 17%",
+      "basis": "助手执行 75%",
+      "ratingImpact": "决定六品、七品能否成立；高段位必须看到人的系统级决策。",
+      "risk": "用户决策足以支撑更高段位复核。"
+    }
+  ],
   "qualityFlags": [
     {
       "id": "low_user_control",
