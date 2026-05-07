@@ -40,6 +40,7 @@ async function renderAt(hash, fetchResponse = {}) {
           dominant_signal_ratio: 0.25,
           established_dimension_count: 3,
           peak_day_token_share: 0.4,
+          user_control_ratio: 0.01,
         },
         privacy: { rawLogsUploaded: false },
       },
@@ -58,6 +59,10 @@ assert.equal(
 assert.equal(
   shortDom.window.document.querySelector("#evidence-structure").textContent,
   "证据跨度 4 天；信号覆盖度 50%；最高信号集中度 25%；成立维度 3/6；峰值日 token 占比 40%。",
+);
+assert.equal(
+  shortDom.window.document.querySelector("#stats-insight").textContent,
+  "主动控制占比偏低，高阶信号主要来自 AI 执行或总结，自动初筛会压低高段位。",
 );
 shortDom.window.document.querySelector("#copy-report-link").click();
 await new Promise((resolveReady) => setTimeout(resolveReady, 0));

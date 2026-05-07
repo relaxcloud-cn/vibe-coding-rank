@@ -70,6 +70,7 @@
 - 信号覆盖度：{signal_coverage_ratio}
 - 最高信号集中度：{dominant_signal_ratio}
 - 成立维度数：{established_dimension_count}/6
+- 统计解读：{stats_insight}
 
 说明：硬统计只描述 AI 投入强度和样本质量，不参与段位升品。
 

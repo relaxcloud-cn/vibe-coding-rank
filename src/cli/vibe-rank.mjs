@@ -559,6 +559,7 @@ function buildReport(summary, options) {
     userControlSourceCount: summary.user_control_source_count || 0,
     usageStats: summary.usage_stats || {},
     hardStats: summary.hard_stats || {},
+    statsInsight: statsInsight({ hardStats: summary.hard_stats || {} }),
     dimensionProfile: summary.dimension_profile || [],
     verdict: copy.verdict,
     whyThisRank: copy.reason,
@@ -665,6 +666,38 @@ function evidenceStatsLine(report) {
   return parts.join(", ");
 }
 
+function statsInsight(report) {
+  const stats = report.hardStats || {};
+  const notes = [];
+  const userRatio = Number(stats.user_control_ratio || 0);
+  const dominantRatio = Number(stats.dominant_signal_ratio || 0);
+  const peakDayShare = Number(stats.peak_day_token_share || 0);
+  const activeDays = Number(stats.active_days || 0);
+  const evidenceSpan = Number(stats.evidence_span_days || 0);
+
+  if (userRatio > 0 && userRatio < 0.03) {
+    notes.push("主动控制占比偏低，高阶信号主要来自 AI 执行或总结，自动初筛会压低高段位。");
+  } else if (userRatio >= 0.08) {
+    notes.push("主动控制占比充足，用户在目标、边界、架构和验收上有明确主导痕迹。");
+  }
+
+  if (dominantRatio >= 0.45) {
+    notes.push("信号过于集中，可能只证明一种工作习惯，不足以单独支撑系统归属。");
+  } else if (dominantRatio > 0 && dominantRatio <= 0.3) {
+    notes.push("信号分布较均衡，能减少单一关键词或单一任务类型带来的误判。");
+  }
+
+  if (peakDayShare >= 0.5) {
+    notes.push("token 明显集中在少数日期，更像阶段性爆量，不等同于稳定能力。");
+  }
+
+  if (activeDays >= 5 && evidenceSpan >= 14) {
+    notes.push("样本跨越多个工作日，稳定性比单次会话更可信。");
+  }
+
+  return notes[0] || "硬统计用于解释投入强度、样本质量和证据结构，不直接参与段位升品。";
+}
+
 function translateConfidence(value) {
   return {
     low: "低",
@@ -700,6 +733,7 @@ function buildShareImagePrompt(report, url = "") {
     .join("；");
   const stats = hardStatsLine(report) || "暂无硬统计";
   const evidenceStats = evidenceStatsLine(report) || "暂无证据结构统计";
+  const insight = statsInsight(report);
   const rankCap = shortText(report.rankCaps?.[0] || report.narrative?.capSummary || "暂无明显封顶原因", 52);
   const upgrade = shortText(report.upgradePath?.[0] || report.narrative?.upgradeSummary || "继续沉淀可复用工作流", 52);
   const reportUrl = url ? `\n公开链接：${url.length > 140 ? `${url.slice(0, 140)}...` : url}` : "";
@@ -723,6 +757,9 @@ ${stats}
 
 证据结构：
 ${evidenceStats}
+
+统计解读：
+${insight}
 
 六维画像：
 ${dimensions || "目标定义、边界控制、验证闭环、架构判断、系统归属、方法复制"}
@@ -789,6 +826,7 @@ function publicReport(report) {
     userControlSourceCount: report.userControlSourceCount,
     usageStats: report.usageStats,
     hardStats: report.hardStats,
+    statsInsight: report.statsInsight,
     dimensionProfile: report.dimensionProfile,
     verdict: report.verdict,
     whyThisRank: report.whyThisRank,
@@ -823,6 +861,9 @@ function printHuman(report, url, outPath) {
   const evidenceStats = evidenceStatsLine(report);
   if (evidenceStats) {
     console.log(`证据结构：${evidenceStats}`);
+  }
+  if (report.statsInsight) {
+    console.log(`统计解读：${report.statsInsight}`);
   }
   console.log("");
   console.log("一句话判定：");

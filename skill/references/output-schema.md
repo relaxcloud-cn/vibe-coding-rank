@@ -118,6 +118,7 @@
     "peak_session_token_share": 0.2031,
     "note": "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。"
   },
+  "statsInsight": "主动控制占比充足，用户在目标、边界、架构和验收上有明确主导痕迹。",
   "dimensionProfile": [
     {
       "id": "architecture_judgment",

@@ -130,6 +130,7 @@ const SAMPLE = {
     { signal: "工作流", label: "工作流沉淀证据", reason: "这类证据说明你把一次协作沉淀成 rules、skill、workflow 或 checklist。", snippet: "把这次成功流程沉淀进 AGENTS.md，后续同类任务按 gate 执行。" },
   ],
   rankCaps: ["缺少团队级 playbook、共享 workflow 或方法复制证据。"],
+  statsInsight: "样本跨越多个工作日，稳定性比单次会话更可信。",
   unlockStatus: {
     level8: {
       unlocked: false,
@@ -223,6 +224,7 @@ function render(report) {
   document.querySelector("#usage-summary").textContent = usageSummary(report);
   document.querySelector("#quality-summary").textContent = qualitySummary(report);
   document.querySelector("#evidence-structure").textContent = evidenceStructureSummary(report);
+  document.querySelector("#stats-insight").textContent = statsInsight(report);
   document.querySelector("#why-this-rank").textContent = report.whyThisRank || report.narrative?.rankReason || SAMPLE.whyThisRank;
   document.querySelector("#why-not-next").textContent = report.whyNotNextRank || report.narrative?.nextRankGap || SAMPLE.whyNotNextRank;
   renderQuality(report);
@@ -259,6 +261,7 @@ function renderError(error) {
   document.querySelector("#usage-summary").textContent = "暂无";
   document.querySelector("#quality-summary").textContent = "暂无";
   document.querySelector("#evidence-structure").textContent = "暂无";
+  document.querySelector("#stats-insight").textContent = "暂无";
 }
 
 function judgmentText(report) {
@@ -337,6 +340,35 @@ function evidenceStructureSummary(report) {
   return parts.length ? `${parts.join("；")}。` : "暂无证据结构统计。";
 }
 
+function statsInsight(report) {
+  if (report.statsInsight) return report.statsInsight;
+  const stats = report.hardStats || {};
+  const userRatio = Number(stats.user_control_ratio || 0);
+  const dominantRatio = Number(stats.dominant_signal_ratio || 0);
+  const peakDayShare = Number(stats.peak_day_token_share || 0);
+  const activeDays = Number(stats.active_days || 0);
+  const evidenceSpan = Number(stats.evidence_span_days || 0);
+  if (userRatio > 0 && userRatio < 0.03) {
+    return "主动控制占比偏低，高阶信号主要来自 AI 执行或总结，自动初筛会压低高段位。";
+  }
+  if (userRatio >= 0.08) {
+    return "主动控制占比充足，用户在目标、边界、架构和验收上有明确主导痕迹。";
+  }
+  if (dominantRatio >= 0.45) {
+    return "信号过于集中，可能只证明一种工作习惯，不足以单独支撑系统归属。";
+  }
+  if (dominantRatio > 0 && dominantRatio <= 0.3) {
+    return "信号分布较均衡，能减少单一关键词或单一任务类型带来的误判。";
+  }
+  if (peakDayShare >= 0.5) {
+    return "token 明显集中在少数日期，更像阶段性爆量，不等同于稳定能力。";
+  }
+  if (activeDays >= 5 && evidenceSpan >= 14) {
+    return "样本跨越多个工作日，稳定性比单次会话更可信。";
+  }
+  return "硬统计用于解释投入强度、样本质量和证据结构，不直接参与段位升品。";
+}
+
 function shortText(value, length = 42) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   if (text.length <= length) return text;
@@ -383,6 +415,9 @@ ${hardStatsLine(report)}
 
 证据结构：
 ${evidenceStructureSummary(report)}
+
+统计解读：
+${statsInsight(report)}
 
 六维画像：
 ${dimensions}
