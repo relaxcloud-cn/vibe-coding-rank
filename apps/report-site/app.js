@@ -115,14 +115,18 @@ function decodeBase64Url(value) {
   const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
   const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
   const binary = atob(padded);
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0) & 0xff);
   return new TextDecoder().decode(bytes);
 }
 
 async function loadReport() {
   const hash = new URLSearchParams(location.hash.slice(1));
   if (hash.has("data")) {
-    return JSON.parse(decodeBase64Url(hash.get("data")));
+    try {
+      return JSON.parse(decodeBase64Url(hash.get("data")));
+    } catch {
+      throw new Error("报告链接损坏，无法解析本地数据。");
+    }
   }
   if (hash.has("id")) {
     const response = await fetch(`/api/reports/${hash.get("id")}`);
@@ -130,6 +134,10 @@ async function loadReport() {
       const payload = await response.json();
       return payload.report || payload;
     }
+    if (response.status === 404) {
+      throw new Error("报告不存在或已经过期。");
+    }
+    throw new Error("短链接报告加载失败，请稍后重试。");
   }
   return SAMPLE;
 }
@@ -159,6 +167,7 @@ function renderEvidence(report) {
 }
 
 function render(report) {
+  document.querySelector(".dashboard").classList.remove("error-state");
   currentReport = report;
   const rank = report.rank || SAMPLE.rank;
   const level = Number(rank.level || 0);
@@ -184,6 +193,34 @@ function render(report) {
   renderRail(level);
   renderEvidence(report);
   renderShareState(report);
+}
+
+function renderError(error) {
+  const message = error?.message || "报告加载失败。";
+  document.querySelector(".dashboard").classList.add("error-state");
+  document.querySelector("#rank-label").textContent = "报告无法打开";
+  document.querySelector("#verdict").textContent = message;
+  document.querySelector("#score-value").textContent = "!";
+  document.querySelector("#judgment-mode").textContent = "链接错误";
+  document.querySelector("#share-note").textContent = "请检查链接，或重新运行 CLI 生成新的报告。";
+  document.querySelector("#confidence").textContent = "-";
+  document.querySelector("#ownership").textContent = "-";
+  document.querySelector("#strong-evidence").textContent = "-";
+  document.querySelector("#user-control").textContent = "-";
+  document.querySelector("#signals").textContent = "-";
+  document.querySelector("#records").textContent = "-";
+  document.querySelector("#quality-note").hidden = false;
+  document.querySelector("#quality-note").textContent = "没有加载到有效报告数据。";
+  document.querySelector("#dimension-grid").innerHTML = "";
+  document.querySelector("#rank-rail").innerHTML = "";
+  document.querySelector("#evidence-grid").innerHTML = "";
+  document.querySelector("#why-this-rank").textContent = "无法根据当前链接判断段位。";
+  document.querySelector("#why-not-next").textContent = "需要有效报告数据后才能分析下一品差距。";
+  document.querySelector("#rank-cap").textContent = "报告数据不可用。";
+  document.querySelector("#upgrade-path").textContent = "重新运行 npx github:relaxcloud-cn/vibe-coding-rank --source codex --short-link --open";
+  document.querySelector("#unlock-status").textContent = "未加载";
+  document.querySelector("#usage-summary").textContent = "暂无";
+  document.querySelector("#quality-summary").textContent = "暂无";
 }
 
 function judgmentText(report) {
@@ -413,4 +450,4 @@ document.querySelector("#copy-share-prompt").addEventListener("click", async () 
   }, 1600);
 });
 
-loadReport().then(render).catch(() => render(SAMPLE));
+loadReport().then(render).catch(renderError);

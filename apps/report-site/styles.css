@@ -370,6 +370,20 @@ button {
     #fbfaf6;
 }
 
+.dashboard.error-state {
+  background:
+    radial-gradient(circle at top right, rgba(160, 48, 48, 0.09), transparent 320px),
+    #fbfaf6;
+}
+
+.dashboard.error-state .rank-score {
+  background: linear-gradient(135deg, #411f1f, #7f302b);
+}
+
+.dashboard.error-state .report-action.primary {
+  background: #7f302b;
+}
+
 .report-head {
   display: flex;
   align-items: flex-start;
