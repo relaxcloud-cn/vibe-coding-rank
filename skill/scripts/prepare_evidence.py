@@ -646,6 +646,168 @@ def excluded_note(excluded_reasons: Counter[str]) -> str:
     return f"已排除 {total} 条非评分记录（{detail}）；这些不计入能力评分。"
 
 
+def percent(value: float) -> str:
+    return f"{round(value * 100)}%"
+
+
+def quality_flag(
+    flag_id: str,
+    severity: str,
+    label: str,
+    metric: str,
+    message: str,
+) -> dict[str, str]:
+    return {
+        "id": flag_id,
+        "severity": severity,
+        "label": label,
+        "metric": metric,
+        "message": message,
+    }
+
+
+def build_quality_flags(hard_stats: dict[str, Any]) -> list[dict[str, str]]:
+    flags: list[dict[str, str]] = []
+    raw_records = int(hard_stats.get("raw_record_count") or 0)
+    analyzed_records = int(hard_stats.get("analyzed_record_count") or 0)
+    non_scoring_records = int(hard_stats.get("non_scoring_record_count") or 0)
+    source_count = int(hard_stats.get("source_count") or 0)
+    evidence_span_days = int(hard_stats.get("evidence_span_days") or 0)
+    promotion_evidence_count = int(hard_stats.get("promotion_evidence_count") or 0)
+    strong_density = float(hard_stats.get("strong_evidence_density") or 0)
+    user_control_ratio = float(hard_stats.get("user_control_ratio") or 0)
+    user_decision_ratio = float(hard_stats.get("promotion_user_decision_ratio") or 0)
+    assistant_execution_ratio = float(hard_stats.get("promotion_assistant_execution_ratio") or 0)
+    dominant_signal_ratio = float(hard_stats.get("dominant_signal_ratio") or 0)
+    peak_day_token_share = float(hard_stats.get("peak_day_token_share") or 0)
+    behavior_counts = hard_stats.get("behavior_counts") or {}
+    other_behavior_count = int(behavior_counts.get("other") or 0)
+    non_scoring_ratio = ratio(non_scoring_records, raw_records)
+    other_behavior_ratio = ratio(other_behavior_count, analyzed_records)
+
+    if analyzed_records < 10 or source_count < 2:
+        flags.append(
+            quality_flag(
+                "thin_sample",
+                "risk",
+                "有效样本偏薄",
+                f"{analyzed_records} 条 / {source_count} 个来源",
+                "样本太少时只能做低置信度初筛，不能支撑高段位。",
+            )
+        )
+    elif evidence_span_days >= 14 and source_count >= 3:
+        flags.append(
+            quality_flag(
+                "stable_sample_span",
+                "ok",
+                "样本跨度较好",
+                f"{evidence_span_days} 天 / {source_count} 个来源",
+                "跨多天、多会话的证据比单次高光更可信。",
+            )
+        )
+
+    if non_scoring_ratio >= 0.5:
+        flags.append(
+            quality_flag(
+                "non_scoring_heavy",
+                "info",
+                "非评分记录占比高",
+                percent(non_scoring_ratio),
+                "大量 token、系统上下文或工具结果被排除；报告只看剩余真实行为。",
+            )
+        )
+
+    if other_behavior_ratio >= 0.3:
+        flags.append(
+            quality_flag(
+                "unclear_behavior_mix",
+                "warning",
+                "行为归类不清",
+                percent(other_behavior_ratio),
+                "较多记录无法归入用户决策或助手执行，行为结构需要谨慎解读。",
+            )
+        )
+
+    if promotion_evidence_count > 0 and user_control_ratio < 0.03:
+        flags.append(
+            quality_flag(
+                "low_user_control",
+                "risk",
+                "主动控制偏低",
+                percent(user_control_ratio),
+                "高阶信号主要不是由用户主动定义目标、边界、架构或验收触发。",
+            )
+        )
+
+    if promotion_evidence_count > 0 and user_decision_ratio < 0.03:
+        flags.append(
+            quality_flag(
+                "low_user_decision",
+                "risk",
+                "用户决策偏低",
+                percent(user_decision_ratio),
+                "普通指令和助手执行不能替代系统级取舍；六品以上会被压低。",
+            )
+        )
+
+    if assistant_execution_ratio >= 0.7:
+        flags.append(
+            quality_flag(
+                "assistant_execution_heavy",
+                "warning",
+                "助手执行占比过高",
+                percent(assistant_execution_ratio),
+                "如果高阶证据主要来自助手自述完成，系统归属判断会打折。",
+            )
+        )
+    elif assistant_execution_ratio >= 0.5:
+        flags.append(
+            quality_flag(
+                "assistant_execution_watch",
+                "info",
+                "助手执行占比较高",
+                percent(assistant_execution_ratio),
+                "这不代表能力低，但需要更多用户决策证据来证明人在控。",
+            )
+        )
+
+    if dominant_signal_ratio >= 0.45:
+        flags.append(
+            quality_flag(
+                "dominant_signal_concentrated",
+                "warning",
+                "信号过于集中",
+                percent(dominant_signal_ratio),
+                "单一信号不能证明完整系统能力，需要目标、边界、验证、架构共同成立。",
+            )
+        )
+
+    if peak_day_token_share >= 0.5:
+        flags.append(
+            quality_flag(
+                "peak_day_concentrated",
+                "warning",
+                "token 单日集中",
+                percent(peak_day_token_share),
+                "阶段性爆量不等于稳定能力，评级会更看重跨天复用。",
+            )
+        )
+
+    if strong_density >= 0.15:
+        flags.append(
+            quality_flag(
+                "strong_evidence_dense",
+                "ok",
+                "强证据密度较好",
+                percent(strong_density),
+                "强证据占比足够高，说明报告不是只靠弱信号或工具名支撑。",
+            )
+        )
+
+    priority = {"risk": 0, "warning": 1, "info": 2, "ok": 3}
+    return sorted(flags, key=lambda item: (priority.get(item["severity"], 9), item["id"]))
+
+
 def exclusion_reason(record: dict[str, Any], patterns: list[tuple[str, re.Pattern[str]]]) -> str | None:
     role = str(record.get("role", "")).strip().lower()
     if role in EXCLUDED_ROLES:
@@ -1168,6 +1330,7 @@ def main() -> int:
         method_replication_status,
         args.allow_team_rank,
     )
+    quality_flags = build_quality_flags(hard_stats)
     level, label, caps, unlocks = choose_rank(
         counts,
         analyzed_record_count,
@@ -1221,6 +1384,7 @@ def main() -> int:
         "dimension_profile": dimension_profile,
         "rank_gates": rank_gates,
         "rank_caps": caps,
+        "quality_flags": quality_flags,
         "unlock_status": unlocks,
         "quality_notes": [
             "脚本只做证据清洗和自动初筛，不是最终 AI 段位判定。",

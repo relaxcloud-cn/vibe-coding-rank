@@ -470,6 +470,22 @@ function sampleSummary() {
       "自动初筛最高只确认到七品；八品需要单独复核团队复制证据。",
       "九品 · 大宗师 需要公开范式影响证据，不能仅凭私有会话自动判定。",
     ],
+    quality_flags: [
+      {
+        id: "stable_sample_span",
+        severity: "ok",
+        label: "样本跨度较好",
+        metric: "6 天 / 3 个来源",
+        message: "跨多天、多会话的证据比单次高光更可信。",
+      },
+      {
+        id: "assistant_execution_watch",
+        severity: "info",
+        label: "助手执行占比较高",
+        metric: "75%",
+        message: "这不代表能力低，但需要更多用户决策证据来证明人在控。",
+      },
+    ],
     rank_gates: [
       {
         id: "level7_user_decision_ratio",
@@ -588,6 +604,7 @@ function buildReport(summary, options) {
   const judgmentMode = summary.judgment_mode || rank.mode || "自动初筛";
   const isFinal = Boolean(summary.is_final || rank.is_final);
   const qualityNotes = summary.quality_notes || [];
+  const qualityFlags = sortQualityFlags(summary.quality_flags || []);
   const nextRankGap = isFinal
     ? copy.gap
     : `${copy.gap} 当前结果是自动初筛，高段位需要 AI 判定官基于证据卡复核。`;
@@ -631,6 +648,7 @@ function buildReport(summary, options) {
     strongestEvidence: strongest,
     rankCaps,
     rankGates: summary.rank_gates || [],
+    qualityFlags,
     unlockStatus: summary.unlock_status || {},
     qualityNotes,
     upgradePath,
@@ -766,6 +784,22 @@ function gateUpgradeAdvice(report, fallback = "") {
   if (failed?.id && GATE_UPGRADE_ADVICE[failed.id]) return GATE_UPGRADE_ADVICE[failed.id];
   if (failed?.reason) return `先补齐这个门槛：${failed.reason}`;
   return fallback || "继续积累真实项目证据，并把成功做法沉淀成可复用工作流。";
+}
+
+function sortQualityFlags(flags) {
+  const priority = { risk: 0, warning: 1, info: 2, ok: 3 };
+  return [...(Array.isArray(flags) ? flags : [])].sort(
+    (a, b) => (priority[a?.severity] ?? 9) - (priority[b?.severity] ?? 9),
+  );
+}
+
+function qualityFlagLine(report) {
+  const flags = sortQualityFlags(report.qualityFlags);
+  if (!flags.length) return "暂无明显样本风险。";
+  return flags
+    .slice(0, 3)
+    .map((item) => `${item.label || item.id}${item.metric ? ` ${item.metric}` : ""}：${item.message || ""}`)
+    .join("；");
 }
 
 function statsInsight(report) {
@@ -912,6 +946,7 @@ function buildShareImagePrompt(report, url = "") {
   const evidenceStats = evidenceStatsLine(report) || "暂无证据结构统计";
   const behaviorMix = behaviorMixLine(report) || "暂无行为结构统计";
   const rankGate = rankGateLine(report);
+  const qualityFlags = qualityFlagLine(report);
   const insight = statsInsight(report);
   const rankCap = shortText(report.rankCaps?.[0] || report.narrative?.capSummary || "暂无明显封顶原因", 52);
   const upgrade = shortText(report.gateUpgradeAdvice || report.upgradePath?.[0] || report.narrative?.upgradeSummary || "继续沉淀可复用工作流", 52);
@@ -952,6 +987,9 @@ ${insight}
 
 关键门槛：
 ${rankGate}
+
+质量提示：
+${qualityFlags}
 
 六维画像：
 ${dimensions || "目标定义、边界控制、验证闭环、架构判断、系统归属、方法复制"}
@@ -1030,6 +1068,7 @@ function publicReport(report) {
     strongestEvidence: (report.strongestEvidence || []).map(publicEvidence),
     rankCaps: report.rankCaps,
     rankGates: report.rankGates,
+    qualityFlags: report.qualityFlags,
     unlockStatus: report.unlockStatus,
     qualityNotes: report.qualityNotes,
     gateUpgradeAdvice: report.gateUpgradeAdvice,
@@ -1069,6 +1108,10 @@ function printHuman(report, url, outPath) {
   const rankGate = rankGateLine(report);
   if (rankGate) {
     console.log(`关键门槛：${rankGate}`);
+  }
+  const qualityFlags = qualityFlagLine(report);
+  if (qualityFlags) {
+    console.log(`质量提示：${qualityFlags}`);
   }
   console.log("");
   console.log("一句话判定：");

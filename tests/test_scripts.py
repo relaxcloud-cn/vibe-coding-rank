@@ -393,6 +393,8 @@ class ScriptTests(unittest.TestCase):
             self.assertAlmostEqual(data["hard_stats"]["dominant_signal_ratio"], 0.3333)
             self.assertEqual(data["hard_stats"]["established_dimension_count"], 0)
             self.assertEqual(data["excluded_reason_counts"]["role:usage_stats"], 2)
+            self.assertIn("quality_flags", data)
+            self.assertTrue(any(item["id"] == "peak_day_concentrated" for item in data["quality_flags"]))
             self.assertLessEqual(data["preliminary_rank"]["level"], 4)
 
     def test_prepare_evidence_caps_single_dense_record(self) -> None:
@@ -480,6 +482,8 @@ class ScriptTests(unittest.TestCase):
             self.assertFalse(gate_by_id(data, "level6_user_control_ratio")["passed"])
             self.assertFalse(gate_by_id(data, "level7_user_control_ratio")["passed"])
             self.assertIn("用户主动控制", " ".join(data["rank_caps"]))
+            self.assertTrue(any(item["id"] == "low_user_control" for item in data["quality_flags"]))
+            self.assertTrue(any(item["id"] == "assistant_execution_heavy" for item in data["quality_flags"]))
 
     def test_prepare_evidence_caps_instruction_heavy_without_decisions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -532,6 +536,7 @@ class ScriptTests(unittest.TestCase):
             self.assertFalse(gate_by_id(data, "level6_user_decision_ratio")["passed"])
             self.assertFalse(gate_by_id(data, "level7_user_decision_ratio")["passed"])
             self.assertIn("用户决策证据", " ".join(data["rank_caps"]))
+            self.assertTrue(any(item["id"] == "low_user_decision" for item in data["quality_flags"]))
 
     def test_summarize_wrapper_still_works(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

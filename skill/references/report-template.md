@@ -91,6 +91,12 @@
 
 每张卡都必须有 `value`、`detail` 和 `interpretation`。不要只报数字，要解释这个数字对评级意味着什么。
 
+## 质量提示
+
+{quality_flags}
+
+质量提示不是扣分文案，而是告诉用户哪些统计会影响报告可信度。优先展示 `severity=risk` 和 `severity=warning`，例如主动控制偏低、用户决策偏低、助手执行过重、信号过于集中、token 单日集中。
+
 ## 下一品升级路线
 
 优先使用 `gateUpgradeAdvice`。如果存在未通过的下一品门槛，升级路线必须对准这个门槛，而不是只给通用建议。

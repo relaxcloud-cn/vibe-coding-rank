@@ -160,6 +160,22 @@
       "interpretation": "高段位必须看到人的系统级决策，而不是 AI 自述完成。"
     }
   ],
+  "qualityFlags": [
+    {
+      "id": "low_user_control",
+      "severity": "risk",
+      "label": "主动控制偏低",
+      "metric": "1%",
+      "message": "高阶信号主要不是由用户主动定义目标、边界、架构或验收触发。"
+    },
+    {
+      "id": "assistant_execution_watch",
+      "severity": "info",
+      "label": "助手执行占比较高",
+      "metric": "52%",
+      "message": "这不代表能力低，但需要更多用户决策证据来证明人在控。"
+    }
+  ],
   "statsInsight": "主动控制占比充足，用户在目标、边界、架构和验收上有明确主导痕迹。",
   "dimensionProfile": [
     {

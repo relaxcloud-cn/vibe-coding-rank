@@ -67,6 +67,7 @@ The script only performs local cleaning, evidence classification, and conservati
 - Treat `weak_signals` as usage clues, not promotion evidence.
 - Treat `usage_stats` and `hard_stats` as objective usage/sample-quality facts, not promotion evidence.
 - Use `hardStatCards` to explain objective stats to users; do not turn token volume into a rank boost.
+- Use `qualityFlags` to surface sample or judgment risks such as low user control, low user decision ratio, assistant-heavy evidence, or token concentration.
 - Prefer `gateUpgradeAdvice` for the next step because it is tied to the first failed rank gate above the current rank.
 - Use `rank_caps` and `unlock_status` before assigning a high rank.
 - 八品 requires proof that the method was used by others or became a team mechanism.

@@ -64,6 +64,15 @@ async function renderAt(hash, fetchResponse = {}) {
             reason: "七品需要足够用户决策证据，证明人真正做边界、架构、验收或取舍。",
           },
         ],
+        qualityFlags: [
+          {
+            id: "low_user_control",
+            severity: "risk",
+            label: "主动控制偏低",
+            metric: "1%",
+            message: "高阶信号主要不是由用户主动定义目标、边界、架构或验收触发。",
+          },
+        ],
         privacy: { rawLogsUploaded: false },
       },
     }),
@@ -99,6 +108,10 @@ assert.equal(
   "沉淀 3 次以上用户主导的边界、架构、验收或取舍决策，把“为什么这样设计”留在记录里。",
 );
 assert.equal(shortDom.window.document.querySelector("#hard-stat-grid .hard-stat-card strong").textContent, "2%");
+assert.equal(
+  shortDom.window.document.querySelector("#quality-flags").textContent,
+  "主动控制偏低 1%：高阶信号主要不是由用户主动定义目标、边界、架构或验收触发。",
+);
 shortDom.window.document.querySelector("#copy-report-link").click();
 await new Promise((resolveReady) => setTimeout(resolveReady, 0));
 assert.equal(shortDom.window.__copied, "https://vibe.yisec.ai/#id=abc123");

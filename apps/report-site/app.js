@@ -168,6 +168,22 @@ const SAMPLE = {
       reason: "八品需要团队方法复制强证据，自动初筛默认不会仅凭私有会话放行。",
     },
   ],
+  qualityFlags: [
+    {
+      id: "stable_sample_span",
+      severity: "ok",
+      label: "样本跨度较好",
+      metric: "6 天 / 3 个来源",
+      message: "跨多天、多会话的证据比单次高光更可信。",
+    },
+    {
+      id: "assistant_execution_watch",
+      severity: "info",
+      label: "助手执行占比较高",
+      metric: "75%",
+      message: "这不代表能力低，但需要更多用户决策证据来证明人在控。",
+    },
+  ],
   statsInsight: "样本跨越多个工作日，稳定性比单次会话更可信。",
   unlockStatus: {
     level8: {
@@ -274,6 +290,7 @@ function render(report) {
   document.querySelector("#behavior-mix").textContent = behaviorMixSummary(report);
   document.querySelector("#stats-insight").textContent = statsInsight(report);
   document.querySelector("#rank-gate-summary").textContent = rankGateSummary(report);
+  document.querySelector("#quality-flags").textContent = qualityFlagSummary(report);
   document.querySelector("#why-this-rank").textContent = report.whyThisRank || report.narrative?.rankReason || SAMPLE.whyThisRank;
   document.querySelector("#why-not-next").textContent = report.whyNotNextRank || report.narrative?.nextRankGap || SAMPLE.whyNotNextRank;
   renderQuality(report);
@@ -314,6 +331,7 @@ function renderError(error) {
   document.querySelector("#behavior-mix").textContent = "暂无";
   document.querySelector("#stats-insight").textContent = "暂无";
   document.querySelector("#rank-gate-summary").textContent = "暂无";
+  document.querySelector("#quality-flags").textContent = "暂无";
   document.querySelector("#hard-stat-grid").innerHTML = "";
 }
 
@@ -472,6 +490,17 @@ function upgradePathSummary(report) {
   return firstText(report.upgradePath) || SAMPLE.gateUpgradeAdvice || SAMPLE.upgradePath[0];
 }
 
+function qualityFlagSummary(report) {
+  const flags = Array.isArray(report.qualityFlags) ? report.qualityFlags : [];
+  if (!flags.length) return "暂无明显样本风险。";
+  const priority = { risk: 0, warning: 1, info: 2, ok: 3 };
+  return [...flags]
+    .sort((a, b) => (priority[a.severity] ?? 9) - (priority[b.severity] ?? 9))
+    .slice(0, 2)
+    .map((item) => `${item.label || item.id}${item.metric ? ` ${item.metric}` : ""}：${item.message || ""}`)
+    .join("；");
+}
+
 function shortText(value, length = 42) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   if (text.length <= length) return text;
@@ -595,6 +624,9 @@ ${statsInsight(report)}
 
 关键门槛：
 ${rankGateSummary(report)}
+
+质量提示：
+${qualityFlagSummary(report)}
 
 六维画像：
 ${dimensions}
