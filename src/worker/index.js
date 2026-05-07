@@ -18,6 +18,26 @@ async function sha256(text) {
   return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function validatePublicReport(report) {
+  if (!report || typeof report !== "object" || Array.isArray(report)) {
+    return "Report payload must be a JSON object.";
+  }
+  if (report.root || report.shareImagePrompt || report.judgePrompt || report.behaviorCounts || report.qualityNotes) {
+    return "Report payload must be the compact sanitized public report, not the local full report.";
+  }
+  if (report.privacy?.rawLogsUploaded !== false || report.privacy?.localPathsRemoved !== true || report.privacy?.compactPublicReport !== true) {
+    return "Report privacy flags must indicate a compact sanitized public report.";
+  }
+  if (Array.isArray(report.evidence) && report.evidence.length > 0) {
+    return "Public report evidence must be compact; raw evidence arrays are not accepted.";
+  }
+  const evidence = Array.isArray(report.strongestEvidence) ? report.strongestEvidence : [];
+  if (evidence.some((item) => item?.snippet || item?.source || item?.role)) {
+    return "Public report evidence must not include snippets, local sources, or roles.";
+  }
+  return "";
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -41,6 +61,10 @@ export default {
         report = JSON.parse(body);
       } catch {
         return json({ error: "Invalid JSON payload." }, { status: 400 });
+      }
+      const validationError = validatePublicReport(report);
+      if (validationError) {
+        return json({ error: validationError }, { status: 422 });
       }
 
       const id = (await sha256(`${Date.now()}:${body}`)).slice(0, 16);

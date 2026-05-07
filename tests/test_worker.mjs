@@ -45,8 +45,58 @@ response = await request("/api/reports", { method: "POST", body: "x".repeat(120_
 assert.equal(response.status, 413);
 assert.deepEqual(await json(response), { error: "Report payload is too large." });
 
+response = await request(
+  "/api/reports",
+  {
+    method: "POST",
+    body: JSON.stringify({
+      rank: { label: "六品 · 已有大成" },
+      root: "/Users/sky/.codex/sessions",
+      privacy: { rawLogsUploaded: false, localPathsRemoved: true, compactPublicReport: true },
+    }),
+  },
+  { REPORTS: makeKv() },
+);
+assert.equal(response.status, 422);
+assert.deepEqual(await json(response), { error: "Report payload must be the compact sanitized public report, not the local full report." });
+
+response = await request(
+  "/api/reports",
+  {
+    method: "POST",
+    body: JSON.stringify({
+      rank: { label: "六品 · 已有大成" },
+      privacy: { rawLogsUploaded: true, localPathsRemoved: true, compactPublicReport: true },
+    }),
+  },
+  { REPORTS: makeKv() },
+);
+assert.equal(response.status, 422);
+assert.deepEqual(await json(response), { error: "Report privacy flags must indicate a compact sanitized public report." });
+
+response = await request(
+  "/api/reports",
+  {
+    method: "POST",
+    body: JSON.stringify({
+      rank: { label: "六品 · 已有大成" },
+      evidence: [],
+      strongestEvidence: [{ label: "架构判断", snippet: "raw local transcript" }],
+      privacy: { rawLogsUploaded: false, localPathsRemoved: true, compactPublicReport: true },
+    }),
+  },
+  { REPORTS: makeKv() },
+);
+assert.equal(response.status, 422);
+assert.deepEqual(await json(response), { error: "Public report evidence must not include snippets, local sources, or roles." });
+
 const kv = makeKv();
-const report = { rank: { label: "六品 · 已有大成" }, privacy: { rawLogsUploaded: false } };
+const report = {
+  rank: { label: "六品 · 已有大成" },
+  evidence: [],
+  strongestEvidence: [{ label: "架构判断", reason: "关注系统边界。" }],
+  privacy: { rawLogsUploaded: false, localPathsRemoved: true, compactPublicReport: true },
+};
 response = await request(
   "/api/reports",
   { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(report) },
