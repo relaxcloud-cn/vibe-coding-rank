@@ -18,6 +18,13 @@ def run_script(script: str, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def gate_by_id(data: dict, gate_id: str) -> dict:
+    for item in data.get("rank_gates", []):
+        if item.get("id") == gate_id:
+            return item
+    raise AssertionError(f"missing rank gate: {gate_id}")
+
+
 class ScriptTests(unittest.TestCase):
     def test_collect_sessions_redacts_secrets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -229,6 +236,10 @@ class ScriptTests(unittest.TestCase):
             self.assertIn("assistant_execution", data["hard_stats"]["behavior_counts"])
             self.assertGreater(data["hard_stats"]["promotion_user_decision_ratio"], 0)
             self.assertGreater(data["hard_stats"]["promotion_assistant_execution_ratio"], 0)
+            self.assertIn("rank_gates", data)
+            self.assertTrue(gate_by_id(data, "level6_user_decision_ratio")["passed"])
+            self.assertTrue(gate_by_id(data, "level7_user_decision_ratio")["passed"])
+            self.assertFalse(gate_by_id(data, "level9_public_influence")["passed"])
             self.assertFalse(data["unlock_status"]["level8"]["unlocked"])
             self.assertIn("九品", " ".join(data["rank_caps"]))
 
@@ -466,6 +477,8 @@ class ScriptTests(unittest.TestCase):
             self.assertLessEqual(data["preliminary_rank"]["level"], 5)
             self.assertLess(data["hard_stats"]["user_control_ratio"], 0.03)
             self.assertGreater(data["hard_stats"]["promotion_assistant_execution_ratio"], 0.9)
+            self.assertFalse(gate_by_id(data, "level6_user_control_ratio")["passed"])
+            self.assertFalse(gate_by_id(data, "level7_user_control_ratio")["passed"])
             self.assertIn("用户主动控制", " ".join(data["rank_caps"]))
 
     def test_prepare_evidence_caps_instruction_heavy_without_decisions(self) -> None:
@@ -516,6 +529,8 @@ class ScriptTests(unittest.TestCase):
             self.assertLessEqual(data["preliminary_rank"]["level"], 5)
             self.assertGreater(data["hard_stats"]["user_control_ratio"], 0.7)
             self.assertLess(data["hard_stats"]["promotion_user_decision_ratio"], 0.03)
+            self.assertFalse(gate_by_id(data, "level6_user_decision_ratio")["passed"])
+            self.assertFalse(gate_by_id(data, "level7_user_decision_ratio")["passed"])
             self.assertIn("用户决策证据", " ".join(data["rank_caps"]))
 
     def test_summarize_wrapper_still_works(self) -> None:

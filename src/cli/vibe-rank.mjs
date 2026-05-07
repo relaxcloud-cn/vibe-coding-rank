@@ -454,6 +454,26 @@ function sampleSummary() {
       "自动初筛最高只确认到七品；八品需要单独复核团队复制证据。",
       "九品 · 大宗师 需要公开范式影响证据，不能仅凭私有会话自动判定。",
     ],
+    rank_gates: [
+      {
+        id: "level7_user_decision_ratio",
+        level: 7,
+        label: "七品用户决策占比",
+        passed: true,
+        observed: 0.1667,
+        required: 0.08,
+        reason: "七品需要足够用户决策证据，证明人真正做边界、架构、验收或取舍。",
+      },
+      {
+        id: "level8_team_replication",
+        level: 8,
+        label: "八品团队复制",
+        passed: false,
+        observed: { team_system: 0, workflow_asset: 6, method_replication_status: "线索" },
+        required: { team_system: 3, workflow_asset: 3, method_replication_status: "成立|稳定" },
+        reason: "八品需要团队方法复制强证据，自动初筛默认不会仅凭私有会话放行。",
+      },
+    ],
     unlock_status: {
       level8: {
         unlocked: false,
@@ -595,6 +615,7 @@ function buildReport(summary, options) {
     evidence: evidenceRows,
     strongestEvidence: strongest,
     rankCaps,
+    rankGates: summary.rank_gates || [],
     unlockStatus: summary.unlock_status || {},
     qualityNotes,
     upgradePath,
@@ -879,6 +900,7 @@ function publicReport(report) {
     evidence: (report.evidence || []).map(publicEvidence),
     strongestEvidence: (report.strongestEvidence || []).map(publicEvidence),
     rankCaps: report.rankCaps,
+    rankGates: report.rankGates,
     unlockStatus: report.unlockStatus,
     qualityNotes: report.qualityNotes,
     upgradePath: report.upgradePath,

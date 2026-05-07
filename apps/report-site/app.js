@@ -148,6 +148,26 @@ const SAMPLE = {
     { signal: "工作流", label: "工作流沉淀证据", reason: "这类证据说明你把一次协作沉淀成 rules、skill、workflow 或 checklist。", snippet: "把这次成功流程沉淀进 AGENTS.md，后续同类任务按 gate 执行。" },
   ],
   rankCaps: ["缺少团队级 playbook、共享 workflow 或方法复制证据。"],
+  rankGates: [
+    {
+      id: "level7_user_decision_ratio",
+      level: 7,
+      label: "七品用户决策占比",
+      passed: true,
+      observed: 0.1667,
+      required: 0.08,
+      reason: "七品需要足够用户决策证据，证明人真正做边界、架构、验收或取舍。",
+    },
+    {
+      id: "level8_team_replication",
+      level: 8,
+      label: "八品团队复制",
+      passed: false,
+      observed: { team_system: 0, workflow_asset: 6, method_replication_status: "线索" },
+      required: { team_system: 3, workflow_asset: 3, method_replication_status: "成立|稳定" },
+      reason: "八品需要团队方法复制强证据，自动初筛默认不会仅凭私有会话放行。",
+    },
+  ],
   statsInsight: "样本跨越多个工作日，稳定性比单次会话更可信。",
   unlockStatus: {
     level8: {

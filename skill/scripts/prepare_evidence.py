@@ -774,6 +774,187 @@ def choose_rank(
     return level, RANKS[level][1], caps, unlocks
 
 
+def gate(
+    gate_id: str,
+    level: int,
+    label: str,
+    passed: bool,
+    observed: Any,
+    required: Any,
+    reason: str,
+) -> dict[str, Any]:
+    return {
+        "id": gate_id,
+        "level": level,
+        "label": label,
+        "passed": bool(passed),
+        "observed": observed,
+        "required": required,
+        "reason": reason,
+    }
+
+
+def build_rank_gates(
+    counts: Counter[str],
+    total_records: int,
+    source_count: int,
+    strong_evidence_count: int,
+    promotion_evidence_count: int,
+    user_control_count: int,
+    user_control_source_count: int,
+    promotion_user_decision_ratio: float,
+    method_replication_status: str,
+    allow_team_rank: bool,
+) -> list[dict[str, Any]]:
+    user_control_ratio = ratio(user_control_count, promotion_evidence_count)
+    has_architecture = counts["architecture"] > 0
+    has_validation = counts["validation"] > 0
+    has_ownership = counts["ownership"] > 0
+    has_workflow = counts["workflow_asset"] > 0
+    has_team_candidate = counts["team_system"] > 0 and counts["workflow_asset"] > 0
+    has_strong_team = counts["team_system"] >= 3 and counts["workflow_asset"] >= 3
+    return [
+        gate(
+            "level5_architecture",
+            5,
+            "五品架构门槛",
+            has_architecture,
+            counts["architecture"],
+            "architecture > 0",
+            "五品以上需要架构、模块边界、数据/权限/生产边界证据。",
+        ),
+        gate(
+            "level6_validation",
+            6,
+            "六品验证闭环",
+            has_validation,
+            counts["validation"],
+            "validation > 0",
+            "六品以上需要测试、构建、lint、回归或人工验收证据。",
+        ),
+        gate(
+            "level6_evidence_span",
+            6,
+            "六品证据跨度",
+            total_records >= 8 and source_count >= 2 and promotion_evidence_count >= 4,
+            {
+                "analyzed_records": total_records,
+                "source_count": source_count,
+                "promotion_evidence_count": promotion_evidence_count,
+            },
+            {"analyzed_records": 8, "source_count": 2, "promotion_evidence_count": 4},
+            "六品需要问题定义、架构、验证、交付闭环在多条记录中成立。",
+        ),
+        gate(
+            "level6_user_control_ratio",
+            6,
+            "六品主动控制占比",
+            user_control_count >= 6 and user_control_source_count >= 2 and user_control_ratio >= 0.03,
+            {
+                "user_control_count": user_control_count,
+                "user_control_source_count": user_control_source_count,
+                "user_control_ratio": user_control_ratio,
+            },
+            {"user_control_count": 6, "user_control_source_count": 2, "user_control_ratio": 0.03},
+            "六品需要足够用户主动控制，不能只用助手完成测试、构建或总结来升品。",
+        ),
+        gate(
+            "level6_user_decision_ratio",
+            6,
+            "六品用户决策占比",
+            promotion_user_decision_ratio >= 0.03,
+            promotion_user_decision_ratio,
+            0.03,
+            "六品需要用户决策证据占一定比例，普通指令不能替代系统级决策。",
+        ),
+        gate(
+            "level7_ownership",
+            7,
+            "七品系统归属",
+            has_ownership,
+            counts["ownership"],
+            "ownership > 0",
+            "七品需要系统接管、关键路径解释、上线、回滚或维护证据。",
+        ),
+        gate(
+            "level7_evidence_span",
+            7,
+            "七品稳定跨度",
+            total_records >= 20 and source_count >= 3 and strong_evidence_count >= 8,
+            {
+                "analyzed_records": total_records,
+                "source_count": source_count,
+                "strong_evidence_count": strong_evidence_count,
+            },
+            {"analyzed_records": 20, "source_count": 3, "strong_evidence_count": 8},
+            "七品需要跨多次会话的稳定系统归属证据。",
+        ),
+        gate(
+            "level7_user_control_ratio",
+            7,
+            "七品主动控制占比",
+            user_control_count >= 12 and user_control_source_count >= 3 and user_control_ratio >= 0.08,
+            {
+                "user_control_count": user_control_count,
+                "user_control_source_count": user_control_source_count,
+                "user_control_ratio": user_control_ratio,
+            },
+            {"user_control_count": 12, "user_control_source_count": 3, "user_control_ratio": 0.08},
+            "七品需要多次用户主动定义边界、架构、验证或归属。",
+        ),
+        gate(
+            "level7_user_decision_ratio",
+            7,
+            "七品用户决策占比",
+            promotion_user_decision_ratio >= 0.08,
+            promotion_user_decision_ratio,
+            0.08,
+            "七品需要足够用户决策证据，证明人真正做边界、架构、验收或取舍。",
+        ),
+        gate(
+            "level7_workflow_asset",
+            7,
+            "七品工作流资产",
+            has_workflow,
+            counts["workflow_asset"],
+            "workflow_asset > 0",
+            "七品以上证据需要可复用 rules、skill、workflow 或检查点资产。",
+        ),
+        gate(
+            "level8_team_replication",
+            8,
+            "八品团队复制",
+            allow_team_rank and has_strong_team and method_replication_status in {"成立", "稳定"},
+            {
+                "team_system": counts["team_system"],
+                "workflow_asset": counts["workflow_asset"],
+                "method_replication_status": method_replication_status,
+                "allow_team_rank": allow_team_rank,
+            },
+            {"team_system": 3, "workflow_asset": 3, "method_replication_status": "成立|稳定"},
+            "八品需要团队方法复制强证据，自动初筛默认不会仅凭私有会话放行。",
+        ),
+        gate(
+            "level8_team_candidate",
+            8,
+            "八品候选线索",
+            has_team_candidate,
+            {"team_system": counts["team_system"], "workflow_asset": counts["workflow_asset"]},
+            {"team_system": ">0", "workflow_asset": ">0"},
+            "团队和工作流同时出现只是八品候选线索，还需证明被他人稳定复用。",
+        ),
+        gate(
+            "level9_public_influence",
+            9,
+            "九品公开影响",
+            False,
+            "private_session_only",
+            "public paradigm evidence",
+            "九品需要公开范式影响证据，不能仅凭私有会话自动判定。",
+        ),
+    ]
+
+
 def confidence(total_records: int, signal_total: int, strong_evidence_count: int) -> str:
     if total_records < 10 or signal_total < 5 or strong_evidence_count < 2:
         return "low"
@@ -975,6 +1156,18 @@ def main() -> int:
         ),
         "缺失",
     )
+    rank_gates = build_rank_gates(
+        counts,
+        analyzed_record_count,
+        source_count,
+        strong_evidence_count,
+        promotion_evidence_count,
+        user_control_count,
+        user_control_source_count,
+        promotion_user_decision_ratio,
+        method_replication_status,
+        args.allow_team_rank,
+    )
     level, label, caps, unlocks = choose_rank(
         counts,
         analyzed_record_count,
@@ -1026,6 +1219,7 @@ def main() -> int:
         "evidence_cards": evidence_cards,
         "weak_signals": weak_signals,
         "dimension_profile": dimension_profile,
+        "rank_gates": rank_gates,
         "rank_caps": caps,
         "unlock_status": unlocks,
         "quality_notes": [

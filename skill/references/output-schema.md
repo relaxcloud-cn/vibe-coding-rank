@@ -43,6 +43,17 @@
   "rankCaps": [
     "缺少团队级 playbook、共享 workflow 或方法复制证据。"
   ],
+  "rankGates": [
+    {
+      "id": "level7_user_decision_ratio",
+      "level": 7,
+      "label": "七品用户决策占比",
+      "passed": true,
+      "observed": 0.1667,
+      "required": 0.08,
+      "reason": "七品需要足够用户决策证据，证明人真正做边界、架构、验收或取舍。"
+    }
+  ],
   "upgradePath": [
     "把个人方法复制给团队：playbook、skills、培训、评测和团队报告。"
   ],
