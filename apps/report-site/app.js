@@ -83,9 +83,15 @@ const SAMPLE = {
     strong_evidence_source_count: 3,
     average_strong_evidence_per_source: 4,
     promotion_evidence_count: 48,
+    promotion_record_count: 32,
+    strong_evidence_record_count: 12,
+    average_promotion_signals_per_record: 1.5,
     user_control_count: 8,
+    user_control_record_count: 8,
+    user_control_signal_count: 8,
     user_control_source_count: 3,
     user_control_ratio: 0.1667,
+    user_control_signal_ratio: 0.1667,
     behavior_counts: {
       user_decision: 18,
       user_instruction: 22,
@@ -93,6 +99,16 @@ const SAMPLE = {
       assistant_summary: 16,
     },
     promotion_behavior_counts: {
+      user_decision: 8,
+      assistant_execution: 36,
+      assistant_summary: 4,
+    },
+    promotion_record_behavior_counts: {
+      user_decision: 8,
+      assistant_execution: 20,
+      assistant_summary: 4,
+    },
+    promotion_signal_behavior_counts: {
       user_decision: 8,
       assistant_execution: 36,
       assistant_summary: 4,
@@ -549,6 +565,13 @@ function fallbackHardStatCards(report) {
       value: stats.strong_evidence_density ? formatPercent(stats.strong_evidence_density) : "0%",
       detail: `${stats.strong_evidence_count ?? report.strongEvidenceCount ?? 0} 条强证据`,
       interpretation: "强证据越密，越能支撑高段位；低密度会降低置信度。",
+    },
+    {
+      id: "promotion_record_quality",
+      label: "高阶记录质量",
+      value: stats.promotion_record_count ? `${stats.promotion_record_count} 条` : "暂无",
+      detail: stats.average_promotion_signals_per_record ? `平均 ${stats.average_promotion_signals_per_record} 个信号/条` : "按记录去重后统计",
+      interpretation: "防止一条长消息命中多个关键词后被重复当成高阶证据。",
     },
     {
       id: "user_control",

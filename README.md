@@ -153,6 +153,8 @@ Vibe Coding Rank 想测的是更深的一层：
     "tool_event_record_count": 0,
     "scorable_record_ratio": 0.9375,
     "strong_evidence_density": 0.1,
+    "promotion_record_count": 32,
+    "average_promotion_signals_per_record": 1.5,
     "user_control_ratio": 0.1667,
     "promotion_user_decision_ratio": 0.1667,
     "promotion_assistant_execution_ratio": 0.75,

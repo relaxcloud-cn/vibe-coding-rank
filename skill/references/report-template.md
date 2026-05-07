@@ -65,6 +65,8 @@
 - 峰值日 token 占比：{peak_day_token_share}
 - 有效样本比例：{scorable_record_ratio}
 - 强证据密度：{strong_evidence_density}
+- 高阶记录数：{promotion_record_count}
+- 每条高阶记录平均信号数：{average_promotion_signals_per_record}
 - 主动控制占比：{user_control_ratio}
 - 用户决策占比：{promotion_user_decision_ratio}
 - 助手执行占比：{promotion_assistant_execution_ratio}
@@ -84,6 +86,7 @@
 - 样本稳定性：{sample_stability_card}
 - 有效样本：{sample_validity_card}
 - 强证据密度：{strong_evidence_density_card}
+- 高阶记录质量：{promotion_record_quality_card}
 - 用户主动控制：{user_control_card}
 - 用户决策占比：{user_decision_card}
 - 信号覆盖度：{signal_coverage_card}

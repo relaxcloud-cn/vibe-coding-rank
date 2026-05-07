@@ -541,7 +541,10 @@ def build_hard_stats(
     signal_total: int,
     strong_evidence_count: int,
     promotion_evidence_count: int,
-    user_control_count: int,
+    promotion_record_count: int,
+    strong_evidence_record_count: int,
+    user_control_signal_count: int,
+    user_control_record_count: int,
     user_control_source_count: int,
     usage_stats: dict[str, Any],
     counts: Counter[str],
@@ -550,7 +553,8 @@ def build_hard_stats(
     dimension_profile: list[dict[str, Any]],
     analyzed_days: set[str],
     behavior_counts: Counter[str],
-    promotion_behavior_counts: Counter[str],
+    promotion_signal_behavior_counts: Counter[str],
+    promotion_record_behavior_counts: Counter[str],
 ) -> dict[str, Any]:
     usage_record_count = int(usage_stats.get("usage_record_count") or 0)
     tool_result_count = excluded_reasons.get("role:tool_result", 0)
@@ -570,7 +574,8 @@ def build_hard_stats(
         1 for item in dimension_profile if item.get("status") in {"成立", "稳定"}
     )
     stable_dimension_count = sum(1 for item in dimension_profile if item.get("status") == "稳定")
-    promotion_behavior_total = sum(promotion_behavior_counts.values())
+    promotion_signal_behavior_total = sum(promotion_signal_behavior_counts.values())
+    promotion_record_behavior_total = sum(promotion_record_behavior_counts.values())
     return {
         "raw_record_count": total_records,
         "analyzed_record_count": analyzed_record_count,
@@ -599,23 +604,39 @@ def build_hard_stats(
         "strong_evidence_source_count": len(strong_sources),
         "average_strong_evidence_per_source": ratio(strong_evidence_count, source_count),
         "promotion_evidence_count": promotion_evidence_count,
-        "user_control_count": user_control_count,
+        "promotion_record_count": promotion_record_count,
+        "strong_evidence_record_count": strong_evidence_record_count,
+        "average_promotion_signals_per_record": ratio(promotion_evidence_count, promotion_record_count),
+        "user_control_count": user_control_record_count,
+        "user_control_record_count": user_control_record_count,
+        "user_control_signal_count": user_control_signal_count,
         "user_control_source_count": user_control_source_count,
-        "user_control_ratio": ratio(user_control_count, promotion_evidence_count),
+        "user_control_ratio": ratio(user_control_record_count, promotion_record_count),
+        "user_control_signal_ratio": ratio(user_control_signal_count, promotion_evidence_count),
         "behavior_counts": dict(sorted(behavior_counts.items())),
-        "promotion_behavior_counts": dict(sorted(promotion_behavior_counts.items())),
+        "promotion_behavior_counts": dict(sorted(promotion_record_behavior_counts.items())),
+        "promotion_record_behavior_counts": dict(sorted(promotion_record_behavior_counts.items())),
+        "promotion_signal_behavior_counts": dict(sorted(promotion_signal_behavior_counts.items())),
         "user_decision_count": behavior_counts.get("user_decision", 0),
         "user_instruction_count": behavior_counts.get("user_instruction", 0),
         "assistant_execution_count": behavior_counts.get("assistant_execution", 0),
         "assistant_summary_count": behavior_counts.get("assistant_summary", 0),
         "user_decision_ratio": ratio(behavior_counts.get("user_decision", 0), analyzed_record_count),
         "promotion_user_decision_ratio": ratio(
-            promotion_behavior_counts.get("user_decision", 0),
-            promotion_behavior_total,
+            promotion_record_behavior_counts.get("user_decision", 0),
+            promotion_record_behavior_total,
         ),
         "promotion_assistant_execution_ratio": ratio(
-            promotion_behavior_counts.get("assistant_execution", 0),
-            promotion_behavior_total,
+            promotion_record_behavior_counts.get("assistant_execution", 0),
+            promotion_record_behavior_total,
+        ),
+        "promotion_user_decision_signal_ratio": ratio(
+            promotion_signal_behavior_counts.get("user_decision", 0),
+            promotion_signal_behavior_total,
+        ),
+        "promotion_assistant_execution_signal_ratio": ratio(
+            promotion_signal_behavior_counts.get("assistant_execution", 0),
+            promotion_signal_behavior_total,
         ),
         "established_dimension_count": established_dimension_count,
         "stable_dimension_count": stable_dimension_count,
@@ -747,7 +768,7 @@ def build_quality_flags(hard_stats: dict[str, Any]) -> list[dict[str, str]]:
             )
         )
 
-    if promotion_evidence_count > 0 and user_control_ratio < 0.03:
+    if promotion_evidence_count > 0 and user_control_ratio < 0.05:
         flags.append(
             quality_flag(
                 "low_user_control",
@@ -846,7 +867,8 @@ def choose_rank(
     source_count: int,
     strong_evidence_count: int,
     promotion_evidence_count: int,
-    user_control_count: int,
+    promotion_record_count: int,
+    user_control_record_count: int,
     user_control_sources: int,
     promotion_user_decision_ratio: float,
     method_replication_status: str,
@@ -923,22 +945,22 @@ def choose_rank(
     if level >= 7 and (total_records < 20 or source_count < 3 or strong_evidence_count < 8):
         level = 6
         caps.append("七品需要跨多次会话的稳定系统归属证据；当前样本太薄，自动初筛先封顶六品。")
-    if level >= 7 and (user_control_count < 12 or user_control_sources < 3):
+    if level >= 7 and (user_control_record_count < 8 or user_control_sources < 3):
         level = 6
         caps.append("七品需要多次用户主动定义边界、架构、验证或归属；当前更多是助手执行痕迹。")
-    if level >= 7 and ratio(user_control_count, promotion_evidence_count) < 0.08:
+    if level >= 7 and ratio(user_control_record_count, promotion_record_count) < 0.1:
         level = 6
         caps.append("七品需要用户主动控制证据占比足够高；当前高阶信号主要来自助手执行或总结，自动初筛先封顶六品。")
     if level >= 7 and promotion_user_decision_ratio < 0.08:
         level = 6
         caps.append("七品需要足够用户决策证据；当前高阶证据里用户真正做边界、架构、验收或取舍的比例不足。")
-    if level >= 6 and (total_records < 8 or source_count < 2 or promotion_evidence_count < 4):
+    if level >= 6 and (total_records < 8 or source_count < 2 or promotion_record_count < 4):
         level = 5
         caps.append("六品需要问题定义、架构、验证、交付闭环在多条记录中成立；当前证据跨度不够。")
-    if level >= 6 and (user_control_count < 6 or user_control_sources < 2):
+    if level >= 6 and (user_control_record_count < 4 or user_control_sources < 2):
         level = 5
         caps.append("六品需要足够用户主动控制证据；不能只用助手完成测试、构建或总结来升品。")
-    if level >= 6 and ratio(user_control_count, promotion_evidence_count) < 0.03:
+    if level >= 6 and ratio(user_control_record_count, promotion_record_count) < 0.05:
         level = 5
         caps.append("六品需要用户主动控制在高阶证据里占一定比例；当前更多是 AI 自述完成，不能证明你稳定拥有系统。")
     if level >= 6 and promotion_user_decision_ratio < 0.03:
@@ -981,13 +1003,14 @@ def build_rank_gates(
     source_count: int,
     strong_evidence_count: int,
     promotion_evidence_count: int,
-    user_control_count: int,
+    promotion_record_count: int,
+    user_control_record_count: int,
     user_control_source_count: int,
     promotion_user_decision_ratio: float,
     method_replication_status: str,
     allow_team_rank: bool,
 ) -> list[dict[str, Any]]:
-    user_control_ratio = ratio(user_control_count, promotion_evidence_count)
+    user_control_ratio = ratio(user_control_record_count, promotion_record_count)
     has_architecture = counts["architecture"] > 0
     has_validation = counts["validation"] > 0
     has_ownership = counts["ownership"] > 0
@@ -1017,26 +1040,26 @@ def build_rank_gates(
             "level6_evidence_span",
             6,
             "六品证据跨度",
-            total_records >= 8 and source_count >= 2 and promotion_evidence_count >= 4,
+            total_records >= 8 and source_count >= 2 and promotion_record_count >= 4,
             {
                 "analyzed_records": total_records,
                 "source_count": source_count,
-                "promotion_evidence_count": promotion_evidence_count,
+                "promotion_record_count": promotion_record_count,
             },
-            {"analyzed_records": 8, "source_count": 2, "promotion_evidence_count": 4},
+            {"analyzed_records": 8, "source_count": 2, "promotion_record_count": 4},
             "六品需要问题定义、架构、验证、交付闭环在多条记录中成立。",
         ),
         gate(
             "level6_user_control_ratio",
             6,
             "六品主动控制占比",
-            user_control_count >= 6 and user_control_source_count >= 2 and user_control_ratio >= 0.03,
+            user_control_record_count >= 4 and user_control_source_count >= 2 and user_control_ratio >= 0.05,
             {
-                "user_control_count": user_control_count,
+                "user_control_record_count": user_control_record_count,
                 "user_control_source_count": user_control_source_count,
                 "user_control_ratio": user_control_ratio,
             },
-            {"user_control_count": 6, "user_control_source_count": 2, "user_control_ratio": 0.03},
+            {"user_control_record_count": 4, "user_control_source_count": 2, "user_control_ratio": 0.05},
             "六品需要足够用户主动控制，不能只用助手完成测试、构建或总结来升品。",
         ),
         gate(
@@ -1074,13 +1097,13 @@ def build_rank_gates(
             "level7_user_control_ratio",
             7,
             "七品主动控制占比",
-            user_control_count >= 12 and user_control_source_count >= 3 and user_control_ratio >= 0.08,
+            user_control_record_count >= 8 and user_control_source_count >= 3 and user_control_ratio >= 0.1,
             {
-                "user_control_count": user_control_count,
+                "user_control_record_count": user_control_record_count,
                 "user_control_source_count": user_control_source_count,
                 "user_control_ratio": user_control_ratio,
             },
-            {"user_control_count": 12, "user_control_source_count": 3, "user_control_ratio": 0.08},
+            {"user_control_record_count": 8, "user_control_source_count": 3, "user_control_ratio": 0.1},
             "七品需要多次用户主动定义边界、架构、验证或归属。",
         ),
         gate(
@@ -1251,11 +1274,15 @@ def main() -> int:
     signal_sources: dict[str, set[str]] = defaultdict(set)
     strong_signal_sources: dict[str, set[str]] = defaultdict(set)
     behavior_counts: Counter[str] = Counter()
-    promotion_behavior_counts: Counter[str] = Counter()
-    user_control_count = 0
+    promotion_signal_behavior_counts: Counter[str] = Counter()
+    promotion_record_behavior_counts: Counter[str] = Counter()
+    promotion_record_count = 0
+    strong_evidence_records: set[str] = set()
+    user_control_signal_count = 0
+    user_control_record_count = 0
     user_control_sources: set[str] = set()
 
-    for record in records:
+    for record_index, record in enumerate(records):
         text = str(record.get("text", ""))
         role = str(record.get("role", "unknown"))
         reason = exclusion_reason(record, excluded_patterns)
@@ -1268,19 +1295,26 @@ def main() -> int:
         signals = detect_signals(text, patterns)
         behavior_class = classify_behavior(record, text, signals)
         behavior_counts[behavior_class] += 1
+        promotion_signals = [signal for signal in signals if is_promotion_signal(signal)]
+        if promotion_signals:
+            promotion_record_count += 1
+            promotion_record_behavior_counts[behavior_class] += 1
+            if is_user_role(role):
+                user_control_record_count += 1
+                user_control_sources.add(session)
         for signal in signals:
             counts[signal] += 1
             signal_sources[signal].add(session)
             meta = SIGNAL_META[signal]
             if is_promotion_signal(signal):
                 promotion_counts[signal] += 1
-                promotion_behavior_counts[behavior_class] += 1
+                promotion_signal_behavior_counts[behavior_class] += 1
                 if is_user_role(role):
-                    user_control_count += 1
-                    user_control_sources.add(session)
+                    user_control_signal_count += 1
             if meta["strength"] == "强" and is_promotion_signal(signal):
                 strong_counts[signal] += 1
                 strong_signal_sources[signal].add(session)
+                strong_evidence_records.add(f"{session}:{record_index}")
             if len(evidence[signal]) < args.max_evidence:
                 evidence[signal].append(
                     {
@@ -1300,14 +1334,15 @@ def main() -> int:
     analyzed_record_count = len(records) - excluded_total
     signal_total = sum(counts.values())
     strong_evidence_count = sum(strong_counts.values())
+    strong_evidence_record_count = len(strong_evidence_records)
     promotion_evidence_count = sum(promotion_counts.values())
     dimension_profile = build_dimension_profile(counts, strong_counts, signal_sources)
     source_count = len(analyzed_sources)
     user_control_source_count = len(user_control_sources)
-    promotion_behavior_total = sum(promotion_behavior_counts.values())
+    promotion_record_behavior_total = sum(promotion_record_behavior_counts.values())
     promotion_user_decision_ratio = ratio(
-        promotion_behavior_counts.get("user_decision", 0),
-        promotion_behavior_total,
+        promotion_record_behavior_counts.get("user_decision", 0),
+        promotion_record_behavior_total,
     )
     hard_stats = build_hard_stats(
         len(records),
@@ -1318,7 +1353,10 @@ def main() -> int:
         signal_total,
         strong_evidence_count,
         promotion_evidence_count,
-        user_control_count,
+        promotion_record_count,
+        strong_evidence_record_count,
+        user_control_signal_count,
+        user_control_record_count,
         user_control_source_count,
         usage_stats,
         counts,
@@ -1327,7 +1365,8 @@ def main() -> int:
         dimension_profile,
         analyzed_days,
         behavior_counts,
-        promotion_behavior_counts,
+        promotion_signal_behavior_counts,
+        promotion_record_behavior_counts,
     )
     method_replication_status = next(
         (
@@ -1343,7 +1382,8 @@ def main() -> int:
         source_count,
         strong_evidence_count,
         promotion_evidence_count,
-        user_control_count,
+        promotion_record_count,
+        user_control_record_count,
         user_control_source_count,
         promotion_user_decision_ratio,
         method_replication_status,
@@ -1356,7 +1396,8 @@ def main() -> int:
         source_count,
         strong_evidence_count,
         promotion_evidence_count,
-        user_control_count,
+        promotion_record_count,
+        user_control_record_count,
         user_control_source_count,
         promotion_user_decision_ratio,
         method_replication_status,
@@ -1388,10 +1429,16 @@ def main() -> int:
         "promotion_signal_counts": dict(sorted(promotion_counts.items())),
         "strong_evidence_count": strong_evidence_count,
         "promotion_evidence_count": promotion_evidence_count,
-        "user_control_count": user_control_count,
+        "promotion_record_count": promotion_record_count,
+        "strong_evidence_record_count": strong_evidence_record_count,
+        "user_control_count": user_control_record_count,
+        "user_control_record_count": user_control_record_count,
+        "user_control_signal_count": user_control_signal_count,
         "user_control_source_count": user_control_source_count,
         "behavior_counts": dict(sorted(behavior_counts.items())),
-        "promotion_behavior_counts": dict(sorted(promotion_behavior_counts.items())),
+        "promotion_behavior_counts": dict(sorted(promotion_record_behavior_counts.items())),
+        "promotion_record_behavior_counts": dict(sorted(promotion_record_behavior_counts.items())),
+        "promotion_signal_behavior_counts": dict(sorted(promotion_signal_behavior_counts.items())),
         "usage_stats": usage_stats,
         "hard_stats": hard_stats,
         "source_count": source_count,
