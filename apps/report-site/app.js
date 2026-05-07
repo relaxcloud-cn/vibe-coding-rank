@@ -27,6 +27,7 @@ const SAMPLE = {
   judgmentModeLabel: "自动初筛",
   isFinal: false,
   strongEvidenceCount: 12,
+  userControlCount: 8,
   dimensionProfile: [
     { id: "problem_definition", label: "目标定义", status: "成立", score: 65 },
     { id: "boundary_control", label: "边界控制", status: "成立", score: 65 },
@@ -117,6 +118,7 @@ function render(report) {
   document.querySelector("#ownership").textContent = translateOwnership(rank.systemOwnership || "weak");
   document.querySelector("#judgment-mode").textContent = judgmentText(report);
   document.querySelector("#strong-evidence").textContent = report.strongEvidenceCount ?? 0;
+  document.querySelector("#user-control").textContent = report.userControlCount ?? 0;
   document.querySelector("#signals").textContent = report.signalCount || 0;
   document.querySelector("#records").textContent = report.analyzedRecordCount ?? report.recordCount ?? 0;
   document.querySelector("#rank-cap").textContent = firstText(report.rankCaps) || SAMPLE.rankCaps[0];

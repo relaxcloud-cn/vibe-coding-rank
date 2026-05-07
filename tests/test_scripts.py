@@ -51,6 +51,81 @@ class ScriptTests(unittest.TestCase):
             self.assertIn("[REDACTED_SECRET]", rows[0]["text"])
             self.assertNotIn("sk-testsecret", rows[0]["text"])
 
+    def test_collect_sessions_normalizes_codex_roles(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "session.jsonl"
+            output = root / "evidence.jsonl"
+            rows = [
+                {
+                    "type": "response_item",
+                    "payload": {
+                        "type": "message",
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": "先给计划"}],
+                    },
+                },
+                {
+                    "type": "event_msg",
+                    "payload": {"type": "agent_reasoning", "text": "internal"},
+                },
+                {
+                    "type": "event_msg",
+                    "payload": {"type": "token_count", "info": {"total_tokens": 1}},
+                },
+            ]
+            source.write_text(
+                "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+                encoding="utf-8",
+            )
+
+            run_script(
+                "collect_sessions.py",
+                "--source",
+                "codex",
+                "--root",
+                str(root),
+                "--output",
+                str(output),
+            )
+
+            collected = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual([row["role"] for row in collected], ["user"])
+
+    def test_collect_sessions_marks_claude_tool_results(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "session.jsonl"
+            output = root / "evidence.jsonl"
+            rows = [
+                {
+                    "type": "user",
+                    "message": {"role": "user", "content": "实现功能"},
+                },
+                {
+                    "type": "user",
+                    "toolUseResult": {"stdout": "npm test passed"},
+                    "message": {"role": "user", "content": "npm test passed"},
+                },
+            ]
+            source.write_text(
+                "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+                encoding="utf-8",
+            )
+
+            run_script(
+                "collect_sessions.py",
+                "--source",
+                "claude",
+                "--root",
+                str(root),
+                "--output",
+                str(output),
+            )
+
+            collected = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual([row["role"] for row in collected], ["user", "tool_result"])
+
     def test_prepare_evidence_detects_high_order_signals_without_unlocking_eight(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -187,6 +262,43 @@ class ScriptTests(unittest.TestCase):
             self.assertEqual(data["excluded_record_count"], 3)
             self.assertNotIn("workflow_asset", data["signal_counts"])
             self.assertIn("已过滤 3 条", " ".join(data["rank_caps"]))
+
+    def test_prepare_evidence_filters_tool_results_from_scoring(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            evidence = root / "evidence.jsonl"
+            summary = root / "summary.json"
+            rows = [
+                {
+                    "source": "claude",
+                    "path": "session.jsonl:1",
+                    "role": "tool_result",
+                    "text": "npm test passed. build lint smoke rollback workflow architecture module boundary.",
+                },
+                {
+                    "source": "claude",
+                    "path": "session.jsonl:2",
+                    "role": "user",
+                    "text": "先给计划，验收条件是 test 通过。",
+                },
+            ]
+            evidence.write_text(
+                "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+                encoding="utf-8",
+            )
+
+            run_script(
+                "prepare_evidence.py",
+                "--input",
+                str(evidence),
+                "--output",
+                str(summary),
+            )
+
+            data = json.loads(summary.read_text(encoding="utf-8"))
+            self.assertEqual(data["excluded_reason_counts"]["role:tool_result"], 1)
+            self.assertNotIn("architecture", data["signal_counts"])
+            self.assertLessEqual(data["preliminary_rank"]["level"], 4)
 
     def test_prepare_evidence_caps_single_dense_record(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

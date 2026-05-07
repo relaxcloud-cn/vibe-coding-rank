@@ -61,6 +61,7 @@
   "qualityNotes": [
     "脚本只做证据清洗和自动初筛，不是最终 AI 段位判定。"
   ],
+  "userControlCount": 14,
   "dimensionProfile": [
     {
       "id": "architecture_judgment",

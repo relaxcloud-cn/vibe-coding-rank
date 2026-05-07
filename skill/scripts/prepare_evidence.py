@@ -275,6 +275,12 @@ EXCLUDED_ROLES = {
     "developer",
     "session_meta",
     "compacted",
+    "reasoning",
+    "turn_context",
+    "progress",
+    "attachment",
+    "queue-operation",
+    "tool_result",
 }
 
 EXCLUDED_TEXT_PATTERNS: list[tuple[str, str]] = [
@@ -359,6 +365,14 @@ def source_session(record: dict[str, Any]) -> str:
     return path or record_source(record)
 
 
+def is_promotion_signal(signal: str) -> bool:
+    return signal not in {"snippet_generation", "demo_generation", "bug_loop", "team_system"}
+
+
+def is_user_role(role: str) -> bool:
+    return role.strip().lower() == "user"
+
+
 def exclusion_reason(record: dict[str, Any], patterns: list[tuple[str, re.Pattern[str]]]) -> str | None:
     role = str(record.get("role", "")).strip().lower()
     if role in EXCLUDED_ROLES:
@@ -378,6 +392,9 @@ def choose_rank(
     source_count: int,
     strong_evidence_count: int,
     promotion_evidence_count: int,
+    user_control_count: int,
+    user_control_sources: int,
+    method_replication_status: str,
     allow_team_rank: bool = False,
 ) -> tuple[int, str, list[str], dict[str, Any]]:
     caps: list[str] = []
@@ -419,7 +436,7 @@ def choose_rank(
         level = max(level, 7)
     has_team_candidate = has_team and has_workflow
     has_strong_team = counts["team_system"] >= 3 and counts["workflow_asset"] >= 3
-    if allow_team_rank and has_strong_team:
+    if allow_team_rank and has_strong_team and method_replication_status in {"成立", "稳定"}:
         level = max(level, 8)
         unlocks["level8"] = {
             "unlocked": True,
@@ -444,14 +461,22 @@ def choose_rank(
         caps.append("自动初筛最高只确认到七品；八品需要单独复核团队复制证据。")
     if level < 8 and has_team_candidate:
         caps.append("出现团队/工作流候选信号，但还不能证明方法被他人稳定复用，八品未解锁。")
+    if method_replication_status not in {"成立", "稳定"}:
+        caps.append("方法复制维度仍是线索，不能证明团队或社区已经稳定复用你的协作方法。")
     if level >= 7 and not has_workflow:
         caps.append("缺少可复用 rules、skill、workflow 或检查点资产，七品以上证据不够稳。")
     if level >= 7 and (total_records < 20 or source_count < 3 or strong_evidence_count < 8):
         level = 6
         caps.append("七品需要跨多次会话的稳定系统归属证据；当前样本太薄，自动初筛先封顶六品。")
+    if level >= 7 and (user_control_count < 12 or user_control_sources < 3):
+        level = 6
+        caps.append("七品需要多次用户主动定义边界、架构、验证或归属；当前更多是助手执行痕迹。")
     if level >= 6 and (total_records < 8 or source_count < 2 or promotion_evidence_count < 4):
         level = 5
         caps.append("六品需要问题定义、架构、验证、交付闭环在多条记录中成立；当前证据跨度不够。")
+    if level >= 6 and (user_control_count < 6 or user_control_sources < 2):
+        level = 5
+        caps.append("六品需要足够用户主动控制证据；不能只用助手完成测试、构建或总结来升品。")
     if level < 8 and unlocks["level8"]["unlocked"]:
         unlocks["level8"] = {
             "unlocked": False,
@@ -526,18 +551,16 @@ def dimension_status(evidence_count: int, strong_count: int, source_count: int) 
 
 def build_dimension_profile(
     counts: Counter[str],
-    evidence_cards: list[dict[str, Any]],
+    strong_counts: Counter[str],
+    signal_sources: dict[str, set[str]],
 ) -> list[dict[str, Any]]:
     profile: list[dict[str, Any]] = []
     for dimension in DIMENSIONS:
         signals = set(dimension["signals"])
-        cards = [card for card in evidence_cards if card.get("signal") in signals]
-        strong_count = sum(
-            1
-            for card in cards
-            if card.get("strength") == "强" and card.get("usable_for_promotion")
-        )
-        sessions = {str(card.get("session", "")) for card in cards if card.get("session")}
+        strong_count = sum(strong_counts[signal] for signal in signals)
+        sessions = set()
+        for signal in signals:
+            sessions.update(signal_sources.get(signal, set()))
         evidence_count = sum(counts[signal] for signal in signals)
         status, score = dimension_status(evidence_count, strong_count, len(sessions))
         profile.append(
@@ -567,6 +590,11 @@ def main() -> int:
     evidence_cards: list[dict[str, Any]] = []
     weak_signals: list[dict[str, Any]] = []
     analyzed_sources: set[str] = set()
+    strong_counts: Counter[str] = Counter()
+    promotion_counts: Counter[str] = Counter()
+    signal_sources: dict[str, set[str]] = defaultdict(set)
+    user_control_count = 0
+    user_control_sources: set[str] = set()
 
     for record in records:
         text = str(record.get("text", ""))
@@ -575,10 +603,20 @@ def main() -> int:
         if reason:
             excluded_reasons[reason] += 1
             continue
-        analyzed_sources.add(source_session(record))
+        session = source_session(record)
+        analyzed_sources.add(session)
         signals = detect_signals(text, patterns)
         for signal in signals:
             counts[signal] += 1
+            signal_sources[signal].add(session)
+            meta = SIGNAL_META[signal]
+            if is_promotion_signal(signal):
+                promotion_counts[signal] += 1
+                if is_user_role(role):
+                    user_control_count += 1
+                    user_control_sources.add(session)
+            if meta["strength"] == "强" and is_promotion_signal(signal):
+                strong_counts[signal] += 1
             if len(evidence[signal]) < args.max_evidence:
                 evidence[signal].append(
                     {
@@ -587,7 +625,6 @@ def main() -> int:
                         "snippet": snippet(text),
                     }
                 )
-            meta = SIGNAL_META[signal]
             if meta["strength"] == "弱":
                 if len(weak_signals) < args.max_evidence * 4:
                     weak_signals.append(weak_signal_card(record, signal, text))
@@ -598,18 +635,26 @@ def main() -> int:
     excluded_total = sum(excluded_reasons.values())
     analyzed_record_count = len(records) - excluded_total
     signal_total = sum(counts.values())
-    strong_evidence_count = sum(
-        1
-        for card in evidence_cards
-        if card.get("strength") == "强" and card.get("usable_for_promotion")
+    strong_evidence_count = sum(strong_counts.values())
+    promotion_evidence_count = sum(promotion_counts.values())
+    dimension_profile = build_dimension_profile(counts, strong_counts, signal_sources)
+    method_replication_status = next(
+        (
+            item["status"]
+            for item in dimension_profile
+            if item.get("id") == "method_replication"
+        ),
+        "缺失",
     )
-    promotion_evidence_count = sum(1 for card in evidence_cards if card.get("usable_for_promotion"))
     level, label, caps, unlocks = choose_rank(
         counts,
         analyzed_record_count,
         len(analyzed_sources),
         strong_evidence_count,
         promotion_evidence_count,
+        user_control_count,
+        len(user_control_sources),
+        method_replication_status,
         args.allow_team_rank,
     )
     if excluded_total:
@@ -634,15 +679,19 @@ def main() -> int:
         "excluded_reason_counts": dict(sorted(excluded_reasons.items())),
         "signal_count": signal_total,
         "signal_counts": dict(sorted(counts.items())),
+        "strong_signal_counts": dict(sorted(strong_counts.items())),
+        "promotion_signal_counts": dict(sorted(promotion_counts.items())),
         "strong_evidence_count": strong_evidence_count,
         "promotion_evidence_count": promotion_evidence_count,
+        "user_control_count": user_control_count,
+        "user_control_source_count": len(user_control_sources),
         "source_count": len(analyzed_sources),
         "preliminary_rank": preliminary_rank,
         "heuristic_rank": preliminary_rank,
         "evidence": evidence,
         "evidence_cards": evidence_cards,
         "weak_signals": weak_signals,
-        "dimension_profile": build_dimension_profile(counts, evidence_cards),
+        "dimension_profile": dimension_profile,
         "rank_caps": caps,
         "unlock_status": unlocks,
         "quality_notes": [

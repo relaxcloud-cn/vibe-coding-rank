@@ -243,6 +243,8 @@ function sampleSummary() {
       agent_orchestration: 4,
     },
     strong_evidence_count: 12,
+    user_control_count: 8,
+    user_control_source_count: 3,
     dimension_profile: [
       { id: "problem_definition", label: "目标定义", status: "成立", score: 65, evidence_count: 19, strong_evidence_count: 11 },
       { id: "boundary_control", label: "边界控制", status: "成立", score: 65, evidence_count: 20, strong_evidence_count: 11 },
@@ -462,6 +464,8 @@ function buildReport(summary, options) {
     signalCount: summary.signal_count || 0,
     signalCounts: summary.signal_counts || {},
     strongEvidenceCount: summary.strong_evidence_count || strongest.filter((item) => item.strength === "强").length,
+    userControlCount: summary.user_control_count || 0,
+    userControlSourceCount: summary.user_control_source_count || 0,
     dimensionProfile: summary.dimension_profile || [],
     verdict: copy.verdict,
     whyThisRank: copy.reason,

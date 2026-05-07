@@ -52,6 +52,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("unlockStatus", payload["report"])
         self.assertIn("qualityNotes", payload["report"])
         self.assertIn("dimensionProfile", payload["report"])
+        self.assertIn("userControlCount", payload["report"])
         self.assertIn("narrative", payload["report"])
         self.assertIn("你现在是", payload["report"]["narrative"]["oneLine"])
 

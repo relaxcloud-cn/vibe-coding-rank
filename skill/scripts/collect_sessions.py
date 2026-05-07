@@ -28,6 +28,13 @@ TEXT_KEYS = {
     "stderr",
 }
 
+NON_CONVERSATION_TYPES = {
+    "agent_reasoning",
+    "reasoning",
+    "token_count",
+    "turn_context",
+}
+
 SECRET_PATTERNS = [
     re.compile(r"sk-[A-Za-z0-9_\-]{20,}"),
     re.compile(r"sk-ant-[A-Za-z0-9_\-]{20,}"),
@@ -104,20 +111,70 @@ def flatten_text(value: Any) -> list[str]:
     return texts
 
 
+def normalize_role(role: str) -> str:
+    value = role.strip().lower()
+    if value in {"human"}:
+        return "user"
+    if value in {"agent_message"}:
+        return "assistant"
+    if value in {"agent_reasoning", "reasoning"}:
+        return "reasoning"
+    if value in {"function_call"}:
+        return "assistant_tool"
+    if value in {"function_call_output"}:
+        return "tool_result"
+    if value in {"user_message"}:
+        return "user"
+    return role[:40] if role else "unknown"
+
+
 def extract_role(value: Any) -> str:
     if not isinstance(value, dict):
         return "unknown"
-    for key in ("role", "type", "speaker", "author"):
+    if "toolUseResult" in value:
+        return "tool_result"
+
+    payload = value.get("payload")
+    if isinstance(payload, dict):
+        for key in ("role", "speaker", "author"):
+            role = payload.get(key)
+            if isinstance(role, str) and role:
+                return normalize_role(role)
+        payload_type = payload.get("type")
+        if isinstance(payload_type, str) and payload_type:
+            return normalize_role(payload_type)
+
+    message = value.get("message")
+    if isinstance(message, dict):
+        role = message.get("role")
+        if isinstance(role, str) and role:
+            return normalize_role(role)
+
+    for key in ("role", "speaker", "author", "type"):
         role = value.get(key)
         if isinstance(role, str) and role:
-            return role[:40]
+            return normalize_role(role)
     return "unknown"
+
+
+def should_skip_record(value: Any) -> bool:
+    if not isinstance(value, dict):
+        return False
+    if value.get("type") in NON_CONVERSATION_TYPES:
+        return True
+    payload = value.get("payload")
+    if isinstance(payload, dict) and payload.get("type") in NON_CONVERSATION_TYPES:
+        return True
+    return False
 
 
 def extract_records_from_json(value: Any, path: Path) -> Iterable[dict[str, Any]]:
     if isinstance(value, list):
         for item in value:
             yield from extract_records_from_json(item, path)
+        return
+
+    if should_skip_record(value):
         return
 
     texts = flatten_text(value)
