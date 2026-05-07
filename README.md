@@ -191,21 +191,26 @@ Use $vibe-coding-rank to analyze my local Codex sessions and produce a Vibe Codi
 
 ```text
 .
+├── README.md                        # 项目介绍和使用说明
 ├── SKILL.md                         # Codex 读取的 skill 入口
+├── package.json                     # CLI 元信息和本地检查脚本
+├── wrangler.toml                    # Cloudflare Worker / 静态资源部署配置
 ├── agents/openai.yaml               # UI 元信息
 ├── assets/                          # README 和产品展示图
 ├── cli/vibe-rank.mjs                # npx 一条命令入口
+├── docs/DEPLOY_YISEC.md             # vibe.yisec.ai 部署说明
 ├── docs/LAUNCH_PLAYBOOK.md          # 宣传运营打法
 ├── references/
 │   ├── vibe-coding-rank.md          # 九品体系
 │   ├── evidence-rubric.md           # 证据解释规则
+│   ├── image-report-prompt.md       # Imagen / imagegen 图片报告模板
 │   └── output-schema.md             # 报告输出结构
 ├── scripts/
 │   ├── collect_sessions.py          # 提取并脱敏会话证据
 │   └── summarize_evidence.py        # 生成启发式证据摘要
 ├── site/                            # 云端报告展示页
 ├── worker/index.js                  # Cloudflare Worker API
-└── tests/test_scripts.py            # 脚本回归测试
+└── tests/                           # CLI 和脚本回归测试
 ```
 
 ## 隐私原则
@@ -214,6 +219,10 @@ Use $vibe-coding-rank to analyze my local Codex sessions and produce a Vibe Codi
 
 不要把这些文件提交到公开仓库：
 
+- `.airank/`
+- `.npm-cache/`
+- `.wrangler/`
+- `node_modules/`
 - `*-evidence.jsonl`
 - `*-summary.json`
 - `runs/`
