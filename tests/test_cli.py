@@ -269,6 +269,22 @@ class CliTests(unittest.TestCase):
         self.assertIn("--root <path>", text)
         self.assertIn("--demo --open", text)
 
+    def test_rejects_unknown_source_before_scanning(self) -> None:
+        result = subprocess.run(
+            [
+                "node",
+                str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                "--source",
+                "cursor",
+                "--doctor",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Unsupported --source "cursor"', result.stderr)
+        self.assertIn("codex, claude, or generic", result.stderr)
+
     def test_doctor_reports_ready_state_for_existing_root(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             result = subprocess.run(

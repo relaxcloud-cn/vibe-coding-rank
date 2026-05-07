@@ -7,6 +7,7 @@ import { homedir, platform, tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 
 const ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
+const SOURCES = new Set(["codex", "claude", "generic"]);
 
 const RANKS = [
   "零品 · 门外汉",
@@ -256,6 +257,10 @@ function parseArgs(argv) {
     } else {
       throw new Error(`Unknown argument: ${arg}`);
     }
+  }
+
+  if (!SOURCES.has(options.source)) {
+    throw new Error(`Unsupported --source "${options.source}". Use codex, claude, or generic.`);
   }
 
   return options;

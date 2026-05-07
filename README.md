@@ -22,6 +22,12 @@ Claude Code：
 npx github:relaxcloud-cn/vibe-coding-rank --source claude --open
 ```
 
+其他来源先用通用模式：
+
+```bash
+npx github:relaxcloud-cn/vibe-coding-rank --source generic --root /path/to/logs --open
+```
+
 先看样例：
 
 ```bash
