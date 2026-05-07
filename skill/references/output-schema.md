@@ -103,6 +103,20 @@
     "user_control_count": 8,
     "user_control_source_count": 3,
     "user_control_ratio": 0.1667,
+    "behavior_counts": {
+      "user_decision": 18,
+      "user_instruction": 22,
+      "assistant_execution": 64,
+      "assistant_summary": 16
+    },
+    "promotion_behavior_counts": {
+      "user_decision": 8,
+      "assistant_execution": 36,
+      "assistant_summary": 4
+    },
+    "user_decision_count": 18,
+    "promotion_user_decision_ratio": 0.1667,
+    "promotion_assistant_execution_ratio": 0.75,
     "established_dimension_count": 5,
     "stable_dimension_count": 1,
     "total_tokens": 1280000,

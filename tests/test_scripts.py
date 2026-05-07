@@ -220,7 +220,15 @@ class ScriptTests(unittest.TestCase):
             self.assertEqual(data["judgment_mode"], "自动初筛")
             self.assertFalse(data["is_final"])
             self.assertIn("evidence_cards", data)
+            first_card = data["evidence_cards"][0]
+            self.assertIn(first_card["behavior_class"], {"user_decision", "assistant_execution"})
+            self.assertIn("behavior_class_label", first_card)
             self.assertEqual(len(data["dimension_profile"]), 6)
+            self.assertGreater(data["hard_stats"]["user_decision_count"], 0)
+            self.assertIn("user_decision", data["hard_stats"]["behavior_counts"])
+            self.assertIn("assistant_execution", data["hard_stats"]["behavior_counts"])
+            self.assertGreater(data["hard_stats"]["promotion_user_decision_ratio"], 0)
+            self.assertGreater(data["hard_stats"]["promotion_assistant_execution_ratio"], 0)
             self.assertFalse(data["unlock_status"]["level8"]["unlocked"])
             self.assertIn("九品", " ".join(data["rank_caps"]))
 
@@ -457,6 +465,7 @@ class ScriptTests(unittest.TestCase):
             data = json.loads(summary.read_text(encoding="utf-8"))
             self.assertLessEqual(data["preliminary_rank"]["level"], 5)
             self.assertLess(data["hard_stats"]["user_control_ratio"], 0.03)
+            self.assertGreater(data["hard_stats"]["promotion_assistant_execution_ratio"], 0.9)
             self.assertIn("用户主动控制", " ".join(data["rank_caps"]))
 
     def test_summarize_wrapper_still_works(self) -> None:

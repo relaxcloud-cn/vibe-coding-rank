@@ -115,7 +115,7 @@ Vibe Coding Rank 想测的是更深的一层：
 - 判定模式：自动初筛或 AI 深度判定
 - 置信度
 - 系统归属判断
-- 硬统计画像：总 token、峰值日 token、活跃天数、日均/会话均 token、峰值集中度、有效样本比例、强证据密度、主动控制占比、信号覆盖度，以及对应的统计解读
+- 硬统计画像：总 token、峰值日 token、活跃天数、日均/会话均 token、峰值集中度、有效样本比例、强证据密度、主动控制占比、用户决策占比、助手执行占比、信号覆盖度，以及对应的统计解读
 - 六维能力画像：目标定义、边界控制、验证闭环、架构判断、系统归属、方法复制
 - 支撑该段位的行为证据卡
 - 限制段位上限的证据缺口
@@ -150,6 +150,8 @@ Vibe Coding Rank 想测的是更深的一层：
     "scorable_record_ratio": 0.9375,
     "strong_evidence_density": 0.1,
     "user_control_ratio": 0.1667,
+    "promotion_user_decision_ratio": 0.1667,
+    "promotion_assistant_execution_ratio": 0.75,
     "evidence_span_days": 6,
     "signal_coverage_ratio": 0.6364,
     "dominant_signal_ratio": 0.2321,

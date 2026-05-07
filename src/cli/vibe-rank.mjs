@@ -309,6 +309,24 @@ function sampleSummary() {
       user_control_count: 8,
       user_control_source_count: 3,
       user_control_ratio: 0.1667,
+      behavior_counts: {
+        user_decision: 18,
+        user_instruction: 22,
+        assistant_execution: 64,
+        assistant_summary: 16,
+      },
+      promotion_behavior_counts: {
+        user_decision: 8,
+        assistant_execution: 36,
+        assistant_summary: 4,
+      },
+      user_decision_count: 18,
+      user_instruction_count: 22,
+      assistant_execution_count: 64,
+      assistant_summary_count: 16,
+      user_decision_ratio: 0.15,
+      promotion_user_decision_ratio: 0.1667,
+      promotion_assistant_execution_ratio: 0.75,
       established_dimension_count: 5,
       stable_dimension_count: 1,
       total_tokens: 1280000,
@@ -368,6 +386,8 @@ function sampleSummary() {
         evidence_type: "边界控制证据",
         dimension: "目标与边界",
         actor: "user",
+        behavior_class: "user_decision",
+        behavior_class_label: "用户决策",
         behavior: "实现这个用户故事，验收条件如下；不要改支付模块，先给计划再动代码。",
         proves: "开始定义目标、非目标、验收条件或文件范围，AI 的行为被人的边界约束。",
         supports_levels: [4, 5],
@@ -381,6 +401,8 @@ function sampleSummary() {
         evidence_type: "验证闭环证据",
         dimension: "验证判断",
         actor: "assistant",
+        behavior_class: "assistant_execution",
+        behavior_class_label: "助手执行",
         behavior: "已运行 build、lint、单元测试和截图 smoke check，并复查 diff。",
         proves: "用测试、构建、lint、回归或人工验收确认结果，而不是只看能不能跑。",
         supports_levels: [3, 5, 6],
@@ -394,6 +416,8 @@ function sampleSummary() {
         evidence_type: "架构判断证据",
         dimension: "系统设计",
         actor: "user",
+        behavior_class: "user_decision",
+        behavior_class_label: "用户决策",
         behavior: "这个模块继续 patch 没意义，重设数据边界，用新的状态模型替换。",
         proves: "关注模块边界、权限、数据模型、重构或系统设计，开始从系统层面判断结果。",
         supports_levels: [5, 6, 7],
@@ -474,6 +498,8 @@ function flattenEvidence(summary) {
       reason: item.proves || SIGNAL_REASONS[item.signal] || "这条证据支持当前段位判断。",
       source: item.source || "",
       role: item.actor || "unknown",
+      behaviorClass: item.behavior_class || "",
+      behaviorClassLabel: item.behavior_class_label || "",
       snippet: item.snippet || item.behavior || "",
       dimension: item.dimension || "",
       strength: item.strength || "",
@@ -557,6 +583,8 @@ function buildReport(summary, options) {
     strongEvidenceCount: summary.strong_evidence_count || strongest.filter((item) => item.strength === "强").length,
     userControlCount: summary.user_control_count || 0,
     userControlSourceCount: summary.user_control_source_count || 0,
+    behaviorCounts: summary.behavior_counts || summary.hard_stats?.behavior_counts || {},
+    promotionBehaviorCounts: summary.promotion_behavior_counts || summary.hard_stats?.promotion_behavior_counts || {},
     usageStats: summary.usage_stats || {},
     hardStats: summary.hard_stats || {},
     statsInsight: statsInsight({ hardStats: summary.hard_stats || {} }),
@@ -666,6 +694,17 @@ function evidenceStatsLine(report) {
   return parts.join(", ");
 }
 
+function behaviorMixLine(report) {
+  const stats = report.hardStats || {};
+  const userDecision = stats.promotion_user_decision_ratio ?? stats.user_decision_ratio ?? 0;
+  const assistantExecution = stats.promotion_assistant_execution_ratio ?? 0;
+  const parts = [];
+  if (userDecision) parts.push(`用户决策 ${formatPercent(userDecision)}`);
+  if (assistantExecution) parts.push(`助手执行 ${formatPercent(assistantExecution)}`);
+  if (stats.user_decision_count) parts.push(`决策证据 ${stats.user_decision_count} 条`);
+  return parts.join(", ");
+}
+
 function statsInsight(report) {
   const stats = report.hardStats || {};
   const notes = [];
@@ -733,6 +772,7 @@ function buildShareImagePrompt(report, url = "") {
     .join("；");
   const stats = hardStatsLine(report) || "暂无硬统计";
   const evidenceStats = evidenceStatsLine(report) || "暂无证据结构统计";
+  const behaviorMix = behaviorMixLine(report) || "暂无行为结构统计";
   const insight = statsInsight(report);
   const rankCap = shortText(report.rankCaps?.[0] || report.narrative?.capSummary || "暂无明显封顶原因", 52);
   const upgrade = shortText(report.upgradePath?.[0] || report.narrative?.upgradeSummary || "继续沉淀可复用工作流", 52);
@@ -757,6 +797,9 @@ ${stats}
 
 证据结构：
 ${evidenceStats}
+
+行为结构：
+${behaviorMix}
 
 统计解读：
 ${insight}
@@ -824,6 +867,8 @@ function publicReport(report) {
     strongEvidenceCount: report.strongEvidenceCount,
     userControlCount: report.userControlCount,
     userControlSourceCount: report.userControlSourceCount,
+    behaviorCounts: report.behaviorCounts,
+    promotionBehaviorCounts: report.promotionBehaviorCounts,
     usageStats: report.usageStats,
     hardStats: report.hardStats,
     statsInsight: report.statsInsight,
@@ -861,6 +906,10 @@ function printHuman(report, url, outPath) {
   const evidenceStats = evidenceStatsLine(report);
   if (evidenceStats) {
     console.log(`证据结构：${evidenceStats}`);
+  }
+  const behaviorMix = behaviorMixLine(report);
+  if (behaviorMix) {
+    console.log(`行为结构：${behaviorMix}`);
   }
   if (report.statsInsight) {
     console.log(`统计解读：${report.statsInsight}`);

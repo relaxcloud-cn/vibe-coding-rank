@@ -69,6 +69,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["report"]["usageStats"]["average_day_tokens"], 213333)
         self.assertEqual(payload["report"]["hardStats"]["signal_coverage_ratio"], 0.6364)
         self.assertEqual(payload["report"]["hardStats"]["established_dimension_count"], 5)
+        self.assertIn("behaviorCounts", payload["report"])
+        self.assertIn("用户决策", payload["report"]["shareImagePrompt"])
 
     def test_demo_can_write_share_image_prompt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -143,6 +145,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["url"], f"http://127.0.0.1:{server.server_port}/#id=abc123xyz")
         self.assertEqual(uploaded["rank"]["label"], "六品 · 已有大成")
         self.assertIn("statsInsight", uploaded)
+        self.assertIn("behaviorCounts", uploaded)
         self.assertNotIn("root", uploaded)
         self.assertNotIn("snippet", uploaded["evidence"][0])
         self.assertNotIn("source", uploaded["evidence"][0])

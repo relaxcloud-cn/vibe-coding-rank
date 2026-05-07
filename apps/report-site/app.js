@@ -85,6 +85,24 @@ const SAMPLE = {
     user_control_count: 8,
     user_control_source_count: 3,
     user_control_ratio: 0.1667,
+    behavior_counts: {
+      user_decision: 18,
+      user_instruction: 22,
+      assistant_execution: 64,
+      assistant_summary: 16,
+    },
+    promotion_behavior_counts: {
+      user_decision: 8,
+      assistant_execution: 36,
+      assistant_summary: 4,
+    },
+    user_decision_count: 18,
+    user_instruction_count: 22,
+    assistant_execution_count: 64,
+    assistant_summary_count: 16,
+    user_decision_ratio: 0.15,
+    promotion_user_decision_ratio: 0.1667,
+    promotion_assistant_execution_ratio: 0.75,
     established_dimension_count: 5,
     stable_dimension_count: 1,
     total_tokens: 1280000,
@@ -224,6 +242,7 @@ function render(report) {
   document.querySelector("#usage-summary").textContent = usageSummary(report);
   document.querySelector("#quality-summary").textContent = qualitySummary(report);
   document.querySelector("#evidence-structure").textContent = evidenceStructureSummary(report);
+  document.querySelector("#behavior-mix").textContent = behaviorMixSummary(report);
   document.querySelector("#stats-insight").textContent = statsInsight(report);
   document.querySelector("#why-this-rank").textContent = report.whyThisRank || report.narrative?.rankReason || SAMPLE.whyThisRank;
   document.querySelector("#why-not-next").textContent = report.whyNotNextRank || report.narrative?.nextRankGap || SAMPLE.whyNotNextRank;
@@ -261,6 +280,7 @@ function renderError(error) {
   document.querySelector("#usage-summary").textContent = "暂无";
   document.querySelector("#quality-summary").textContent = "暂无";
   document.querySelector("#evidence-structure").textContent = "暂无";
+  document.querySelector("#behavior-mix").textContent = "暂无";
   document.querySelector("#stats-insight").textContent = "暂无";
 }
 
@@ -340,6 +360,17 @@ function evidenceStructureSummary(report) {
   return parts.length ? `${parts.join("；")}。` : "暂无证据结构统计。";
 }
 
+function behaviorMixSummary(report) {
+  const stats = report.hardStats || {};
+  const userDecision = stats.promotion_user_decision_ratio ?? stats.user_decision_ratio ?? 0;
+  const assistantExecution = stats.promotion_assistant_execution_ratio ?? 0;
+  const parts = [];
+  if (userDecision) parts.push(`用户决策 ${formatPercent(userDecision)}`);
+  if (assistantExecution) parts.push(`助手执行 ${formatPercent(assistantExecution)}`);
+  if (stats.user_decision_count) parts.push(`决策证据 ${stats.user_decision_count} 条`);
+  return parts.length ? `${parts.join("；")}。` : "暂无行为结构统计。";
+}
+
 function statsInsight(report) {
   if (report.statsInsight) return report.statsInsight;
   const stats = report.hardStats || {};
@@ -415,6 +446,9 @@ ${hardStatsLine(report)}
 
 证据结构：
 ${evidenceStructureSummary(report)}
+
+行为结构：
+${behaviorMixSummary(report)}
 
 统计解读：
 ${statsInsight(report)}

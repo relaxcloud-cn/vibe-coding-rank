@@ -119,3 +119,12 @@
 - 七品通常要求 `user_control_ratio >= 0.08`。
 - 六品通常要求 `user_control_ratio >= 0.03`。
 - 低于这些比例时，即使强证据总数很多，也只能说明 AI 执行痕迹密集，不能证明“系统是你的”。
+
+行为证据要区分四类：
+
+- `user_decision`：用户定义验收、边界、架构取舍、重构、回滚、工作流沉淀等。
+- `user_instruction`：用户提出普通任务或局部要求。
+- `assistant_execution`：助手自述已经运行、实现、测试、构建、验证。
+- `assistant_summary`：助手总结、解释或泛泛陈述。
+
+高段位报告优先看 `user_decision` 和 `promotion_user_decision_ratio`。`assistant_execution` 可以证明交付痕迹，但不能替代系统归属。

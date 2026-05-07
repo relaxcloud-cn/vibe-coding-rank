@@ -66,6 +66,8 @@
 - 有效样本比例：{scorable_record_ratio}
 - 强证据密度：{strong_evidence_density}
 - 主动控制占比：{user_control_ratio}
+- 用户决策占比：{promotion_user_decision_ratio}
+- 助手执行占比：{promotion_assistant_execution_ratio}
 - 证据跨度：{evidence_span_days}
 - 信号覆盖度：{signal_coverage_ratio}
 - 最高信号集中度：{dominant_signal_ratio}

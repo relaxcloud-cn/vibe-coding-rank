@@ -245,6 +245,14 @@ DIMENSIONS: list[dict[str, Any]] = [
     },
 ]
 
+BEHAVIOR_CLASSES: dict[str, str] = {
+    "user_instruction": "用户指令",
+    "user_decision": "用户决策",
+    "assistant_execution": "助手执行",
+    "assistant_summary": "助手自述",
+    "other": "其他",
+}
+
 RANKS = [
     (0, "零品 · 门外汉"),
     (1, "一品 · 初识真气"),
@@ -386,6 +394,23 @@ def is_user_role(role: str) -> bool:
     return role.strip().lower() == "user"
 
 
+def classify_behavior(record: dict[str, Any], text: str, signals: list[str] | None = None) -> str:
+    role = str(record.get("role", "")).strip().lower()
+    signal_set = set(signals or [])
+    if role == "user":
+        if (
+            signal_set.intersection({"architecture", "ownership", "workflow_asset", "agent_orchestration"})
+            or re.search(r"重构|不要|非目标|验收|边界|架构|权限|rollback|回滚|沉淀|playbook|workflow|rules|整体替换", text, re.IGNORECASE)
+        ):
+            return "user_decision"
+        return "user_instruction"
+    if role == "assistant":
+        if re.search(r"已|完成|运行|通过|验证|复查|补充|记录|生成|updated|implemented|ran|passed", text, re.IGNORECASE):
+            return "assistant_execution"
+        return "assistant_summary"
+    return "other"
+
+
 def usage_from_record(record: dict[str, Any]) -> dict[str, int] | None:
     usage = record.get("usage")
     if not isinstance(usage, dict):
@@ -510,6 +535,8 @@ def build_hard_stats(
     strong_signal_sources: dict[str, set[str]],
     dimension_profile: list[dict[str, Any]],
     analyzed_days: set[str],
+    behavior_counts: Counter[str],
+    promotion_behavior_counts: Counter[str],
 ) -> dict[str, Any]:
     usage_record_count = int(usage_stats.get("usage_record_count") or 0)
     tool_result_count = excluded_reasons.get("role:tool_result", 0)
@@ -528,6 +555,7 @@ def build_hard_stats(
         1 for item in dimension_profile if item.get("status") in {"成立", "稳定"}
     )
     stable_dimension_count = sum(1 for item in dimension_profile if item.get("status") == "稳定")
+    promotion_behavior_total = sum(promotion_behavior_counts.values())
     return {
         "raw_record_count": total_records,
         "analyzed_record_count": analyzed_record_count,
@@ -558,6 +586,21 @@ def build_hard_stats(
         "user_control_count": user_control_count,
         "user_control_source_count": user_control_source_count,
         "user_control_ratio": ratio(user_control_count, promotion_evidence_count),
+        "behavior_counts": dict(sorted(behavior_counts.items())),
+        "promotion_behavior_counts": dict(sorted(promotion_behavior_counts.items())),
+        "user_decision_count": behavior_counts.get("user_decision", 0),
+        "user_instruction_count": behavior_counts.get("user_instruction", 0),
+        "assistant_execution_count": behavior_counts.get("assistant_execution", 0),
+        "assistant_summary_count": behavior_counts.get("assistant_summary", 0),
+        "user_decision_ratio": ratio(behavior_counts.get("user_decision", 0), analyzed_record_count),
+        "promotion_user_decision_ratio": ratio(
+            promotion_behavior_counts.get("user_decision", 0),
+            promotion_behavior_total,
+        ),
+        "promotion_assistant_execution_ratio": ratio(
+            promotion_behavior_counts.get("assistant_execution", 0),
+            promotion_behavior_total,
+        ),
         "established_dimension_count": established_dimension_count,
         "stable_dimension_count": stable_dimension_count,
         "total_tokens": int(usage_stats.get("total_tokens") or 0),
@@ -747,11 +790,14 @@ def score_for(level: int, counts: Counter[str], total_records: int) -> int:
 
 def evidence_card(record: dict[str, Any], signal: str, text: str) -> dict[str, Any]:
     meta = SIGNAL_META[signal]
+    behavior_class = classify_behavior(record, text, [signal])
     return {
         "signal": signal,
         "evidence_type": meta["type"],
         "dimension": meta["dimension"],
         "actor": str(record.get("role", "unknown")),
+        "behavior_class": behavior_class,
+        "behavior_class_label": BEHAVIOR_CLASSES.get(behavior_class, BEHAVIOR_CLASSES["other"]),
         "behavior": snippet(text, 96),
         "proves": meta["proves"],
         "supports_levels": meta["supports_levels"],
@@ -765,9 +811,12 @@ def evidence_card(record: dict[str, Any], signal: str, text: str) -> dict[str, A
 
 def weak_signal_card(record: dict[str, Any], signal: str, text: str) -> dict[str, Any]:
     meta = SIGNAL_META[signal]
+    behavior_class = classify_behavior(record, text, [signal])
     return {
         "signal": signal,
         "evidence_type": meta["type"],
+        "behavior_class": behavior_class,
+        "behavior_class_label": BEHAVIOR_CLASSES.get(behavior_class, BEHAVIOR_CLASSES["other"]),
         "reason": "只能说明使用习惯或局部行为，不能单独用于升品。",
         "source": record_source(record),
         "session": source_session(record),
@@ -832,6 +881,8 @@ def main() -> int:
     promotion_counts: Counter[str] = Counter()
     signal_sources: dict[str, set[str]] = defaultdict(set)
     strong_signal_sources: dict[str, set[str]] = defaultdict(set)
+    behavior_counts: Counter[str] = Counter()
+    promotion_behavior_counts: Counter[str] = Counter()
     user_control_count = 0
     user_control_sources: set[str] = set()
 
@@ -846,12 +897,15 @@ def main() -> int:
         analyzed_sources.add(session)
         analyzed_days.add(source_day(record))
         signals = detect_signals(text, patterns)
+        behavior_class = classify_behavior(record, text, signals)
+        behavior_counts[behavior_class] += 1
         for signal in signals:
             counts[signal] += 1
             signal_sources[signal].add(session)
             meta = SIGNAL_META[signal]
             if is_promotion_signal(signal):
                 promotion_counts[signal] += 1
+                promotion_behavior_counts[behavior_class] += 1
                 if is_user_role(role):
                     user_control_count += 1
                     user_control_sources.add(session)
@@ -898,6 +952,8 @@ def main() -> int:
         strong_signal_sources,
         dimension_profile,
         analyzed_days,
+        behavior_counts,
+        promotion_behavior_counts,
     )
     method_replication_status = next(
         (
@@ -946,6 +1002,8 @@ def main() -> int:
         "promotion_evidence_count": promotion_evidence_count,
         "user_control_count": user_control_count,
         "user_control_source_count": user_control_source_count,
+        "behavior_counts": dict(sorted(behavior_counts.items())),
+        "promotion_behavior_counts": dict(sorted(promotion_behavior_counts.items())),
         "usage_stats": usage_stats,
         "hard_stats": hard_stats,
         "source_count": source_count,

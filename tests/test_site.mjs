@@ -41,6 +41,9 @@ async function renderAt(hash, fetchResponse = {}) {
           established_dimension_count: 3,
           peak_day_token_share: 0.4,
           user_control_ratio: 0.01,
+          promotion_user_decision_ratio: 0.2,
+          promotion_assistant_execution_ratio: 0.7,
+          user_decision_count: 12,
         },
         privacy: { rawLogsUploaded: false },
       },
@@ -63,6 +66,10 @@ assert.equal(
 assert.equal(
   shortDom.window.document.querySelector("#stats-insight").textContent,
   "主动控制占比偏低，高阶信号主要来自 AI 执行或总结，自动初筛会压低高段位。",
+);
+assert.equal(
+  shortDom.window.document.querySelector("#behavior-mix").textContent,
+  "用户决策 20%；助手执行 70%；决策证据 12 条。",
 );
 shortDom.window.document.querySelector("#copy-report-link").click();
 await new Promise((resolveReady) => setTimeout(resolveReady, 0));
