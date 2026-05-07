@@ -10,17 +10,21 @@ npx github:relaxcloud-cn/vibe-coding-rank --source codex --open
 
 ## 1. 创建 Cloudflare KV
 
-```bash
-npx wrangler kv namespace create REPORTS
-```
-
-把输出里的 `id` 填进 `wrangler.toml`：
+已创建的生产 KV：
 
 ```toml
 [[kv_namespaces]]
 binding = "REPORTS"
-id = "your-kv-namespace-id"
+id = "a876e1fd479649d98ddfb9dd9a530b98"
 ```
+
+如果换 Cloudflare 账户，重新执行：
+
+```bash
+npx wrangler kv namespace create REPORTS
+```
+
+然后把输出里的 `id` 填回 `wrangler.toml`。
 
 ## 2. 绑定二级域名
 
@@ -57,7 +61,7 @@ npx github:relaxcloud-cn/vibe-coding-rank --demo --site https://vibe.yisec.ai --
 ```bash
 npx github:relaxcloud-cn/vibe-coding-rank \
   --demo \
-  --upload-url https://vibe.yisec.ai \
+  --short-link \
   --open
 ```
 
@@ -65,4 +69,4 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 
 默认 `--site` 模式不会把原始日志上传到云端，也不会把报告 JSON 上传到 Worker。报告数据只在 URL hash 里，由浏览器本地渲染。
 
-只有显式传入 `--upload-url` 时，CLI 才会把最终报告 JSON 上传到 Cloudflare KV，用于生成短链接。原始 Codex / Claude Code 日志不会上传。
+只有显式传入 `--short-link` 或 `--upload-url` 时，CLI 才会把最终报告 JSON 上传到 Cloudflare KV，用于生成短链接。原始 Codex / Claude Code 日志不会上传。

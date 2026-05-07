@@ -176,16 +176,27 @@ Vibe Coding Rank 想测的是更深的一层：
 npx github:relaxcloud-cn/vibe-coding-rank --source codex --site https://vibe.yisec.ai --open
 ```
 
-如果你部署了 Cloudflare Worker 和 KV，可以开启短链接上传：
+如果想要更适合分享的短链接，可以显式开启短链接模式：
 
 ```bash
 npx github:relaxcloud-cn/vibe-coding-rank \
   --source codex \
-  --upload-url https://vibe.yisec.ai \
+  --short-link \
   --open
 ```
 
-部署配置在 `wrangler.toml`。默认子域名为 `vibe.yisec.ai`，短链接模式上线前需要创建 Cloudflare KV namespace。
+短链接模式只上传最终报告 JSON 到 Cloudflare KV，不上传原始 Codex / Claude Code 日志。报告默认 30 天过期。
+
+如果你部署到自己的 Worker，也可以指定上传地址：
+
+```bash
+npx github:relaxcloud-cn/vibe-coding-rank \
+  --source codex \
+  --upload-url https://your-worker.example.com \
+  --open
+```
+
+部署配置在 `wrangler.toml`。默认子域名为 `vibe.yisec.ai`，短链接存储使用 Cloudflare KV namespace `REPORTS`。
 
 常用 CLI 参数：
 
@@ -193,6 +204,9 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 --source codex|claude|generic   会话来源
 --root <path>                   自定义会话目录或文件
 --since YYYY-MM-DD              只扫描指定日期后的记录
+--site <url>                    报告站点地址
+--upload-url <url>              上传最终报告 JSON，生成短链接
+--short-link                    上传最终报告 JSON，使用默认站点短链接
 --out <path>                    本地报告 JSON 输出路径
 --write-share-prompt <path>     输出脱敏后的图片报告提示词
 --no-write                      不写本地报告文件

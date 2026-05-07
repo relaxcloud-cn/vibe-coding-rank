@@ -132,6 +132,7 @@ function parseArgs(argv) {
     maxChars: "1200",
     open: false,
     demo: false,
+    shortLink: false,
     printJson: false,
     write: true,
     writeSharePrompt: "",
@@ -146,6 +147,8 @@ function parseArgs(argv) {
       options.demo = true;
     } else if (arg === "--open") {
       options.open = true;
+    } else if (arg === "--short-link") {
+      options.shortLink = true;
     } else if (arg === "--print-json") {
       options.printJson = true;
     } else if (arg === "--no-write") {
@@ -181,6 +184,7 @@ Options:
   --since YYYY-MM-DD              Only scan recently modified records
   --site <url>                    Report site. Default: https://vibe.yisec.ai
   --upload-url <url>              Optional Worker API base URL for short cloud links
+  --short-link                    Upload final report JSON and use a short #id link
   --out <path>                    Local report JSON. Default: .airank/vibe-report.json
   --open                          Open the cloud report URL
   --demo                          Generate a demo report without reading local logs
@@ -550,13 +554,18 @@ function siteUrl(site, report) {
 
 async function uploadReport(uploadUrl, report) {
   const endpoint = `${uploadUrl.replace(/\/$/, "")}/api/reports`;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(report),
-  });
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(report),
+    });
+  } catch (error) {
+    throw new Error(`Short-link upload failed. Remove --short-link to use a local #data link. ${error.message}`);
+  }
   if (!response.ok) {
-    throw new Error(`Upload failed: ${response.status} ${await response.text()}`);
+    throw new Error(`Short-link upload failed: ${response.status} ${await response.text()}`);
   }
   return response.json();
 }
@@ -687,6 +696,57 @@ function writeTextFile(path, content) {
   return target;
 }
 
+function publicEvidence(item) {
+  return {
+    signal: item.signal || "",
+    label: item.label || item.evidence_type || "证据",
+    reason: item.reason || item.proves || "",
+    dimension: item.dimension || "",
+    strength: item.strength || "",
+    supportsLevels: item.supportsLevels || item.supports_levels || [],
+    usableForPromotion: item.usableForPromotion ?? item.usable_for_promotion ?? true,
+  };
+}
+
+function publicReport(report) {
+  return {
+    product: report.product,
+    generatedAt: report.generatedAt,
+    source: report.source,
+    judgmentMode: report.judgmentMode,
+    judgmentModeLabel: report.judgmentModeLabel,
+    isFinal: report.isFinal,
+    rank: report.rank,
+    nextRank: report.nextRank,
+    recordCount: report.recordCount,
+    analyzedRecordCount: report.analyzedRecordCount,
+    excludedRecordCount: report.excludedRecordCount,
+    signalCount: report.signalCount,
+    signalCounts: report.signalCounts,
+    strongEvidenceCount: report.strongEvidenceCount,
+    userControlCount: report.userControlCount,
+    userControlSourceCount: report.userControlSourceCount,
+    usageStats: report.usageStats,
+    hardStats: report.hardStats,
+    dimensionProfile: report.dimensionProfile,
+    verdict: report.verdict,
+    whyThisRank: report.whyThisRank,
+    whyNotNextRank: report.whyNotNextRank,
+    evidence: (report.evidence || []).map(publicEvidence),
+    strongestEvidence: (report.strongestEvidence || []).map(publicEvidence),
+    rankCaps: report.rankCaps,
+    unlockStatus: report.unlockStatus,
+    qualityNotes: report.qualityNotes,
+    upgradePath: report.upgradePath,
+    narrative: report.narrative,
+    privacy: {
+      localPathsRemoved: true,
+      rawLogsUploaded: false,
+      note: "Short links store only the final sanitized report JSON, not raw Codex or Claude Code logs.",
+    },
+  };
+}
+
 function printHuman(report, url, outPath) {
   console.log("");
   console.log("Vibe Coding 段位报告");
@@ -776,17 +836,24 @@ async function main() {
 
   const report = buildReport(summary, options);
   let url = siteUrl(options.site, report);
-  if (options.uploadUrl) {
-    const uploaded = await uploadReport(options.uploadUrl, report);
-    url = uploaded.url || `${options.uploadUrl.replace(/\/$/, "")}/#id=${uploaded.id}`;
-  }
-
-  const shareImagePrompt = buildShareImagePrompt(report, url);
+  let shareImagePrompt = buildShareImagePrompt(report, url);
   report.shareImagePrompt = shareImagePrompt;
   let shareImagePromptPath = "";
   if (options.writeSharePrompt) {
     shareImagePromptPath = writeTextFile(options.writeSharePrompt, shareImagePrompt);
     report.shareImagePromptPath = shareImagePromptPath;
+  }
+  const uploadBaseUrl = options.uploadUrl || (options.shortLink ? options.site : "");
+  if (uploadBaseUrl) {
+    const publicPayload = publicReport(report);
+    const uploaded = await uploadReport(uploadBaseUrl, publicPayload);
+    url = uploaded.url || `${uploadBaseUrl.replace(/\/$/, "")}/#id=${uploaded.id}`;
+    shareImagePrompt = buildShareImagePrompt(report, url);
+    report.shareImagePrompt = shareImagePrompt;
+    if (options.writeSharePrompt) {
+      shareImagePromptPath = writeTextFile(options.writeSharePrompt, shareImagePrompt);
+      report.shareImagePromptPath = shareImagePromptPath;
+    }
   }
   const outPath = options.write && options.out ? writeReport(options.out, report) : "";
   if (options.printJson) {

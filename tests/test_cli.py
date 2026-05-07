@@ -3,7 +3,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -85,6 +87,63 @@ class CliTests(unittest.TestCase):
             self.assertIn("Asset type: 4:5 vertical Chinese social-share poster", prompt)
             self.assertIn("主评级：六品 · 已有大成", prompt)
             self.assertNotIn(str(ROOT), prompt)
+
+    def test_short_link_uploads_report_and_uses_id_url(self) -> None:
+        received = {}
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self) -> None:  # noqa: N802
+                length = int(self.headers.get("content-length", "0"))
+                received["path"] = self.path
+                received["body"] = self.rfile.read(length).decode("utf-8")
+                payload = {"id": "abc123xyz", "url": f"http://127.0.0.1:{self.server.server_port}/#id=abc123xyz"}
+                body = json.dumps(payload).encode("utf-8")
+                self.send_response(200)
+                self.send_header("content-type", "application/json")
+                self.send_header("content-length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args: object) -> None:
+                return
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            result = subprocess.run(
+                [
+                    "node",
+                    str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                    "--demo",
+                    "--site",
+                    f"http://127.0.0.1:{server.server_port}",
+                    "--short-link",
+                    "--print-json",
+                    "--no-write",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+        payload = json.loads(result.stdout)
+        uploaded = json.loads(received["body"])
+        self.assertEqual(received["path"], "/api/reports")
+        self.assertEqual(payload["url"], f"http://127.0.0.1:{server.server_port}/#id=abc123xyz")
+        self.assertEqual(uploaded["rank"]["label"], "六品 · 已有大成")
+        self.assertNotIn("root", uploaded)
+        self.assertNotIn("snippet", uploaded["evidence"][0])
+        self.assertNotIn("source", uploaded["evidence"][0])
+        self.assertNotIn("role", uploaded["evidence"][0])
+        self.assertNotIn("demo/session.jsonl", json.dumps(uploaded, ensure_ascii=False))
+        self.assertTrue(uploaded["privacy"]["localPathsRemoved"])
+        self.assertFalse(uploaded["privacy"]["rawLogsUploaded"])
+        self.assertNotIn("#data=", payload["url"])
 
     def test_generic_source_uses_moved_evidence_scripts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
