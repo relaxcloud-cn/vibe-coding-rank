@@ -127,7 +127,7 @@ https://github.com/relaxcloud-cn/vibe-coding-rank
 
 - 产品名：Vibe Coding Rank
 - 核心命题：系统到底是不是你的
-- 一条命令：`npx github:relaxcloud-cn/vibe-coding-rank --source codex --open`
+- 一条命令：`npx github:relaxcloud-cn/vibe-coding-rank --open`
 - 九品图或九品表
 - GitHub star / install CTA
 

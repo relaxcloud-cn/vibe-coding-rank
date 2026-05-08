@@ -1,35 +1,82 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { TextDecoder, TextEncoder } from "node:util";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(resolve(ROOT, "apps/report-site/index.html"), "utf-8");
 const app = readFileSync(resolve(ROOT, "apps/report-site/app.js"), "utf-8");
-const localPayload = Buffer.from(JSON.stringify({
-  rank: { level: 6, label: "六品 · 已有大成", score: 76, confidence: "high", systemOwnership: "strong" },
-  verdict: "本地报告",
-}), "utf-8").toString("base64url");
 
-async function renderAt(hash, fetchResponse = {}) {
+const advancedReport = {
+  reportId: "advanced123",
+  reportLinkMode: "public-share-link",
+  reportPayloadType: "public-summary",
+  analysisMode: "advanced",
+  rank: { level: 6, label: "六品 · 已有大成", score: 76, confidence: "high", systemOwnership: "strong" },
+  verdict: "高级报告",
+  strongestEvidence: [{ label: "架构判断证据", reason: "关注系统边界。" }],
+  advancedAnalysis: {
+    decisionTrace: {
+      initialRank: { level: 7, label: "七品 · 已臻化境" },
+      capReasons: ["自动初筛最高只确认到七品；八品需要单独复核团队复制证据。"],
+      finalRank: { level: 6, label: "六品 · 已有大成" },
+      confidenceImpact: "助手执行占比较高，局部降低置信度。",
+    },
+    gateAudit: {
+      passed: [{ id: "level7_user_decision_ratio", label: "七品用户决策占比", summary: "观测 17%，要求 8%。" }],
+      failed: [{ id: "level8_team_replication", label: "八品团队复制", summary: "团队复用强证据不足。" }],
+      keyGate: { id: "level8_team_replication", label: "八品团队复制", summary: "团队复用强证据不足。" },
+    },
+    dimensionRubric: [
+      { id: "architecture_judgment", label: "架构判断", status: "成立", score: 65, evidenceCount: 9, strongEvidenceCount: 9, nextGap: "提升到稳定需要更多跨会话强证据。" },
+      { id: "method_replication", label: "方法复制", status: "线索", score: 35, evidenceCount: 10, strongEvidenceCount: 0, nextGap: "需要他人复用证据。" },
+    ],
+    evidenceAudit: {
+      accepted: [{ label: "架构判断证据", reason: "用户主动定义模块边界。", dimension: "系统设计" }],
+      downranked: [{ label: "Demo 生成偏重", reason: "只能说明使用习惯，不能单独升品。" }],
+    },
+    upgradePlan: [
+      "找至少 2 个其他人或项目复用你的 rules、skill 或 playbook，并记录复用结果。",
+      "把复用结果整理成可审计案例。",
+    ],
+    limitations: [
+      "当前为规则初筛，不调用外部 LLM。",
+      "token 和成本只解释投入强度，不直接升品。",
+    ],
+  },
+  privacy: { rawLogsUploaded: false },
+};
+
+async function renderAt(route, fetchResponse = {}) {
   const dom = new JSDOM(html, {
-    url: `https://vibe.yisec.ai/${hash}`,
+    url: `https://vibe.yisec.ai/${route}`,
     runScripts: "dangerously",
     resources: "usable",
     pretendToBeVisual: true,
     beforeParse(window) {
-      window.TextDecoder = TextDecoder;
-      window.TextEncoder = TextEncoder;
-      window.navigator.clipboard = { writeText: async (text) => { window.__copied = text; } };
+      Object.defineProperty(window, "isSecureContext", {
+        value: fetchResponse.clipboard !== "none",
+        configurable: true,
+      });
+      if (fetchResponse.clipboard !== "none") {
+        window.navigator.clipboard = { writeText: async (text) => { window.__copied = text; } };
+      }
+      window.document.execCommand = (command) => {
+        if (command !== "copy") return false;
+        window.__fallbackCopied = window.document.activeElement?.value || "";
+        return true;
+      };
     },
   });
   dom.window.fetch = async () => ({
     ok: fetchResponse.ok ?? true,
     status: fetchResponse.status ?? 200,
     json: async () => fetchResponse.body ?? ({
-      report: {
+        report: {
+          reportId: "abc123",
+          reportLinkMode: fetchResponse.linkMode || "local-full-report",
+          reportPayloadType: "local-full",
         rank: { level: 6, label: "六品 · 已有大成", score: 76, confidence: "high", systemOwnership: "strong" },
         verdict: "测试报告",
         strongestEvidence: [{ label: "架构判断证据", reason: "关注系统边界。" }],
@@ -159,11 +206,64 @@ async function renderAt(hash, fetchResponse = {}) {
   return dom;
 }
 
-const shortDom = await renderAt("#id=abc123");
+const shortDom = await renderAt("report/abc123");
+assert.equal(shortDom.window.document.body.classList.contains("report-mode"), true);
+assert.equal(shortDom.window.document.querySelector("#advanced-analysis").hidden, true);
+assert.equal(shortDom.window.document.querySelector("#report-title").textContent, "AI 段位分析报告");
+assert.equal(shortDom.window.document.querySelector("#report-id").textContent, "abc123");
+assert.equal(shortDom.window.document.querySelector("#report-source").textContent, "local-full");
+assert.equal(shortDom.window.document.querySelector("#report-privacy").textContent, "本地完整报告");
+assert.equal(shortDom.window.document.querySelector("#qr-report-link").hidden, false);
+assert.equal(shortDom.window.document.querySelector("#qr-report-link").getAttribute("href"), "https://vibe.yisec.ai/api/reports/abc123/qr.svg");
 assert.equal(
   shortDom.window.document.querySelector("#share-note").textContent,
-  "当前是短链接，报告 JSON 已脱敏后存储，原始日志不会上传。",
+  "当前是本地完整报告；只从本机服务读取，未上传公网。",
 );
+const unsafeDom = await renderAt("report/unsafe", {
+  body: {
+    report: {
+      reportId: "unsafe",
+      reportLinkMode: "local-full-report",
+      reportPayloadType: "local-full",
+      analysisMode: "advanced",
+      rank: { level: 6, label: "六品 · 已有大成", score: 76, confidence: "high", systemOwnership: "strong" },
+      verdict: "包含转义测试",
+      strongestEvidence: [
+        { label: "<img src=x onerror=alert(1)>", reason: "<script>alert(2)</script>", summary: "<b>bold</b>" },
+      ],
+      dimensionProfile: [{ label: "<img src=x onerror=alert(3)>", status: "<b>成立</b>", score: 65 }],
+      hardStatCards: [{ label: "<img src=x onerror=alert(4)>", value: "<b>4 天</b>", detail: "<i>detail</i>", interpretation: "<script>alert(5)</script>" }],
+      metricGroups: [{ label: "<img src=x onerror=alert(6)>", value: "<b>20%</b>", signal: "<i>signal</i>", ratingImpact: "<em>impact</em>", risk: "<p>risk</p>" }],
+      advancedAnalysis: {
+        decisionTrace: { finalRank: { level: 6, label: "六品 · 已有大成" } },
+        gateAudit: {
+          passed: [{ id: "unsafe_gate", label: "<img src=x onerror=alert(7)>", summary: "<b>summary</b>" }],
+          failed: [],
+          keyGate: { id: "unsafe_gate", label: "<img src=x onerror=alert(8)>", summary: "<b>summary</b>" },
+        },
+        dimensionRubric: [{ id: "unsafe_dimension", label: "<img src=x onerror=alert(9)>", status: "<b>成立</b>", score: 65, nextGap: "<i>gap</i>" }],
+        evidenceAudit: {
+          accepted: [{ label: "<img src=x onerror=alert(10)>", reason: "<b>reason</b>", dimension: "<i>dimension</i>" }],
+          downranked: [],
+        },
+        upgradePlan: ["<b>plan</b>"],
+        limitations: ["<script>alert(11)</script>"],
+      },
+      privacy: { rawLogsUploaded: false },
+    },
+  },
+});
+assert.match(unsafeDom.window.document.querySelector("#evidence-grid").textContent, /<b>bold<\/b>/);
+assert.equal(unsafeDom.window.document.querySelector("#evidence-grid img"), null);
+assert.equal(unsafeDom.window.document.querySelector("#evidence-grid script"), null);
+assert.match(unsafeDom.window.document.querySelector("#dimension-grid").textContent, /<b>成立<\/b>/);
+assert.equal(unsafeDom.window.document.querySelector("#dimension-grid img"), null);
+assert.match(unsafeDom.window.document.querySelector("#hard-stat-grid").textContent, /<b>4 天<\/b>/);
+assert.equal(unsafeDom.window.document.querySelector("#hard-stat-grid script"), null);
+assert.match(unsafeDom.window.document.querySelector("#metric-group-grid").textContent, /<em>impact<\/em>/);
+assert.equal(unsafeDom.window.document.querySelector("#metric-group-grid img"), null);
+assert.match(unsafeDom.window.document.querySelector("#advanced-gates").textContent, /<b>summary<\/b>/);
+assert.equal(unsafeDom.window.document.querySelector("#advanced-gates img"), null);
 assert.equal(
   shortDom.window.document.querySelector("#evidence-structure").textContent,
   "证据跨度 4 天；信号覆盖度 50%；最高信号集中度 25%；成立维度 3/6；峰值日 token 占比 40%；验证密度 12%；强记录占比 8%。",
@@ -215,6 +315,9 @@ assert.equal(
 assert.equal(shortDom.window.document.querySelector("#hard-stat-grid .hard-stat-card strong").textContent, "4 天");
 assert.equal(shortDom.window.document.querySelector("#metric-group-grid .metric-group-card span").textContent, "人类控制");
 assert.equal(shortDom.window.document.querySelector("#metric-group-grid .metric-group-card strong").textContent, "20%");
+shortDom.window.document.querySelector('[data-target="report-stats"]').click();
+assert.equal(shortDom.window.document.querySelector('[data-target="report-stats"]').classList.contains("active"), true);
+assert.equal(shortDom.window.document.querySelector('[data-target="report-overview"]').classList.contains("active"), false);
 shortDom.window.document.querySelector("#copy-share-prompt").click();
 await new Promise((resolveReady) => setTimeout(resolveReady, 0));
 assert.match(shortDom.window.__copied, /用户决策占比 2%/);
@@ -238,6 +341,21 @@ assert.match(shortDom.window.__copied, /风险统计/);
 assert.match(shortDom.window.__copied, /统计画像/);
 assert.match(shortDom.window.__copied, /AI 代工依赖型/);
 assert.match(shortDom.window.__copied, /画像依据/);
+const compactGatePrompt = shortDom.window.buildJudgePrompt({
+  rank: { level: 6, label: "六品 · 已有大成", score: 76, confidence: "high" },
+  verdict: "测试报告",
+  privacy: { rawLogsUploaded: false },
+  rankGates: [
+    {
+      id: "level8_team_replication",
+      level: 8,
+      label: "八品团队复制",
+      passed: false,
+      reason: "八品需要其他人或项目复用你的方法，而不是只有个人熟练使用。",
+    },
+  ],
+});
+assert.doesNotMatch(compactGatePrompt, /undefined/);
 assert.equal(
   shortDom.window.document.querySelector("#quality-flags").textContent,
   "主动控制偏低 1%：高阶信号主要不是由用户主动定义目标、边界、架构或验收触发。",
@@ -248,21 +366,81 @@ assert.equal(
 );
 shortDom.window.document.querySelector("#copy-report-link").click();
 await new Promise((resolveReady) => setTimeout(resolveReady, 0));
-assert.equal(shortDom.window.__copied, "https://vibe.yisec.ai/#id=abc123");
+assert.equal(shortDom.window.__copied, "https://vibe.yisec.ai/report/abc123");
 
-const localDom = await renderAt(`#data=${localPayload}`);
+const shareDom = await renderAt("share/abc123", {
+  body: {
+    report: {
+      reportId: "abc123",
+      reportLinkMode: "public-share-link",
+      reportPayloadType: "public-summary",
+      rank: { level: 6, label: "六品 · 已有大成", score: 76, confidence: "high", systemOwnership: "strong" },
+      verdict: "公开分享报告",
+      privacy: { rawLogsUploaded: false, localPathsRemoved: true, compactPublicReport: true },
+    },
+  },
+});
+assert.equal(shareDom.window.document.querySelector("#report-source").textContent, "脱敏摘要");
+assert.equal(shareDom.window.document.querySelector("#report-privacy").textContent, "脱敏公开分享");
 assert.equal(
-  localDom.window.document.querySelector("#share-note").textContent,
-  "当前是本地浏览器链接，报告数据只在 URL hash 中渲染。",
+  shareDom.window.document.querySelector("#share-note").textContent,
+  "当前是官网公开分享报告；官网存储的是脱敏摘要，原始日志未上传。",
+);
+shareDom.window.document.querySelector("#copy-command").click();
+await new Promise((resolveReady) => setTimeout(resolveReady, 0));
+assert.equal(shareDom.window.__copied, "npx github:relaxcloud-cn/vibe-coding-rank --open");
+
+const fallbackCopyDom = await renderAt("", { clipboard: "none" });
+fallbackCopyDom.window.document.querySelector("#copy-command").click();
+await new Promise((resolveReady) => setTimeout(resolveReady, 0));
+assert.equal(fallbackCopyDom.window.__fallbackCopied, "npx github:relaxcloud-cn/vibe-coding-rank --open");
+assert.match(fallbackCopyDom.window.document.querySelector("#copy-command").textContent, /已复制到剪贴板/);
+
+const advancedDom = await renderAt("share/advanced123", { body: { report: advancedReport } });
+assert.equal(advancedDom.window.document.querySelector("#report-title").textContent, "高级分析报告");
+assert.equal(advancedDom.window.document.querySelector("#advanced-badge").textContent, "规则审计已完成");
+assert.equal(advancedDom.window.document.querySelector("#advanced-analysis").hidden, false);
+assert.equal(
+  advancedDom.window.document.querySelector("#advanced-decision").textContent,
+  "初始支持七品 · 已臻化境；封顶原因：自动初筛最高只确认到七品；八品需要单独复核团队复制证据。；最终六品 · 已有大成；置信度影响：助手执行占比较高，局部降低置信度。",
+);
+assert.equal(
+  advancedDom.window.document.querySelector("#advanced-key-gate").textContent,
+  "八品团队复制：团队复用强证据不足。",
+);
+assert.equal(
+  advancedDom.window.document.querySelector("#advanced-gates").children.length,
+  2,
+);
+assert.equal(
+  advancedDom.window.document.querySelector("#advanced-dimensions").children.length,
+  2,
+);
+assert.match(
+  advancedDom.window.document.querySelector("#advanced-evidence").textContent,
+  /采纳：架构判断证据：用户主动定义模块边界。/,
+);
+assert.match(
+  advancedDom.window.document.querySelector("#advanced-evidence").textContent,
+  /降权：Demo 生成偏重：只能说明使用习惯，不能单独升品。/,
+);
+assert.match(
+  advancedDom.window.document.querySelector("#advanced-upgrade-plan").textContent,
+  /找至少 2 个其他人或项目复用/,
+);
+assert.match(
+  advancedDom.window.document.querySelector("#advanced-limitations").textContent,
+  /不调用外部 LLM/,
 );
 
-const missingDom = await renderAt("#id=missing", { ok: false, status: 404, body: { error: "Report not found" } });
+const missingDom = await renderAt("report/missing", { ok: false, status: 404, body: { error: "Report not found" } });
 assert.equal(missingDom.window.document.querySelector("#rank-label").textContent, "报告无法打开");
 assert.equal(missingDom.window.document.querySelector("#verdict").textContent, "报告不存在或已经过期。");
 assert.ok(missingDom.window.document.querySelector(".dashboard").classList.contains("error-state"));
 
-const brokenDom = await renderAt("#data=not-valid-json");
-assert.equal(brokenDom.window.document.querySelector("#rank-label").textContent, "报告无法打开");
-assert.equal(brokenDom.window.document.querySelector("#verdict").textContent, "报告链接损坏，无法解析本地数据。");
+const unknownDom = await renderAt("?data=not-valid-json");
+assert.equal(unknownDom.window.document.body.classList.contains("report-mode"), false);
+assert.equal(unknownDom.window.document.querySelector("#report-id").textContent, "sample");
+assert.equal(unknownDom.window.document.querySelector("#share-note").textContent, "当前是样例报告。运行 CLI 后可生成你的个人链接。");
 
 console.log("site tests OK");

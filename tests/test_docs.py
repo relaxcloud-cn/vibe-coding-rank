@@ -24,12 +24,22 @@ class DocsTests(unittest.TestCase):
         example = json.loads(match.group(1), object_pairs_hook=no_duplicate_object_pairs)
         self.assert_current_schema_example(example)
 
-        self.assertIn("公开 `#data` 链接和短链接使用压缩后的 public payload", readme)
+        self.assertIn("本地完整报告不会上传公网", readme)
+        self.assertIn("默认不传 `--source` 时会自动探测", readme)
+        self.assertIn("两个来源都存在就融合评分", readme)
+        self.assertIn("--source codex|claude|codex,claude", readme)
+        self.assertEqual(readme.count("其他来源"), 0)
+        self.assertIn("reportLinkMode", readme)
+        self.assertIn("公网 `/share/<reportId>`", readme)
         self.assertIn("不包含原始日志、本地路径、源码片段、session id", readme)
         self.assertIn("提示词长文本", readme)
         self.assertIn("去掉 `usageStats`、`signalCounts`、`narrative`", readme)
         self.assertIn("`hardStatCards` 只保留优先级最高的 6 张解释卡", readme)
         self.assertIn("`rankGates` 只保留第一个未通过的下一品门槛", readme)
+        self.assertIn("`--advanced-analysis`", readme)
+        self.assertIn("不调用外部 LLM", readme)
+        self.assertIn("analysisMode", example)
+        self.assertEqual(example["analysisMode"], "standard")
 
     def test_output_schema_reference_uses_current_cli_schema(self) -> None:
         schema = (ROOT / "skill" / "references" / "output-schema.md").read_text(encoding="utf-8")
@@ -39,8 +49,25 @@ class DocsTests(unittest.TestCase):
         self.assert_current_schema_example(example)
         self.assertIn("`hardStatCards` 只保留优先级最高的 6 张解释卡", schema)
         self.assertIn("`usageStats`、`signalCounts`、`narrative` 等冗余字段不会进入公开 payload", schema)
+        self.assertIn("advancedAnalysis", schema)
+        self.assertIn("reportPayloadType", schema)
+        self.assertIn("local-full-report", schema)
+        self.assertIn("public-share-link", schema)
+        self.assertIn("融合模式为 `codex+claude`", schema)
+        self.assertIn("公网 `/share/<id>` payload 不包含 `roots`", schema)
+        self.assertIn("analysisMode", example)
+        self.assertEqual(example["analysisMode"], "standard")
 
     def assert_current_schema_example(self, example: dict) -> None:
+        self.assertEqual(example["source"], "codex+claude")
+        self.assertEqual(example["sources"], ["codex", "claude"])
+        self.assertEqual(
+            example["roots"],
+            [
+                {"source": "codex", "path": "/Users/example/.codex/sessions"},
+                {"source": "claude", "path": "/Users/example/.claude/projects"},
+            ],
+        )
         self.assertIsInstance(example["rank"], dict)
         self.assertEqual(example["rank"]["label"], "六品 · 已有大成")
         self.assertIn("judgmentMode", example)

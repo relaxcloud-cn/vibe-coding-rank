@@ -1,3 +1,5 @@
+import { qrSvg } from "../lib/qr.mjs";
+
 const MAX_REPORT_BYTES = 120_000;
 const REPORT_TTL_SECONDS = 60 * 60 * 24 * 30;
 
@@ -6,6 +8,17 @@ function json(data, init = {}) {
     ...init,
     headers: {
       "content-type": "application/json; charset=utf-8",
+      "access-control-allow-origin": "*",
+      ...(init.headers || {}),
+    },
+  });
+}
+
+function svg(data, init = {}) {
+  return new Response(data, {
+    ...init,
+    headers: {
+      "content-type": "image/svg+xml; charset=utf-8",
       "access-control-allow-origin": "*",
       ...(init.headers || {}),
     },
@@ -22,7 +35,7 @@ function validatePublicReport(report) {
   if (!report || typeof report !== "object" || Array.isArray(report)) {
     return "Report payload must be a JSON object.";
   }
-  if (report.root || report.shareImagePrompt || report.judgePrompt || report.behaviorCounts || report.qualityNotes) {
+  if (report.root || report.roots || report.shareImagePrompt || report.judgePrompt || report.behaviorCounts || report.qualityNotes) {
     return "Report payload must be the compact sanitized public report, not the local full report.";
   }
   if (report.privacy?.rawLogsUploaded !== false || report.privacy?.localPathsRemoved !== true || report.privacy?.compactPublicReport !== true) {
@@ -72,7 +85,7 @@ export default {
         expirationTtl: REPORT_TTL_SECONDS,
       });
 
-      return json({ id, url: `${url.origin}/#id=${id}` });
+      return json({ id, url: `${url.origin}/share/${id}` });
     }
 
     const match = url.pathname.match(/^\/api\/reports\/([a-zA-Z0-9_-]{6,64})$/);
@@ -83,6 +96,16 @@ export default {
       const stored = await env.REPORTS.get(match[1]);
       if (!stored) return json({ error: "Report not found." }, { status: 404 });
       return json(JSON.parse(stored));
+    }
+
+    const qrMatch = url.pathname.match(/^\/api\/reports\/([a-zA-Z0-9_-]{6,64})\/qr\.svg$/);
+    if (qrMatch && request.method === "GET") {
+      if (!env.REPORTS) {
+        return json({ error: "REPORTS KV binding is not configured." }, { status: 501 });
+      }
+      const stored = await env.REPORTS.get(qrMatch[1]);
+      if (!stored) return json({ error: "Report not found." }, { status: 404 });
+      return svg(qrSvg(`${url.origin}/share/${qrMatch[1]}`));
     }
 
     if (env.ASSETS) {

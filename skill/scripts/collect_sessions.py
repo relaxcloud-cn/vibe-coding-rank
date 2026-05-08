@@ -47,7 +47,7 @@ SECRET_PATTERNS = [
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", choices=["codex", "claude", "generic"], required=True)
+    parser.add_argument("--source", choices=["codex", "claude"], required=True)
     parser.add_argument("--root", required=True, help="Directory or file to scan")
     parser.add_argument("--output", required=True, help="Output JSONL path")
     parser.add_argument("--since", help="Only include files modified on/after YYYY-MM-DD")

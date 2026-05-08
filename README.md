@@ -11,21 +11,27 @@
 ## 一条命令
 
 ```bash
+npx github:relaxcloud-cn/vibe-coding-rank --open
+```
+
+它会自动探测本机 Codex 和 Claude Code 会话记录：如果两个来源都存在，就融合分析；如果只探测到一个，就只分析这个来源。CLI 会生成完整报告，启动本机报告服务，并打开 `http://127.0.0.1:4173/report/<id>`。默认不会上传公网。
+
+只扫描 Codex：
+
+```bash
 npx github:relaxcloud-cn/vibe-coding-rank --source codex --open
 ```
 
-它会在本地读取 Codex 会话记录，生成脱敏后的证据摘要，并打开一个可以分享的云端报告链接。
-
-Claude Code：
+只扫描 Claude Code：
 
 ```bash
 npx github:relaxcloud-cn/vibe-coding-rank --source claude --open
 ```
 
-其他来源先用通用模式：
+显式融合 Codex 和 Claude Code：
 
 ```bash
-npx github:relaxcloud-cn/vibe-coding-rank --source generic --root /path/to/logs --open
+npx github:relaxcloud-cn/vibe-coding-rank --source codex,claude --open
 ```
 
 先看样例：
@@ -37,7 +43,7 @@ npx github:relaxcloud-cn/vibe-coding-rank --demo --open
 检查本机是否能读取默认记录路径：
 
 ```bash
-npx github:relaxcloud-cn/vibe-coding-rank --doctor --source codex
+npx github:relaxcloud-cn/vibe-coding-rank --doctor
 ```
 
 ## 为什么做这个
@@ -68,7 +74,7 @@ Vibe Coding Rank 想测的是更深的一层：
 
 ## 它怎么评
 
-这个 skill 会读取 Codex、Claude Code 或通用 AI 编程会话记录，先在本地提取和脱敏证据，再按照九品体系生成评级报告。
+这个 skill 会读取 Codex 和 Claude Code 会话记录，先在本地提取和脱敏证据，再按照九品体系生成评级报告。
 
 现在的判定链路分三步：
 
@@ -146,6 +152,19 @@ Vibe Coding Rank 想测的是更深的一层：
 
 ```json
 {
+  "source": "codex+claude",
+  "sources": ["codex", "claude"],
+  "roots": [
+    {
+      "source": "codex",
+      "path": "/Users/example/.codex/sessions"
+    },
+    {
+      "source": "claude",
+      "path": "/Users/example/.claude/projects"
+    }
+  ],
+  "analysisMode": "standard",
   "rank": {
     "level": 6,
     "label": "六品 · 已有大成",
@@ -319,7 +338,14 @@ Vibe Coding Rank 想测的是更深的一层：
 }
 ```
 
-说明：上面是本地完整报告结构。CLI 的本地完整报告使用 camelCase 字段，并包含 `usageStats`、`signalCounts`、`narrative`、`shareImagePrompt` / `judgePrompt` 这类自查和二次生成字段。公开 `#data` 链接和短链接使用压缩后的 public payload，不包含原始日志、本地路径、源码片段、session id、提示词长文本，也会去掉 `usageStats`、`signalCounts`、`narrative` 等可由网页 fallback 或 `hardStats` 还原展示的冗余字段。
+说明：上面是本地完整报告结构。
+
+- 默认 `analysisMode` 为 `standard`，不会生成 `advancedAnalysis`；开启 `--advanced-analysis` 或 `--advanced` 后才会加入高级分析字段。
+- 高级分析包含 `decisionTrace`、`gateAudit`、`dimensionRubric`、`evidenceAudit`、`upgradePlan` 和 `limitations`，只是把本地规则引擎的中间依据转成透明审计信息，不调用外部 LLM，不要求 API key，也不上传原始日志。
+- `source` 表示本次实际评分来源，融合模式为 `codex+claude`；`sources` 是实际参与评分的来源数组；`roots` 只出现在本地完整报告里。
+- CLI 的本地完整报告使用 camelCase 字段，并包含 `usageStats`、`signalCounts`、`narrative`、`shareImagePrompt` / `judgePrompt` 这类自查和二次生成字段。
+- 本地 `/report/<id>` 读取同一份完整本地报告；显式 `--share` 生成的公网 `/share/<id>` 使用压缩后的 public payload，不包含原始日志、本地路径、源码片段、session id、提示词长文本，也不会包含 `roots`。
+- 公网分享 payload 会去掉 `usageStats`、`signalCounts`、`narrative` 等可由网页 fallback 或 `hardStats` 还原展示的冗余字段。
 
 公开分享 payload 的压缩规则：
 
@@ -330,7 +356,8 @@ Vibe Coding Rank 想测的是更深的一层：
 - `strongestEvidence` 只保留前 3 条脱敏摘要；公开 payload 的 `evidence` 为空数组。
 - `statEvidence` 只保留硬统计证据结论、前 3 条正向/风险/投入依据。
 - `statProfile` 只保留分享所需字段，不包含完整 `matchedRules`。
-- 完整证据、路径、片段和完整规则只保存在本地报告，不进入公开链接或短链接存储。
+- 高级模式下的 `advancedAnalysis` 只保留关键门槛、最多 6 个维度、3-5 条证据摘要和 2-3 条升级建议。
+- `source` 和 `sources` 会进入公开 payload，用于说明评分来源；`roots`、完整证据、路径、片段和完整规则只保存在本地报告，不进入公网分享存储。
 
 ## 适合谁
 
@@ -339,45 +366,66 @@ Vibe Coding Rank 想测的是更深的一层：
 - 想做 AI-native 工程能力评估的团队
 - 想把 Airank 做成“AI 工作能力评级体系”的产品团队
 
-## 本地取证，云端报告
+## 本地完整报告，公网显式分享
 
-默认模式不上传原始日志。CLI 只把最终报告编码到 URL hash 里，云端页面负责展示：
+默认命令会自动启动或复用本机报告服务，绑定 `127.0.0.1:4173`：
 
 ```bash
-npx github:relaxcloud-cn/vibe-coding-rank --source codex --site https://vibe.yisec.ai --open
+npx github:relaxcloud-cn/vibe-coding-rank --open
 ```
 
-如果想要更适合分享的短链接，可以显式开启短链接模式：
+CLI 会把完整报告写入 `.airank/reports/<reportId>.json`，并打开 `/report/<reportId>`。本地完整报告不会上传公网。`--site` 可用于手动指定本地站点：
+
+```bash
+npx github:relaxcloud-cn/vibe-coding-rank --site http://127.0.0.1:4173 --open
+```
+
+本地服务默认只绑定本机地址。报告目录默认 `.airank/reports`，可用 `VIBE_RANK_REPORT_DIR` 覆盖。`npm run site` 仍可用于手动启动站点。默认不传 `--source` 时会自动探测 `~/.codex/sessions` 和 `~/.claude/projects`；两个来源都存在就融合评分，只存在一个就单源评分。
+
+如果不写本地报告，例如传入 `--no-write`，CLI 无法生成 `/report/<id>`。此时必须同时使用 `--share` 或 `--upload-url`，显式上传脱敏摘要并生成公网 `/share/<id>`：
+
+```bash
+npx github:relaxcloud-cn/vibe-coding-rank --share --no-write --open
+```
+
+需要透明审计信息时，可以开启高级分析模式：
+
+```bash
+npx github:relaxcloud-cn/vibe-coding-rank --advanced-analysis --open
+```
+
+高级分析模式仍然只在本地使用规则引擎，不调用外部 LLM，不上传原始日志；公网分享链接里只包含脱敏后的精简审计摘要。
+
+如果想要公网分享链接，必须显式开启上传模式：
 
 ```bash
 npx github:relaxcloud-cn/vibe-coding-rank \
-  --source codex \
-  --short-link \
+  --share \
   --open
 ```
 
-短链接模式只上传最终报告 JSON 到 Cloudflare KV，不上传原始 Codex / Claude Code 日志。报告默认 30 天过期。
+公网分享模式只上传脱敏 public payload 到 Cloudflare KV，并返回 `https://vibe.yisec.ai/share/<id>`。它不上传原始 Codex / Claude Code 日志，也不上传本地完整报告。报告默认 30 天过期。
 
 如果你部署到自己的 Worker，也可以指定上传地址：
 
 ```bash
 npx github:relaxcloud-cn/vibe-coding-rank \
-  --source codex \
   --upload-url https://your-worker.example.com \
   --open
 ```
 
-部署配置在 `wrangler.toml`。默认子域名为 `vibe.yisec.ai`，短链接存储使用 Cloudflare KV namespace `REPORTS`。
+部署配置在 `wrangler.toml`。默认子域名为 `vibe.yisec.ai`，公网分享存储使用 Cloudflare KV namespace `REPORTS`。
 
 常用 CLI 参数：
 
 ```bash
---source codex|claude|generic   会话来源
---root <path>                   自定义会话目录或文件
+--source codex|claude|codex,claude  会话来源；默认自动探测并融合 Codex + Claude Code
+--root <path>                   自定义单一来源会话目录；必须配合 --source codex 或 --source claude
 --since YYYY-MM-DD              只扫描指定日期后的记录
 --site <url>                    报告站点地址
---upload-url <url>              上传最终报告 JSON，生成短链接
---short-link                    上传最终报告 JSON，使用默认站点短链接
+--upload-url <url>              显式上传脱敏摘要，生成公网 /share 链接
+--share                         显式上传脱敏摘要，生成公网 /share 链接
+--advanced-analysis, --advanced 输出本地高级分析审计；不调用外部 LLM
 --usd-per-million-input-tokens <n>      输入 token 每百万美元单价，用于成本估算
 --usd-per-million-cached-input-tokens <n> 缓存输入 token 每百万美元单价，用于成本估算
 --usd-per-million-output-tokens <n>     输出 token 每百万美元单价，用于成本估算
@@ -392,19 +440,18 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 --open                          自动打开报告链接
 ```
 
-默认 `#data` 链接可能较长，终端里会只显示预览。需要复制完整链接时，优先使用短链接：
+本地默认会生成 `/report/<id>`。需要公网分享时，可以显式上传脱敏摘要生成 `/share/<id>`：
 
 ```bash
-npx github:relaxcloud-cn/vibe-coding-rank --source codex --short-link --open
+npx github:relaxcloud-cn/vibe-coding-rank --share --open
 ```
 
-CLI 会在机器可读输出里返回 `linkAdvice`。当公开链接超过建议阈值时，`linkAdvice.warning` 会变成 `true`，并给出 `--short-link --open` 或 `--write-link .airank/report-url.txt` 建议。
+CLI 会在机器可读输出里返回 `url`、`reportId`、`reportLinkMode`、`reportPayloadType`、`outPath` 和 `qrUrl`。当公开链接超过建议阈值时，`linkAdvice.warning` 会变成 `true`，并给出 `--share --open` 或 `--write-link .airank/report-url.txt` 建议。
 
-如果你不想上传脱敏报告 JSON，也可以把完整本地 hash 链接写入文件：
+如果你需要把当前报告链接写入文件：
 
 ```bash
 npx github:relaxcloud-cn/vibe-coding-rank \
-  --source codex \
   --write-link .airank/report-url.txt
 ```
 
@@ -412,7 +459,6 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 
 ```bash
 npx github:relaxcloud-cn/vibe-coding-rank \
-  --source codex \
   --write-share-prompt .airank/share-poster-prompt.txt
 ```
 
@@ -424,7 +470,6 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 
 ```bash
 npx github:relaxcloud-cn/vibe-coding-rank \
-  --source codex \
   --write-judge-prompt .airank/deep-judge-prompt.txt
 ```
 
@@ -434,7 +479,6 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 
 ```bash
 npx github:relaxcloud-cn/vibe-coding-rank \
-  --source codex \
   --usd-per-million-input-tokens 1.25 \
   --usd-per-million-cached-input-tokens 0.125 \
   --usd-per-million-output-tokens 10
@@ -463,6 +507,16 @@ python3 skill/scripts/collect_sessions.py \
   --source claude \
   --root "$HOME/.claude/projects" \
   --output /tmp/airank-claude-evidence.jsonl
+```
+
+如果要融合两个来源，先分别收集，再合并 JSONL 后统一准备证据：
+
+```bash
+cat /tmp/airank-codex-evidence.jsonl /tmp/airank-claude-evidence.jsonl > /tmp/airank-merged-evidence.jsonl
+
+python3 skill/scripts/prepare_evidence.py \
+  --input /tmp/airank-merged-evidence.jsonl \
+  --output /tmp/airank-vibe-summary.json
 ```
 
 然后让 Codex 使用 `$vibe-coding-rank`，读取摘要里的 `evidence_cards`、`rank_caps`、`unlock_status` 和 `skill/references/` 中的判定规则，生成最终中文报告。
@@ -506,7 +560,7 @@ Use $vibe-coding-rank to analyze my local Codex sessions and produce a Vibe Codi
 
 ## 隐私原则
 
-原始会话记录可能包含源码、客户信息、业务上下文或 token。默认流程会先在本地提取和脱敏，再生成摘要。默认 `#data` 链接只包含压缩后的公开报告摘要，不包含原始日志、本地路径、源码片段或提示词长文本；完整本地报告仍会写到 `.airank/vibe-report.json`，方便你自己审计证据。
+原始会话记录可能包含源码、客户信息、业务上下文或 token。默认流程会先在本地提取和脱敏，再生成报告。本地 `/report/<reportId>` 从 `.airank/reports/<reportId>.json` 读取完整报告，只在本机报告服务使用；公网 `/share/<reportId>` 只有在你显式传入 `--share` 时才会创建，并且只存储压缩后的公开报告摘要，不包含原始日志、本地路径、源码片段或提示词长文本。完整本地报告仍会写到 `.airank/vibe-report.json`，方便你自己审计证据。
 
 不要把这些文件提交到公开仓库：
 

@@ -1,15 +1,20 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir, platform, tmpdir } from "node:os";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
 const ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
-const SOURCES = new Set(["codex", "claude", "generic"]);
+const SOURCES = ["codex", "claude"];
+const SOURCE_SET = new Set(SOURCES);
 const URL_PREVIEW_LENGTH = 180;
 const LONG_PUBLIC_URL_WARNING_LENGTH = 14000;
+const DEFAULT_REPORT_DIR = ".airank/reports";
+const DEFAULT_LOCAL_SITE = "http://127.0.0.1:4173";
+const DEFAULT_PUBLIC_SITE = "https://vibe.yisec.ai";
 const VALUE_ARGS = new Set([
   "--source",
   "--root",
@@ -258,10 +263,12 @@ const PUBLIC_STAT_EVIDENCE_FIELDS = [
 
 function parseArgs(argv) {
   const options = {
-    source: "codex",
+    source: "",
+    sourceProvided: false,
     root: "",
     since: "",
-    site: "https://vibe.yisec.ai",
+    site: DEFAULT_LOCAL_SITE,
+    siteProvided: false,
     uploadUrl: "",
     out: ".airank/vibe-report.json",
     limit: "5000",
@@ -273,12 +280,13 @@ function parseArgs(argv) {
     open: false,
     demo: false,
     doctor: false,
-    shortLink: false,
+    share: false,
     printJson: false,
     write: true,
     writeSharePrompt: "",
     writeJudgePrompt: "",
     writeLink: "",
+    advancedAnalysis: false,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -292,8 +300,10 @@ function parseArgs(argv) {
       options.doctor = true;
     } else if (arg === "--open") {
       options.open = true;
-    } else if (arg === "--short-link") {
-      options.shortLink = true;
+    } else if (arg === "--share") {
+      options.share = true;
+    } else if (arg === "--advanced-analysis" || arg === "--advanced") {
+      options.advancedAnalysis = true;
     } else if (arg === "--print-json") {
       options.printJson = true;
     } else if (arg === "--no-write") {
@@ -307,15 +317,18 @@ function parseArgs(argv) {
       if (!value || value.startsWith("--")) {
         throw new Error(`Missing value for ${arg}`);
       }
+      if (arg === "--source") {
+        options.sourceProvided = true;
+        options.source = options.source ? `${options.source},${value}` : value;
+        i += 1;
+        continue;
+      }
       options[key] = value;
+      if (arg === "--site") options.siteProvided = true;
       i += 1;
     } else {
       throw new Error(`Unknown argument: ${arg}`);
     }
-  }
-
-  if (!SOURCES.has(options.source)) {
-    throw new Error(`Unsupported --source "${options.source}". Use codex, claude, or generic.`);
   }
 
   validateArgs(options);
@@ -348,6 +361,43 @@ function validateDate(value) {
   }
 }
 
+function parseSources(value) {
+  const raw = String(value || "")
+    .split(",")
+    .map((source) => source.trim())
+    .filter(Boolean);
+  const requested = raw.length ? raw : SOURCES;
+  const result = [];
+  for (const source of requested) {
+    if (!SOURCE_SET.has(source)) {
+      throw new Error(`Unsupported --source "${source}". Use codex, claude, or codex,claude.`);
+    }
+    if (!result.includes(source)) result.push(source);
+  }
+  return SOURCES.filter((source) => result.includes(source));
+}
+
+function sourceLabel(sources) {
+  return sources.join("+");
+}
+
+function defaultRoot(source) {
+  if (source === "claude") return "~/.claude/projects";
+  return "~/.codex/sessions";
+}
+
+function rootsForSources(sources, options, { existingOnly = false } = {}) {
+  const roots = [];
+  for (const source of sources) {
+    const configuredRoot = options.root && sources.length === 1 ? options.root : defaultRoot(source);
+    const path = resolve(expandHome(configuredRoot));
+    if (!existingOnly || existsSync(path)) {
+      roots.push({ source, path });
+    }
+  }
+  return roots;
+}
+
 function validateArgs(options) {
   validatePositiveInteger("--limit", options.limit);
   validatePositiveInteger("--max-chars", options.maxChars);
@@ -356,6 +406,11 @@ function validateArgs(options) {
   validateOptionalNonNegativeNumber("--usd-per-million-cached-input-tokens", options.usdPerMillionCachedInputTokens);
   validateOptionalNonNegativeNumber("--usd-per-million-output-tokens", options.usdPerMillionOutputTokens);
   validateOptionalNonNegativeNumber("--usd-per-million-reasoning-tokens", options.usdPerMillionReasoningTokens);
+  options.sources = parseSources(options.source);
+  if (options.root && (!options.sourceProvided || options.sources.length !== 1)) {
+    throw new Error("--root can only be used with exactly one explicit source: --source codex --root <path> or --source claude --root <path>.");
+  }
+  options.source = sourceLabel(options.sources);
 }
 
 function help() {
@@ -363,18 +418,21 @@ function help() {
 Vibe Coding Rank
 
 Usage:
+  npx github:relaxcloud-cn/vibe-coding-rank
   npx github:relaxcloud-cn/vibe-coding-rank --source codex
+  npx github:relaxcloud-cn/vibe-coding-rank --source codex,claude --open
   npx github:relaxcloud-cn/vibe-coding-rank --source claude --open
   vibe-rank --demo
-  vibe-rank --doctor --source codex
+  vibe-rank --doctor
 
 Options:
-  --source codex|claude|generic   Session source. Default: codex
-  --root <path>                   Session directory or file
+  --source codex|claude|codex,claude  Session source. Default: auto-detect codex+claude
+  --root <path>                   Custom session directory. Only allowed with one explicit source
   --since YYYY-MM-DD              Only scan recently modified records
-  --site <url>                    Report site. Default: https://vibe.yisec.ai
-  --upload-url <url>              Optional Worker API base URL for short cloud links
-  --short-link                    Upload final report JSON and use a short #id link
+  --site <url>                    Report site. Default: http://127.0.0.1:4173
+  --upload-url <url>              Optional Worker API base URL for public share links
+  --share                         Upload sanitized summary and use a public /share link
+  --advanced-analysis, --advanced Add local transparent rule audit; no external LLM call
   --usd-per-million-input-tokens <n>      Optional input-token price for cost estimate
   --usd-per-million-cached-input-tokens <n> Optional cached-input price for cost estimate
   --usd-per-million-output-tokens <n>     Optional output-token price for cost estimate
@@ -396,12 +454,6 @@ function expandHome(path) {
   if (path === "~") return homedir();
   if (path.startsWith("~/")) return join(homedir(), path.slice(2));
   return path;
-}
-
-function defaultRoot(source) {
-  if (source === "claude") return "~/.claude/projects";
-  if (source === "codex") return "~/.codex/sessions";
-  return ".";
 }
 
 function runPython(script, args) {
@@ -442,7 +494,7 @@ function findPython() {
 function sourceHint(source) {
   if (source === "codex") return "Codex 默认路径通常是 ~/.codex/sessions。";
   if (source === "claude") return "Claude Code 默认路径通常是 ~/.claude/projects。";
-  return "generic 模式需要用 --root 指向 JSONL 文件或目录。";
+  return "默认会自动探测 Codex 和 Claude Code；也可以用 --source codex 或 --source claude 指定单一来源。";
 }
 
 function shellQuote(value) {
@@ -452,33 +504,35 @@ function shellQuote(value) {
 }
 
 function doctor(options) {
-  const root = resolve(expandHome(options.root || defaultRoot(options.source)));
+  const roots = rootsForSources(options.sources, options);
   const python = findPython();
-  const rootExists = existsSync(root);
-  const rootArg = options.root ? ` --root ${shellQuote(root)}` : "";
+  const existingRoots = roots.filter((root) => existsSync(root.path));
+  const rootStatus = roots.map((root) => `${root.source}:${existsSync(root.path) ? "存在" : "不存在"}`).join("，");
+  const rootLines = roots.map((root) => `- ${root.source}: ${root.path}`).join("\n");
+  const rootArg = options.root && roots.length === 1 ? ` --root ${shellQuote(roots[0].path)}` : "";
   const lines = [
     "Vibe Coding Rank 本地诊断",
     `来源：${options.source}`,
-    `会话路径：${root}`,
-    `路径状态：${rootExists ? "存在" : "不存在"}`,
+    `会话路径：\n${rootLines}`,
+    `路径状态：${rootStatus}`,
     `Python：${python.command ? `${python.command} (${python.version})` : "未找到"}`,
     `报告站点：${options.site}`,
     "",
     "建议：",
   ];
-  if (!rootExists) {
+  if (!existingRoots.length) {
     lines.push(`- ${sourceHint(options.source)}`);
-    lines.push("- 如果你的记录在别处，使用 --root <path> 指定。");
+    lines.push("- 如果你的记录在别处，使用 --source codex --root <path> 或 --source claude --root <path> 指定。");
     lines.push("- 只想看样例：npx github:relaxcloud-cn/vibe-coding-rank --demo --open");
   }
   if (!python.command) {
     lines.push("- 需要安装 Python 3，CLI 会用它做本地证据清洗。");
   }
-  if (rootExists && python.command) {
+  if (existingRoots.length && python.command) {
     lines.push(`- 可以运行：npx github:relaxcloud-cn/vibe-coding-rank --source ${options.source}${rootArg} --open`);
   }
   lines.push("- 需要完整长链接文件：加 --write-link .airank/report-url.txt。");
-  lines.push("- 想分享短链接：加 --short-link --open。");
+  lines.push("- 想公开分享脱敏摘要：加 --share --open。");
   return lines.join("\n");
 }
 
@@ -812,6 +866,18 @@ function sampleSummary() {
         advice: "为 Demo 补上验收、异常处理、数据边界和上线风险记录。",
       },
     ],
+    weak_signals: [
+      {
+        signal: "demo_generation",
+        evidence_type: "Demo 生成证据",
+        behavior_class: "assistant_execution",
+        behavior_class_label: "助手执行",
+        reason: "只能说明使用习惯或局部行为，不能单独用于升品。",
+        source: "codex:demo/session.jsonl:63",
+        session: "codex:demo",
+        snippet: "快速生成一个能跑的 demo 页面。",
+      },
+    ],
     rank_gates: [
       {
         id: "level7_user_decision_ratio",
@@ -913,6 +979,20 @@ function strongestEvidence(rows) {
     .slice(0, 5);
 }
 
+function flattenWeakSignals(summary) {
+  if (Array.isArray(summary.weak_signals) && summary.weak_signals.length) {
+    return summary.weak_signals.slice(0, 16).map((item) => ({
+      signal: item.signal || "",
+      label: item.evidence_type || SIGNAL_LABELS[item.signal] || item.signal || "弱信号",
+      reason: item.reason || "只能说明使用习惯或局部行为，不能单独用于升品。",
+      behaviorClass: item.behavior_class || "",
+      behaviorClassLabel: item.behavior_class_label || "",
+      snippet: item.snippet || "",
+    }));
+  }
+  return [];
+}
+
 function systemOwnership(level) {
   if (level >= 8) return "exceptional";
   if (level >= 5) return "strong";
@@ -925,6 +1005,7 @@ function buildReport(summary, options) {
   const level = Number(rank.level || 0);
   const nextLevel = Math.min(9, level + 1);
   const evidenceRows = flattenEvidence(summary);
+  const weakSignals = flattenWeakSignals(summary);
   const copy = RANK_REPORT_COPY[level] || RANK_REPORT_COPY[0];
   const strongest = strongestEvidence(evidenceRows);
   const rankCaps = summary.rank_caps || [];
@@ -940,7 +1021,10 @@ function buildReport(summary, options) {
     product: "Airank Vibe Coding Rank",
     generatedAt: new Date().toISOString(),
     source: options.source,
-    root: options.root || defaultRoot(options.source),
+    sources: options.sources || [options.source],
+    roots: options.roots || [],
+    root: options.root || options.roots?.[0]?.path || defaultRoot((options.sources || [options.source])[0]),
+    analysisMode: options.advancedAnalysis ? "advanced" : "standard",
     judgmentMode,
     judgmentModeLabel: MODE_COPY[judgmentMode] || judgmentMode,
     isFinal,
@@ -977,6 +1061,7 @@ function buildReport(summary, options) {
     whyNotNextRank: nextRankGap,
     evidence: evidenceRows,
     strongestEvidence: strongest,
+    weakSignals,
     rankCaps,
     rankGates: summary.rank_gates || [],
     qualityFlags,
@@ -1002,15 +1087,83 @@ function buildReport(summary, options) {
   report.hardStatCards = hardStatCards(report);
   report.metricGroups = report.metricGroups.length ? report.metricGroups : metricGroups(report);
   report.narrative.upgradeSummary = report.gateUpgradeAdvice;
+  if (options.advancedAnalysis) {
+    report.advancedAnalysis = buildAdvancedAnalysis(report);
+  }
   return report;
 }
 
-function encodeReport(report) {
-  return Buffer.from(JSON.stringify(report), "utf-8").toString("base64url");
+function localReportUrl(site, id) {
+  return `${site.replace(/\/$/, "")}/report/${id}`;
 }
 
-function siteUrl(site, report) {
-  return `${site.replace(/\/$/, "")}/#data=${encodeReport(report)}`;
+function publicShareUrl(site, id) {
+  return `${site.replace(/\/$/, "")}/share/${id}`;
+}
+
+function qrUrl(site, id) {
+  return `${site.replace(/\/$/, "")}/api/reports/${id}/qr.svg`;
+}
+
+function reportDirectory() {
+  return resolve(process.env.VIBE_RANK_REPORT_DIR || DEFAULT_REPORT_DIR);
+}
+
+function reportIdFor(report) {
+  const body = JSON.stringify({
+    generatedAt: report.generatedAt,
+    source: report.source,
+    rank: report.rank,
+    hardStats: report.hardStats,
+    evidence: report.evidence,
+  });
+  return createHash("sha256").update(body).digest("hex").slice(0, 16);
+}
+
+function writeLocalReport(id, report) {
+  const dir = reportDirectory();
+  mkdirSync(dir, { recursive: true });
+  const target = localReportFile(id);
+  writeFileSync(target, `${JSON.stringify({ id, report, createdAt: report.generatedAt || new Date().toISOString() }, null, 2)}\n`, "utf-8");
+  return target;
+}
+
+function localReportFile(id) {
+  return join(reportDirectory(), `${id}.json`);
+}
+
+function isPrivateHostname(hostname) {
+  const host = String(hostname || "").toLowerCase();
+  if (host === "localhost" || host === "0.0.0.0") return true;
+  if (host === "::1" || host === "[::1]") return true;
+  if (host === "127.0.0.1" || host.startsWith("127.")) return true;
+  const parts = host.split(".").map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+  const [a, b] = parts;
+  if (a === 10) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 169 && b === 254) return true;
+  return false;
+}
+
+function isLocalSite(site) {
+  try {
+    const url = new URL(site);
+    return isPrivateHostname(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function applyReportLinkMeta(report, meta) {
+  report.reportId = meta.reportId || "";
+  report.reportPayloadType = meta.reportPayloadType;
+  report.reportLinkMode = meta.reportLinkMode;
+  if (meta.url) report.reportUrl = meta.url;
+  if (meta.qrUrl) report.qrUrl = meta.qrUrl;
+  if (meta.localReportPath) report.localReportPath = meta.localReportPath;
+  return report;
 }
 
 async function uploadReport(uploadUrl, report) {
@@ -1023,12 +1176,54 @@ async function uploadReport(uploadUrl, report) {
       body: JSON.stringify(report),
     });
   } catch (error) {
-    throw new Error(`Short-link upload failed. Remove --short-link to use a local #data link. ${error.message}`);
+    throw new Error(`Share upload failed. Remove --share to use a local full report, or retry with a reachable --upload-url. ${error.message}`);
   }
   if (!response.ok) {
-    throw new Error(`Short-link upload failed: ${response.status} ${await response.text()}`);
+    throw new Error(`Share upload failed: ${response.status} ${await response.text()}`);
   }
   return response.json();
+}
+
+async function isServerReachable(baseUrl) {
+  try {
+    const response = await fetch(baseUrl, { method: "GET" });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+function spawnLocalReportServer(site) {
+  let url;
+  try {
+    url = new URL(site);
+  } catch {
+    return false;
+  }
+  if (!isPrivateHostname(url.hostname)) return false;
+  const child = spawn(
+    process.execPath,
+    [join(ROOT, "src", "server", "report-site.mjs"), "--host", url.hostname || "127.0.0.1", "--port", String(url.port || 4173)],
+    {
+      cwd: process.cwd(),
+      env: { ...process.env, VIBE_RANK_REPORT_DIR: reportDirectory() },
+      detached: true,
+      stdio: "ignore",
+    },
+  );
+  child.unref();
+  return true;
+}
+
+async function ensureLocalReportServer(site) {
+  if (await isServerReachable(site)) return true;
+  if (!spawnLocalReportServer(site)) return false;
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline) {
+    if (await isServerReachable(site)) return true;
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
+  }
+  return false;
 }
 
 function writeReport(path, report) {
@@ -1046,10 +1241,10 @@ function linkAdvice(url) {
     threshold: LONG_PUBLIC_URL_WARNING_LENGTH,
     warning,
     message: warning
-      ? "公开 #data 链接较长，建议改用 --short-link 生成短链接，或用 --write-link 写入完整链接文件。"
+      ? "报告链接较长，建议用 --write-link 写入完整链接文件。"
       : "",
     recommendedCommands: warning
-      ? ["--short-link --open", "--write-link .airank/report-url.txt"]
+      ? ["--write-link .airank/report-url.txt"]
       : [],
   };
 }
@@ -1057,7 +1252,14 @@ function linkAdvice(url) {
 function openUrl(url) {
   const command = platform() === "darwin" ? "open" : platform() === "win32" ? "cmd" : "xdg-open";
   const args = platform() === "win32" ? ["/c", "start", "", url] : [url];
-  spawnSync(command, args, { stdio: "ignore", detached: true });
+  const result = spawnSync(command, args, { stdio: "ignore", detached: true });
+  if (result.error || result.status) {
+    const detail = result.error?.message || `${command} exited with status ${result.status}`;
+    console.error(`vibe-rank: Could not open report URL automatically. Open it manually: ${url}`);
+    console.error(`vibe-rank: opener failed: ${detail}`);
+    return false;
+  }
+  return true;
 }
 
 function formatTokens(value) {
@@ -1212,6 +1414,180 @@ function gateUpgradeAdvice(report, fallback = "") {
   if (failed?.id && GATE_UPGRADE_ADVICE[failed.id]) return GATE_UPGRADE_ADVICE[failed.id];
   if (failed?.reason) return `先补齐这个门槛：${failed.reason}`;
   return fallback || "继续积累真实项目证据，并把成功做法沉淀成可复用工作流。";
+}
+
+function countLabel(value, fallback = 0) {
+  const number = Number(value ?? fallback ?? 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function compactMetric(value) {
+  if (value === undefined || value === null || value === "") return "";
+  if (typeof value === "number") return value > 0 && value <= 1 ? formatPercent(value) : String(value);
+  if (typeof value === "string") return value;
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .slice(0, 3)
+      .map(([key, item]) => `${key}=${item}`)
+      .join("，");
+  }
+  return String(value);
+}
+
+function gateAuditRow(item) {
+  const observed = compactMetric(item.observed);
+  const required = compactMetric(item.required);
+  const metric = [observed ? `观测 ${observed}` : "", required ? `要求 ${required}` : ""].filter(Boolean).join("，");
+  return {
+    id: item.id || "",
+    level: item.level,
+    label: item.label || item.id || "段位门槛",
+    passed: Boolean(item.passed),
+    summary: shortText(`${metric ? `${metric}。` : ""}${item.reason || ""}`, 96),
+  };
+}
+
+function dimensionNextGap(row) {
+  const status = row.status || "缺失";
+  const label = row.label || row.id || "该维度";
+  const score = Number(row.score || 0);
+  const strong = countLabel(row.strong_evidence_count ?? row.strongEvidenceCount);
+  if (status === "缺失" || score <= 0) return `补齐${label}的可评分证据。`;
+  if (status === "线索") return `把${label}从线索变成成立：增加用户主导证据和强证据。`;
+  if (status === "成立" && strong < 5) return `让${label}跨会话稳定出现，强证据至少达到 5 条。`;
+  if (status === "成立") return `继续提高${label}的跨任务稳定性。`;
+  return `保持${label}稳定，并补齐下一品关键门槛。`;
+}
+
+function dimensionRubric(rows) {
+  return (Array.isArray(rows) ? rows : [])
+    .slice(0, 6)
+    .map((item) => ({
+      id: item.id || "",
+      label: item.label || item.id || "维度",
+      status: item.status || "缺失",
+      score: Number(item.score || 0),
+      evidenceCount: countLabel(item.evidence_count ?? item.evidenceCount),
+      strongEvidenceCount: countLabel(item.strong_evidence_count ?? item.strongEvidenceCount),
+      nextGap: dimensionNextGap(item),
+    }));
+}
+
+function evidenceAuditRow(item) {
+  return {
+    signal: item.signal || "",
+    label: item.label || item.evidence_type || item.signal || "证据",
+    reason: shortText(item.reason || item.proves || "这条证据支持当前判断。", 120),
+    dimension: item.dimension || item.summary || "",
+    strength: item.strength || "",
+    support: Array.isArray(item.supportsLevels) && item.supportsLevels.length
+      ? `${item.supportsLevels.join("/")}品`
+      : "",
+  };
+}
+
+function qualityAuditRows(report) {
+  const rows = [];
+  for (const item of report.dragFactors || []) {
+    rows.push({
+      signal: item.id || "",
+      label: item.label || item.id || "拖累项",
+      reason: shortText(item.impact || item.advice || "", 120),
+      dimension: item.metric || "",
+      strength: "降权",
+    });
+  }
+  for (const item of report.qualityFlags || []) {
+    if (!["risk", "warning", "info"].includes(item.severity)) continue;
+    rows.push({
+      signal: item.id || "",
+      label: item.label || item.id || "质量提示",
+      reason: shortText(item.message || "", 120),
+      dimension: item.metric || "",
+      strength: "限制",
+    });
+  }
+  for (const item of report.weakSignals || []) {
+    rows.push({
+      signal: item.signal || "",
+      label: item.label || item.signal || "弱信号",
+      reason: shortText(item.reason || "只能说明使用习惯或局部行为，不能单独用于升品。", 120),
+      dimension: item.behaviorClassLabel || "",
+      strength: "弱",
+    });
+  }
+  return rows;
+}
+
+function buildUpgradePlan(report) {
+  const failed = firstFailedGate(report);
+  const plan = [];
+  const primary = report.gateUpgradeAdvice || gateUpgradeAdvice(report, report.upgradePath?.[0]);
+  if (primary) plan.push(primary);
+  if (failed?.id === "level8_team_replication" || failed?.id === "level8_team_candidate") {
+    plan.push("把 rules、skill 或 playbook 交给至少 2 个其他人或项目复用，并记录复用前后的差异。");
+    plan.push("用复用案例补上验收结果、失败修正和团队反馈，证明方法离开你仍然有效。");
+  } else if (failed?.id?.includes("validation")) {
+    plan.push("为下一次任务写清验收标准，并保留测试、构建、lint、截图或人工验收结果。");
+    plan.push("让 AI 在每个检查点先报告证据，再由你决定是否继续。");
+  } else if (failed?.id?.includes("user_decision") || failed?.id?.includes("user_control")) {
+    plan.push("在动代码前留下你的目标、非目标、文件范围、风险边界和取舍理由。");
+    plan.push("失败两轮后停止继续修补，先由你判断是重构、缩小边界还是补测试。");
+  } else if (failed?.id?.includes("ownership")) {
+    plan.push("补充关键路径、上线风险、日志监控、回滚方案和维护责任记录。");
+    plan.push("把审核逻辑写成 checklist 或 gate，让结果可复核。");
+  } else {
+    const fallback = report.upgradePath?.[1] || "连续完成 2 到 3 个真实任务，留下目标定义、架构约束、验证结果和复盘。";
+    plan.push(fallback);
+    plan.push("把成功做法沉淀成 AGENTS.md、rules、skill、workflow 或 checklist，并在后续任务里复用。");
+  }
+  return [...new Set(plan.filter(Boolean))].slice(0, 3);
+}
+
+function buildAdvancedAnalysis(report) {
+  const gates = Array.isArray(report.rankGates) ? report.rankGates : [];
+  const passed = gates.filter((item) => item?.passed === true).map(gateAuditRow);
+  const failed = gates.filter((item) => item?.passed === false).map(gateAuditRow);
+  const keyGate = firstFailedGate(report);
+  const statEvidenceRow = report.statEvidence || statEvidence(report);
+  const statImpact = statEvidenceRow.confidenceImpact || report.statsInsight || "硬统计只影响置信度，不直接升品。";
+  const accepted = (report.strongestEvidence?.length ? report.strongestEvidence : report.evidence || [])
+    .slice(0, 8)
+    .map(evidenceAuditRow);
+  const downranked = qualityAuditRows(report);
+  return {
+    decisionTrace: {
+      initialRank: {
+        level: report.rank?.level,
+        label: report.rank?.label || "",
+        source: report.judgmentModeLabel || report.judgmentMode || "自动初筛",
+      },
+      capReasons: (report.rankCaps || []).slice(0, 4),
+      finalRank: {
+        level: report.rank?.level,
+        label: report.rank?.label || "",
+        score: report.rank?.score,
+      },
+      confidenceImpact: statImpact,
+    },
+    gateAudit: {
+      passed,
+      failed,
+      keyGate: keyGate ? gateAuditRow(keyGate) : null,
+    },
+    dimensionRubric: dimensionRubric(report.dimensionProfile),
+    evidenceAudit: {
+      accepted,
+      downranked: downranked.slice(0, 8),
+    },
+    upgradePlan: buildUpgradePlan(report),
+    limitations: [
+      "当前是规则初筛和透明审计，不是最终高段位判定。",
+      "关键词和统计规则可能误召回，需要结合真实任务上下文复核。",
+      "token、成本和工具调用只解释投入强度，不直接升品。",
+      "八品需要团队或社区复用强证据；九品需要公开范式影响证据。",
+    ],
+  };
 }
 
 function sortQualityFlags(flags) {
@@ -1911,7 +2287,7 @@ function buildShareImagePrompt(report, url = "") {
   return `
 Use case: infographic-diagram
 Asset type: 4:5 vertical Chinese social-share poster for Airank Vibe Coding Rank
-Primary request: Create a premium Chinese AI ability report poster. It must look like a polished product report, not a meme or generic certificate.
+Primary request: Create a premium Chinese AI ability report poster. It must look like a polished product report, not a meme or template certificate.
 
 Exact Chinese text to include:
 标题：Vibe Coding 九品报告
@@ -1987,6 +2363,14 @@ Visual direction:
 `.trim();
 }
 
+function rankGatePromptLine(item) {
+  const parts = [`- ${item.label || item.id}：${item.passed ? "通过" : "未通过"}`];
+  if (item.observed !== undefined) parts.push(`观测=${JSON.stringify(item.observed)}`);
+  if (item.required !== undefined) parts.push(`要求=${JSON.stringify(item.required)}`);
+  if (item.reason) parts.push(`原因=${item.reason}`);
+  return parts.join("；");
+}
+
 function buildJudgePrompt(report, url = "") {
   const rank = report.rank || {};
   const nextRank = report.nextRank || {};
@@ -2002,7 +2386,7 @@ function buildJudgePrompt(report, url = "") {
     .map((item) => `- ${item.label || item.id}：${item.status || "缺失"}，${Number(item.score || 0)}/100，证据 ${item.evidence_count ?? item.evidenceCount ?? "未知"} 条`)
     .join("\n");
   const gates = (report.rankGates || [])
-    .map((item) => `- ${item.label || item.id}：${item.passed ? "通过" : "未通过"}；观测=${JSON.stringify(item.observed)}；要求=${JSON.stringify(item.required)}；原因=${item.reason || ""}`)
+    .map(rankGatePromptLine)
     .join("\n");
   const evidence = (report.strongestEvidence || report.evidence || [])
     .slice(0, 8)
@@ -2184,6 +2568,43 @@ function publicDragFactors(factors) {
     .map((item) => pickFields(item, ["id", "label", "metric", "impact", "advice"]));
 }
 
+function publicAdvancedAnalysis(advanced) {
+  if (!advanced) return undefined;
+  const decisionTrace = advanced.decisionTrace || {};
+  const gateAudit = advanced.gateAudit || {};
+  const evidenceAudit = advanced.evidenceAudit || {};
+  return {
+    decisionTrace: {
+      initialRank: pickFields(decisionTrace.initialRank, ["level", "label", "source"]),
+      capReasons: Array.isArray(decisionTrace.capReasons) ? decisionTrace.capReasons.slice(0, 2) : [],
+      finalRank: pickFields(decisionTrace.finalRank, ["level", "label", "score"]),
+      confidenceImpact: shortText(decisionTrace.confidenceImpact || "", 120),
+    },
+    gateAudit: {
+      passed: (Array.isArray(gateAudit.passed) ? gateAudit.passed : [])
+        .slice(0, 3)
+        .map((item) => pickFields(item, ["id", "level", "label", "passed", "summary"])),
+      failed: (Array.isArray(gateAudit.failed) ? gateAudit.failed : [])
+        .slice(0, 1)
+        .map((item) => pickFields(item, ["id", "level", "label", "passed", "summary"])),
+      keyGate: gateAudit.keyGate ? pickFields(gateAudit.keyGate, ["id", "level", "label", "passed", "summary"]) : null,
+    },
+    dimensionRubric: (Array.isArray(advanced.dimensionRubric) ? advanced.dimensionRubric : [])
+      .slice(0, 6)
+      .map((item) => pickFields(item, ["id", "label", "status", "score", "evidenceCount", "strongEvidenceCount", "nextGap"])),
+    evidenceAudit: {
+      accepted: (Array.isArray(evidenceAudit.accepted) ? evidenceAudit.accepted : [])
+        .slice(0, 5)
+        .map((item) => pickFields(item, ["signal", "label", "reason", "dimension", "strength", "support"])),
+      downranked: (Array.isArray(evidenceAudit.downranked) ? evidenceAudit.downranked : [])
+        .slice(0, 3)
+        .map((item) => pickFields(item, ["signal", "label", "reason", "dimension", "strength"])),
+    },
+    upgradePlan: (Array.isArray(advanced.upgradePlan) ? advanced.upgradePlan : []).slice(0, 3),
+    limitations: (Array.isArray(advanced.limitations) ? advanced.limitations : []).slice(0, 4),
+  };
+}
+
 function pickFields(source, fields) {
   const result = {};
   for (const field of fields) {
@@ -2198,8 +2619,13 @@ function publicReport(report) {
     .slice(0, 3)
     .map(publicEvidence);
   const publicHardCards = shareHardStatCards(report.hardStatCards).slice(0, 6);
-  return {
+  const result = {
     source: report.source,
+    sources: report.sources,
+    reportId: report.reportId || "",
+    reportPayloadType: report.reportPayloadType || "public-summary",
+    reportLinkMode: report.reportLinkMode || "public-share-link",
+    analysisMode: report.analysisMode || "standard",
     judgmentMode: report.judgmentMode,
     isFinal: report.isFinal,
     rank: report.rank,
@@ -2236,6 +2662,59 @@ function publicReport(report) {
       compactPublicReport: true,
     },
   };
+  if (result.analysisMode === "advanced" && report.advancedAnalysis) {
+    result.advancedAnalysis = publicAdvancedAnalysis(report.advancedAnalysis);
+  }
+  return result;
+}
+
+function rankLabelText(rank) {
+  if (!rank) return "未知";
+  return rank.label || (rank.level !== undefined ? rankLevelName(rank.level) : "未知");
+}
+
+function advancedDecisionLine(advanced) {
+  const trace = advanced?.decisionTrace || {};
+  const parts = [
+    `初始支持${rankLabelText(trace.initialRank)}`,
+    trace.capReasons?.length ? `封顶原因：${trace.capReasons[0]}` : "",
+    `最终${rankLabelText(trace.finalRank)}`,
+    trace.confidenceImpact ? `置信度影响：${trace.confidenceImpact}` : "",
+  ].filter(Boolean);
+  return parts.join("；");
+}
+
+function printAdvancedHuman(report) {
+  const advanced = report.advancedAnalysis;
+  if (!advanced) return;
+  const keyGate = advanced.gateAudit?.keyGate;
+  console.log("");
+  console.log("高级分析：");
+  console.log(`决策链：${advancedDecisionLine(advanced)}`);
+  if (keyGate) {
+    console.log(`关键未过门槛：${keyGate.label || keyGate.id}：${keyGate.summary || "需要补齐下一品门槛。"}`);
+  }
+  const accepted = advanced.evidenceAudit?.accepted || [];
+  if (accepted.length) {
+    console.log("采纳证据：");
+    for (const item of accepted.slice(0, 3)) {
+      console.log(`- ${item.label || item.signal}: ${item.reason}`);
+    }
+  }
+  const downranked = advanced.evidenceAudit?.downranked || [];
+  if (downranked.length) {
+    console.log("降权证据：");
+    for (const item of downranked.slice(0, 3)) {
+      console.log(`- ${item.label || item.signal}: ${item.reason}`);
+    }
+  }
+  const plan = advanced.upgradePlan || [];
+  if (plan.length) {
+    console.log("高级下一步：");
+    for (const item of plan.slice(0, 3)) {
+      console.log(`- ${item}`);
+    }
+  }
 }
 
 function printHuman(report, url, outPath, linkPath = "", advice = linkAdvice(url)) {
@@ -2306,16 +2785,33 @@ function printHuman(report, url, outPath, linkPath = "", advice = linkAdvice(url
   }
   console.log("");
   console.log("产物：");
-  console.log(`- 公开链接：${displayUrl}`);
+  console.log(`- 报告链接：${displayUrl}`);
+  if (report.reportLinkMode === "local-full-report") {
+    console.log(`- 报告 ID：${report.reportId}`);
+    console.log("- 链接模式：本地完整报告；完整报告只写入本机报告库，不上传。");
+    if (report.qrUrl) {
+      console.log(`- 二维码：${report.qrUrl}`);
+    }
+  } else if (report.reportLinkMode === "public-share-link") {
+    console.log(`- 报告 ID：${report.reportId}`);
+    console.log("- 链接模式：公网分享链接，已显式上传脱敏摘要；原始日志不会上传。");
+    if (report.qrUrl) {
+      console.log(`- 二维码：${report.qrUrl}`);
+    }
+  }
   if (linkPath) {
     console.log(`- 完整公开链接：${linkPath}`);
   } else if (advice.warning) {
     console.log(`- 链接长度：${advice.length} 字符，超过建议阈值 ${advice.threshold}。`);
-    console.log("- 建议：加 --short-link --open 生成短链接，或加 --write-link .airank/report-url.txt 写入完整链接。");
+    console.log("- 建议：加 --write-link .airank/report-url.txt 写入完整链接。");
   } else if (url.length > 180) {
-    console.log("- 完整公开链接较长，建议加 --short-link 生成短链接，或加 --write-link .airank/report-url.txt 写入文件。");
+    console.log("- 完整链接较长，建议加 --write-link .airank/report-url.txt 写入文件。");
   }
-  console.log("- 公开链接只包含压缩脱敏摘要；原始日志、本地路径和源码片段不会上传。");
+  if (report.reportLinkMode === "local-full-report") {
+    console.log("- 本地完整报告只在本机报告服务读取；未上传公网。公开分享请显式使用 --share --open。");
+  } else {
+    console.log("- 公网分享只包含脱敏摘要；原始日志、本地路径和源码片段不会上传。");
+  }
   if (outPath) {
     console.log(`- 本地完整报告：${outPath}`);
     console.log("  本地报告用于自查证据，可能包含脱敏证据片段，请不要直接公开。");
@@ -2339,6 +2835,7 @@ function printHuman(report, url, outPath, linkPath = "", advice = linkAdvice(url
       console.log(`- ${item.label}: ${item.reason}`);
     }
   }
+  printAdvancedHuman(report);
   console.log("");
   console.log("下一步：");
   console.log(`- ${report.gateUpgradeAdvice || report.upgradePath?.[0] || report.narrative?.upgradeSummary}`);
@@ -2358,42 +2855,83 @@ async function main() {
   let summary;
   if (options.demo) {
     summary = sampleSummary();
+    options.roots = [];
   } else {
-    const root = resolve(expandHome(options.root || defaultRoot(options.source)));
-    if (!existsSync(root)) {
-      throw new Error(`Session root not found: ${root}`);
+    const requestedRoots = rootsForSources(options.sources, options);
+    const roots = options.sourceProvided ? requestedRoots : requestedRoots.filter((root) => existsSync(root.path));
+    if (!roots.length) {
+      const checked = requestedRoots.map((root) => `${root.source}: ${root.path}`).join("; ");
+      throw new Error(`No Codex or Claude Code session roots found. Checked ${checked}. Use --doctor, or specify --source codex --root <path> / --source claude --root <path>.`);
     }
-
+    for (const root of roots) {
+      if (!existsSync(root.path)) {
+        throw new Error(`Session root not found for ${root.source}: ${root.path}`);
+      }
+    }
     const tempRoot = join(tmpdir(), `airank-vibe-${Date.now()}`);
     mkdirSync(tempRoot, { recursive: true });
     const evidencePath = join(tempRoot, "evidence.jsonl");
     const summaryPath = join(tempRoot, "summary.json");
 
-    const collectArgs = [
-      "--source",
-      options.source,
-      "--root",
-      root,
-      "--output",
-      evidencePath,
-      "--limit",
-      options.limit,
-      "--max-chars",
-      options.maxChars,
-    ];
-    if (options.since) {
-      collectArgs.push("--since", options.since);
+    writeFileSync(evidencePath, "", "utf-8");
+    for (const root of roots) {
+      const sourceEvidencePath = join(tempRoot, `${root.source}.jsonl`);
+      const collectArgs = [
+        "--source",
+        root.source,
+        "--root",
+        root.path,
+        "--output",
+        sourceEvidencePath,
+        "--limit",
+        options.limit,
+        "--max-chars",
+        options.maxChars,
+      ];
+      if (options.since) {
+        collectArgs.push("--since", options.since);
+      }
+      runPython("collect_sessions.py", collectArgs);
+      appendFileSync(evidencePath, readFileSync(sourceEvidencePath, "utf-8"), "utf-8");
     }
-
-    runPython("collect_sessions.py", collectArgs);
     runPython("prepare_evidence.py", ["--input", evidencePath, "--output", summaryPath]);
     summary = JSON.parse(readFileSync(summaryPath, "utf-8"));
-    options.root = root;
+    options.roots = roots;
+    options.sources = roots.map((root) => root.source);
+    options.source = sourceLabel(options.sources);
+    options.root = roots.length === 1 ? roots[0].path : "";
   }
 
   const report = buildReport(summary, options);
   let publicPayload = publicReport(report);
-  let url = siteUrl(options.site, publicPayload);
+  let reportId = "";
+  let reportPayloadType = "public-summary";
+  let reportLinkMode = "public-share-link";
+  let localReportPath = "";
+  const shouldUploadShare = Boolean(options.share || options.uploadUrl);
+  if (!options.write && !shouldUploadShare) {
+    throw new Error("--no-write cannot create a local /report link. Remove --no-write, or use --share/--upload-url to publish a sanitized /share link.");
+  }
+  const effectiveSite = shouldUploadShare && !options.uploadUrl && !options.siteProvided
+    ? DEFAULT_PUBLIC_SITE
+    : options.site;
+  let url = "";
+  let currentQrUrl = "";
+  const shouldUseLocalFullReport = !shouldUploadShare && options.write && isLocalSite(effectiveSite);
+  if (!shouldUploadShare && !shouldUseLocalFullReport) {
+    throw new Error("Local full reports require a local --site URL such as http://127.0.0.1:4173. Use --share for a public /share link.");
+  }
+  if (shouldUseLocalFullReport) {
+    reportId = reportIdFor(report);
+    reportPayloadType = "local-full";
+    reportLinkMode = "local-full-report";
+    url = localReportUrl(effectiveSite, reportId);
+    currentQrUrl = qrUrl(effectiveSite, reportId);
+    applyReportLinkMeta(report, { reportId, reportPayloadType, reportLinkMode, url, qrUrl: currentQrUrl });
+  } else {
+    applyReportLinkMeta(report, { reportPayloadType, reportLinkMode });
+  }
+
   let shareImagePrompt = buildShareImagePrompt(publicPayload, url);
   let judgePrompt = buildJudgePrompt(publicPayload, url);
   report.shareImagePrompt = shareImagePrompt;
@@ -2409,11 +2947,23 @@ async function main() {
     judgePromptPath = writeTextFile(options.writeJudgePrompt, judgePrompt);
     report.judgePromptPath = judgePromptPath;
   }
-  const uploadBaseUrl = options.uploadUrl || (options.shortLink ? options.site : "");
+  if (shouldUseLocalFullReport) {
+    applyReportLinkMeta(report, { reportId, reportPayloadType, reportLinkMode, url, qrUrl: currentQrUrl });
+    localReportPath = localReportFile(reportId);
+    report.localReportPath = localReportPath;
+    writeLocalReport(reportId, report);
+    publicPayload = publicReport(report);
+  }
+  const uploadBaseUrl = options.uploadUrl || (shouldUploadShare ? effectiveSite : "");
   if (uploadBaseUrl) {
     publicPayload = publicReport(report);
     const uploaded = await uploadReport(uploadBaseUrl, publicPayload);
-    url = uploaded.url || `${uploadBaseUrl.replace(/\/$/, "")}/#id=${uploaded.id}`;
+    reportId = uploaded.id || "";
+    reportPayloadType = "public-summary";
+    reportLinkMode = "public-share-link";
+    url = uploaded.url || publicShareUrl(uploadBaseUrl, uploaded.id);
+    currentQrUrl = uploaded.id ? qrUrl(uploadBaseUrl, uploaded.id) : "";
+    applyReportLinkMeta(report, { reportId, reportPayloadType, reportLinkMode, url, qrUrl: currentQrUrl });
     shareImagePrompt = buildShareImagePrompt(publicPayload, url);
     judgePrompt = buildJudgePrompt(publicPayload, url);
     report.shareImagePrompt = shareImagePrompt;
@@ -2431,9 +2981,25 @@ async function main() {
   if (options.writeLink) {
     linkPath = writeTextFile(options.writeLink, url);
   }
+  if (shouldUseLocalFullReport) {
+    await ensureLocalReportServer(effectiveSite);
+  }
   const advice = linkAdvice(url);
   if (options.printJson) {
-    console.log(JSON.stringify({ report, url, outPath, shareImagePromptPath, judgePromptPath, linkPath, linkAdvice: advice }, null, 2));
+    console.log(JSON.stringify({
+      report,
+      url,
+      reportId,
+      reportPayloadType,
+      reportLinkMode,
+      outPath,
+      localReportPath,
+      qrUrl: currentQrUrl,
+      shareImagePromptPath,
+      judgePromptPath,
+      linkPath,
+      linkAdvice: advice,
+    }, null, 2));
   } else {
     printHuman(report, url, outPath, linkPath, advice);
   }

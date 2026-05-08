@@ -66,6 +66,21 @@ response = await request(
     method: "POST",
     body: JSON.stringify({
       rank: { label: "六品 · 已有大成" },
+      roots: [{ source: "codex", path: "/Users/sky/.codex/sessions" }],
+      privacy: { rawLogsUploaded: false, localPathsRemoved: true, compactPublicReport: true },
+    }),
+  },
+  { REPORTS: makeKv() },
+);
+assert.equal(response.status, 422);
+assert.deepEqual(await json(response), { error: "Report payload must be the compact sanitized public report, not the local full report." });
+
+response = await request(
+  "/api/reports",
+  {
+    method: "POST",
+    body: JSON.stringify({
+      rank: { label: "六品 · 已有大成" },
       privacy: { rawLogsUploaded: true, localPathsRemoved: true, compactPublicReport: true },
     }),
   },
@@ -105,7 +120,7 @@ response = await request(
 assert.equal(response.status, 200);
 const created = await json(response);
 assert.match(created.id, /^[a-f0-9]{16}$/);
-assert.equal(created.url, `https://vibe.yisec.ai/#id=${created.id}`);
+assert.equal(created.url, `https://vibe.yisec.ai/share/${created.id}`);
 assert.equal(kv.writes.length, 1);
 assert.equal(kv.writes[0].options.expirationTtl, 60 * 60 * 24 * 30);
 
@@ -116,6 +131,13 @@ assert.equal(stored.id, created.id);
 assert.equal(stored.report.rank.label, "六品 · 已有大成");
 assert.equal(stored.report.privacy.rawLogsUploaded, false);
 assert.ok(stored.createdAt);
+
+response = await request(`/api/reports/${created.id}/qr.svg`, { method: "GET" }, { REPORTS: kv });
+assert.equal(response.status, 200);
+assert.equal(response.headers.get("content-type"), "image/svg+xml; charset=utf-8");
+const qrSvg = await response.text();
+assert.match(qrSvg, /^<svg /);
+assert.match(qrSvg, new RegExp(`/share/${created.id}`));
 
 response = await request("/unknown", { method: "GET" }, {});
 assert.equal(response.status, 404);
