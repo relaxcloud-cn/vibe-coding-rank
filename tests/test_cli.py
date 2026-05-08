@@ -54,6 +54,10 @@ class CliTests(unittest.TestCase):
         self.assertLessEqual(len(shared["hardStatCards"]), 8)
         self.assertEqual(shared["evidence"], [])
         self.assertGreaterEqual(len(shared["strongestEvidence"]), 1)
+        self.assertLessEqual(len(shared["strongestEvidence"]), 3)
+        self.assertLessEqual(len(shared["rankGates"]), 1)
+        self.assertLessEqual(len(shared["qualityFlags"]), 2)
+        self.assertLessEqual(len(shared["dragFactors"]), 2)
         self.assertNotIn("root", shared)
         self.assertNotIn("snippet", shared["strongestEvidence"][0])
         self.assertNotIn("source", shared["strongestEvidence"][0])
@@ -266,6 +270,60 @@ class CliTests(unittest.TestCase):
             self.assertEqual(link_path.read_text(encoding="utf-8").strip(), payload["url"])
             self.assertTrue(payload["url"].startswith("https://vibe.yisec.ai/#data="))
 
+    def test_public_hash_link_stays_compact_for_dense_generic_logs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "dense.jsonl"
+            rows = []
+            for index in range(80):
+                role = "user" if index % 2 == 0 else "assistant"
+                text = (
+                    "先给计划，验收条件是 test build lint 通过，不要改支付模块。"
+                    "解释架构边界、权限、数据模型、上线 rollback、workflow rules、团队 playbook。"
+                    if role == "user"
+                    else "已完成实现，运行 test build lint，通过验证并整理 workflow checklist。"
+                )
+                rows.append(
+                    {
+                        "source": "generic",
+                        "path": f"dense.jsonl:{index + 1}",
+                        "mtime": "2026-05-08T10:00:00",
+                        "role": role,
+                        "text": text,
+                    }
+                )
+            source.write_text(
+                "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    "node",
+                    str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                    "--source",
+                    "generic",
+                    "--root",
+                    str(root),
+                    "--print-json",
+                    "--no-write",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            payload = json.loads(result.stdout)
+            self.assertLess(len(payload["url"]), 14000)
+            shared = decode_hash_report(payload["url"])
+            self.assertLessEqual(len(shared["rankGates"]), 1)
+            self.assertLessEqual(len(shared["hardStatCards"]), 6)
+            self.assertLessEqual(len(shared["qualityFlags"]), 2)
+            self.assertLessEqual(len(shared["dragFactors"]), 2)
+            self.assertLessEqual(len(shared["strongestEvidence"]), 3)
+            self.assertNotIn("matchedRules", shared["statProfile"])
+            self.assertNotIn("root", shared)
+
     def test_doctor_reports_missing_default_root_without_reading_logs(self) -> None:
         result = subprocess.run(
             [
@@ -458,7 +516,10 @@ class CliTests(unittest.TestCase):
         self.assertNotIn("matchedRules", uploaded["statProfile"])
         self.assertNotIn("judgePrompt", uploaded)
         self.assertTrue(uploaded["privacy"]["compactPublicReport"])
-        self.assertLessEqual(len(uploaded["hardStatCards"]), 8)
+        self.assertLessEqual(len(uploaded["hardStatCards"]), 6)
+        self.assertLessEqual(len(uploaded["rankGates"]), 1)
+        self.assertLessEqual(len(uploaded["qualityFlags"]), 2)
+        self.assertLessEqual(len(uploaded["dragFactors"]), 2)
         self.assertNotIn("behaviorCounts", uploaded)
         self.assertNotIn("qualityNotes", uploaded)
         self.assertNotIn("root", uploaded)

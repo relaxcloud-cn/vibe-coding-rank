@@ -1831,6 +1831,36 @@ function publicStatProfile(profile) {
   return result;
 }
 
+function publicRankGates(gates, currentLevel = 0) {
+  const rows = Array.isArray(gates) ? gates : [];
+  const failed = rows
+    .filter((item) => item && item.passed === false && Number(item.level || 0) > currentLevel)
+    .sort((a, b) => Number(a.level || 0) - Number(b.level || 0))[0]
+    || rows.find((item) => item && item.passed === false);
+  if (!failed) return [];
+  return [
+    pickFields(failed, ["id", "level", "label", "passed", "reason"]),
+  ];
+}
+
+function publicDimensionProfile(profile) {
+  return (Array.isArray(profile) ? profile : [])
+    .slice(0, 6)
+    .map((item) => pickFields(item, ["id", "label", "status", "score", "evidence_count", "strong_evidence_count"]));
+}
+
+function publicQualityFlags(flags) {
+  return sortQualityFlags(flags)
+    .slice(0, 2)
+    .map((item) => pickFields(item, ["id", "severity", "label", "metric", "message"]));
+}
+
+function publicDragFactors(factors) {
+  return (Array.isArray(factors) ? factors : [])
+    .slice(0, 2)
+    .map((item) => pickFields(item, ["id", "label", "metric", "impact", "advice"]));
+}
+
 function pickFields(source, fields) {
   const result = {};
   for (const field of fields) {
@@ -1842,8 +1872,9 @@ function pickFields(source, fields) {
 
 function publicReport(report) {
   const evidence = (report.strongestEvidence?.length ? report.strongestEvidence : report.evidence || [])
-    .slice(0, 6)
+    .slice(0, 3)
     .map(publicEvidence);
+  const publicHardCards = shareHardStatCards(report.hardStatCards).slice(0, 6);
   return {
     product: report.product,
     generatedAt: report.generatedAt,
@@ -1865,18 +1896,18 @@ function publicReport(report) {
     costEstimate: report.costEstimate,
     statsInsight: report.statsInsight,
     statProfile: publicStatProfile(report.statProfile),
-    hardStatCards: shareHardStatCards(report.hardStatCards),
+    hardStatCards: publicHardCards,
     metricGroups: publicMetricGroups(report.metricGroups),
-    dimensionProfile: report.dimensionProfile,
+    dimensionProfile: publicDimensionProfile(report.dimensionProfile),
     verdict: report.verdict,
     whyThisRank: report.whyThisRank,
     whyNotNextRank: report.whyNotNextRank,
     evidence: [],
     strongestEvidence: evidence,
     rankCaps: report.rankCaps,
-    rankGates: report.rankGates,
-    qualityFlags: report.qualityFlags,
-    dragFactors: report.dragFactors,
+    rankGates: publicRankGates(report.rankGates, Number(report.rank?.level || 0)),
+    qualityFlags: publicQualityFlags(report.qualityFlags),
+    dragFactors: publicDragFactors(report.dragFactors),
     unlockStatus: report.unlockStatus,
     gateUpgradeAdvice: report.gateUpgradeAdvice,
     upgradePath: report.upgradePath,
