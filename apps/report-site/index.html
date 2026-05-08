@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Vibe Coding Rank: 本地扫描 Codex / Claude Code 记录，生成可分享的 AI 编程段位报告。" />
     <title>Vibe Coding 九品体系</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <div class="site-bg" aria-hidden="true">
@@ -46,12 +46,12 @@ VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位
 ╚██╗ ██╔╝██║██╔══██╗██╔══╝      ██╔══██╗██╔══██║██║╚██╗██║██╔═██╗
  ╚████╔╝ ██║██████╔╝███████╗    ██║  ██║██║  ██║██║ ╚████║██║  ██╗
   ╚═══╝  ╚═╝╚═════╝ ╚══════╝    ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝</pre>
-          <p class="hero-line">一条命令读取 Codex / Claude Code 记录，生成可分享的中文九品报告。</p>
+          <p class="hero-line">一条命令自动探测 Codex / Claude Code 记录，生成可分享的中文九品报告。</p>
           <button class="install-command" id="copy-command" type="button">
-            <span><span class="prompt">$</span> npx github:relaxcloud-cn/vibe-coding-rank --source codex --open</span>
+            <span><span class="prompt">$</span> npx github:relaxcloud-cn/vibe-coding-rank --open</span>
             <span class="copy-icon" aria-hidden="true">⌘C</span>
           </button>
-          <p class="localhost">打开 <span>vibe.yisec.ai/#data</span> · 原始日志只留在本地</p>
+          <p class="localhost">默认打开 <span>127.0.0.1:4173/report</span> · 公开分享需显式 --share</p>
         </div>
       </section>
 
@@ -69,23 +69,30 @@ VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位
           <div class="app-shell">
             <aside class="sidebar">
               <div class="side-title">证据</div>
-              <button class="side-item active">总览</button>
-              <button class="side-item">会话记录</button>
-              <button class="side-item">能力信号</button>
-              <button class="side-item">段位上限</button>
-              <button class="side-item">升级路径</button>
+              <button class="side-item active" data-target="report-overview">总览</button>
+              <button class="side-item" data-target="report-narrative">判定逻辑</button>
+              <button class="side-item" data-target="report-evidence">证据链</button>
+              <button class="side-item" data-target="report-stats">硬统计</button>
+              <button class="side-item" data-target="report-next">升级路径</button>
               <div class="side-footer">
                 <span>本地优先</span>
                 <strong>不上传原始日志</strong>
               </div>
             </aside>
             <section class="dashboard">
-              <div class="report-head">
+              <div class="report-head report-section" id="report-overview">
                 <div>
+                  <p class="report-title" id="report-title">AI 段位分析报告</p>
                   <p class="label">当前段位</p>
                   <h1 id="rank-label">六品 · 已有大成</h1>
                   <p class="rank-copy" id="verdict">系统开始真正属于你。你不是让 AI 乱写代码，而是在用目标、边界、架构和验证 gate 驱动交付。</p>
                   <p class="judgment-mode" id="judgment-mode">自动初筛 · 非最终高段位判定</p>
+                  <div class="report-meta" id="report-meta" aria-label="报告元信息">
+                    <span>报告 ID <strong id="report-id">sample</strong></span>
+                    <span>生成时间 <strong id="report-generated-at">样例</strong></span>
+                    <span>数据来源 <strong id="report-source">脱敏摘要</strong></span>
+                    <span>隐私状态 <strong id="report-privacy">本地优先</strong></span>
+                  </div>
                 </div>
                 <div class="rank-score">
                   <span id="score-value">76</span>
@@ -94,6 +101,7 @@ VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位
               </div>
               <div class="report-actions">
                 <button class="report-action primary" id="copy-report-link" type="button">复制报告链接</button>
+                <a class="report-action" id="qr-report-link" href="#" target="_blank" rel="noreferrer" hidden>二维码</a>
                 <button class="report-action" id="copy-share-prompt" type="button">复制图片报告提示词</button>
                 <button class="report-action" id="copy-judge-prompt" type="button">复制深度判定提示词</button>
                 <span id="share-copy-status" aria-live="polite"></span>
@@ -121,7 +129,7 @@ VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位
 
               <div class="dimension-grid" id="dimension-grid"></div>
 
-              <div class="narrative-grid">
+              <div class="narrative-grid report-section" id="report-narrative">
                 <article>
                   <span>为什么是这个段位</span>
                   <strong id="why-this-rank">你已经形成从问题定义到系统交付的闭环。</strong>
@@ -132,7 +140,7 @@ VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位
                 </article>
               </div>
 
-              <div class="next-action-card">
+              <div class="next-action-card report-section" id="report-next">
                 <div>
                   <span>下一品关键动作</span>
                   <strong id="next-action-title">先补齐八品团队复制门槛</strong>
@@ -141,7 +149,7 @@ VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位
                 <small id="next-action-gate">八品团队复制未通过：需要团队方法复制强证据。</small>
               </div>
 
-              <div class="main-grid">
+              <div class="main-grid report-section" id="report-evidence">
                 <div class="panel">
                   <div class="panel-head">
                     <span>九品阶梯</span>
@@ -158,72 +166,132 @@ VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位
                 </div>
               </div>
 
-              <div class="bottom-grid">
-                <div class="insight-card">
-                  <span>段位上限</span>
-                  <strong id="rank-cap">缺少团队级方法复制证据，暂不判定八品。</strong>
+              <section class="stats-dashboard report-section" id="report-stats">
+                <div class="section-head">
+                  <span>硬统计</span>
+                  <h2>数字只解释可信度，不直接升品。</h2>
                 </div>
-                <div class="insight-card">
-                  <span>下一步</span>
-                  <strong id="upgrade-path">把成功协作沉淀成 AGENTS.md、rules、skill 或团队 playbook。</strong>
+                <div class="stats-layout">
+                  <div class="stats-primary">
+                    <article class="insight-card stat-profile-card">
+                      <span>统计画像</span>
+                      <strong id="stat-profile">系统拥有型：人类决策、验证闭环和多维能力同时成立。</strong>
+                      <small id="stat-profile-detail">统计画像解释置信度、封顶和下一步，不直接升品。</small>
+                    </article>
+                    <article class="insight-card stat-evidence-card">
+                      <span>硬统计证据</span>
+                      <strong id="stat-evidence">硬统计支撑当前段位：数字侧能支撑六品 · 已有大成的可信度，但不会单独升品。</strong>
+                      <small id="stat-evidence-detail">七品统计支撑；提高置信度。Token 和成本只说明投入强度。</small>
+                    </article>
+                    <div class="metric-group-grid" id="metric-group-grid" aria-label="统计仪表盘"></div>
+                  </div>
+                  <div class="stats-secondary">
+                    <article class="insight-card">
+                      <span>段位上限</span>
+                      <strong id="rank-cap">缺少团队级方法复制证据，暂不判定八品。</strong>
+                    </article>
+                    <article class="insight-card rank-gate-card">
+                      <span>关键门槛</span>
+                      <strong id="rank-gate-summary">八品团队复制未通过：需要团队方法复制强证据。</strong>
+                      <small>机器可读门槛，避免只看文案。</small>
+                    </article>
+                    <article class="insight-card usage-card">
+                      <span>AI 投入强度</span>
+                      <strong id="usage-summary">总 token 128万；峰值日 42万；活跃 6 天 / 12 会话。</strong>
+                      <small>Token 是硬统计，不参与段位升品。</small>
+                    </article>
+                    <article class="insight-card quality-card">
+                      <span>证据质量</span>
+                      <strong id="quality-summary">有效样本 120/128；强证据密度 10%；主动控制占比 17%。</strong>
+                      <small>看真实行为密度，不看自我包装。</small>
+                    </article>
+                    <article class="insight-card evidence-structure-card">
+                      <span>证据结构</span>
+                      <strong id="evidence-structure">证据跨度 6 天；信号覆盖度 64%；最高信号集中度 23%。</strong>
+                      <small>防止单日爆量或单一信号误判高段位。</small>
+                    </article>
+                    <article class="insight-card behavior-mix-card">
+                      <span>行为结构</span>
+                      <strong id="behavior-mix">用户决策 17%；助手执行 75%；决策证据 18 条。</strong>
+                      <small>区分人在控，还是 AI 在自述完成。</small>
+                    </article>
+                    <article class="insight-card stats-insight-card">
+                      <span>统计解读</span>
+                      <strong id="stats-insight">样本跨越多个工作日，稳定性比单次会话更可信。</strong>
+                      <small>把数字翻译成评级意义。</small>
+                    </article>
+                    <article class="insight-card quality-flag-card">
+                      <span>质量提示</span>
+                      <strong id="quality-flags">样本跨度较好：跨多天、多会话的证据比单次高光更可信。</strong>
+                      <small>暴露样本风险，避免误读硬统计。</small>
+                    </article>
+                    <article class="insight-card drag-factor-card">
+                      <span>拖累项</span>
+                      <strong id="drag-factors">暂无明显拖累项。</strong>
+                      <small>看哪些行为正在拉低系统归属。</small>
+                    </article>
+                    <article class="insight-card">
+                      <span>高段位锁</span>
+                      <strong id="unlock-status">八品未解锁：缺少团队复用强证据。</strong>
+                    </article>
+                    <article class="insight-card">
+                      <span>下一步</span>
+                      <strong id="upgrade-path">把成功协作沉淀成 AGENTS.md、rules、skill 或团队 playbook。</strong>
+                    </article>
+                  </div>
                 </div>
-                <div class="insight-card">
-                  <span>高段位锁</span>
-                  <strong id="unlock-status">八品未解锁：缺少团队复用强证据。</strong>
+                <div class="hard-stat-grid" id="hard-stat-grid" aria-label="硬指标卡"></div>
+              </section>
+              <section class="advanced-analysis" id="advanced-analysis" hidden>
+                <div class="advanced-head">
+                  <div>
+                    <span>高级分析</span>
+                    <h2>评级审计信息</h2>
+                  </div>
+                  <small id="advanced-badge">规则审计已完成</small>
                 </div>
-                <div class="insight-card usage-card">
-                  <span>AI 投入强度</span>
-                  <strong id="usage-summary">总 token 128万；峰值日 42万；活跃 6 天 / 12 会话。</strong>
-                  <small>Token 是硬统计，不参与段位升品。</small>
+                <div class="advanced-summary-grid">
+                  <article>
+                    <span>评级决策链</span>
+                    <strong id="advanced-decision"></strong>
+                  </article>
+                  <article>
+                    <span>当前关键门槛</span>
+                    <strong id="advanced-key-gate"></strong>
+                  </article>
                 </div>
-                <div class="insight-card quality-card">
-                  <span>证据质量</span>
-                  <strong id="quality-summary">有效样本 120/128；强证据密度 10%；主动控制占比 17%。</strong>
-                  <small>看真实行为密度，不看自我包装。</small>
+                <div class="advanced-grid">
+                  <article>
+                    <div class="panel-head">
+                      <span>门槛审计</span>
+                      <small>通过 / 未过</small>
+                    </div>
+                    <div class="advanced-list" id="advanced-gates"></div>
+                  </article>
+                  <article>
+                    <div class="panel-head">
+                      <span>六维依据</span>
+                      <small>状态 / 缺口</small>
+                    </div>
+                    <div class="advanced-list" id="advanced-dimensions"></div>
+                  </article>
+                  <article>
+                    <div class="panel-head">
+                      <span>证据采纳 / 降权</span>
+                      <small>脱敏摘要</small>
+                    </div>
+                    <div class="advanced-list" id="advanced-evidence"></div>
+                  </article>
+                  <article>
+                    <div class="panel-head">
+                      <span>下一品建议</span>
+                      <small>绑定门槛</small>
+                    </div>
+                    <div class="advanced-list" id="advanced-upgrade-plan"></div>
+                    <div class="advanced-limitations" id="advanced-limitations"></div>
+                  </article>
                 </div>
-                <div class="insight-card evidence-structure-card">
-                  <span>证据结构</span>
-                  <strong id="evidence-structure">证据跨度 6 天；信号覆盖度 64%；最高信号集中度 23%。</strong>
-                  <small>防止单日爆量或单一信号误判高段位。</small>
-                </div>
-                <div class="insight-card behavior-mix-card">
-                  <span>行为结构</span>
-                  <strong id="behavior-mix">用户决策 17%；助手执行 75%；决策证据 18 条。</strong>
-                  <small>区分人在控，还是 AI 在自述完成。</small>
-                </div>
-                <div class="insight-card stats-insight-card">
-                  <span>统计解读</span>
-                  <strong id="stats-insight">样本跨越多个工作日，稳定性比单次会话更可信。</strong>
-                  <small>把数字翻译成评级意义。</small>
-                </div>
-                <div class="insight-card stat-evidence-card">
-                  <span>硬统计证据</span>
-                  <strong id="stat-evidence">硬统计支撑当前段位：数字侧能支撑六品 · 已有大成的可信度，但不会单独升品。</strong>
-                  <small id="stat-evidence-detail">七品统计支撑；提高置信度。Token 和成本只说明投入强度。</small>
-                </div>
-                <div class="insight-card stat-profile-card">
-                  <span>统计画像</span>
-                  <strong id="stat-profile">系统拥有型：人类决策、验证闭环和多维能力同时成立。</strong>
-                  <small id="stat-profile-detail">统计画像解释置信度、封顶和下一步，不直接升品。</small>
-                </div>
-                <div class="insight-card rank-gate-card">
-                  <span>关键门槛</span>
-                  <strong id="rank-gate-summary">八品团队复制未通过：需要团队方法复制强证据。</strong>
-                  <small>机器可读门槛，避免只看文案。</small>
-                </div>
-                <div class="insight-card quality-flag-card">
-                  <span>质量提示</span>
-                  <strong id="quality-flags">样本跨度较好：跨多天、多会话的证据比单次高光更可信。</strong>
-                  <small>暴露样本风险，避免误读硬统计。</small>
-                </div>
-                <div class="insight-card drag-factor-card">
-                  <span>拖累项</span>
-                  <strong id="drag-factors">暂无明显拖累项。</strong>
-                  <small>看哪些行为正在拉低系统归属。</small>
-                </div>
-              </div>
-              <div class="hard-stat-grid" id="hard-stat-grid" aria-label="硬指标卡"></div>
-              <div class="metric-group-grid" id="metric-group-grid" aria-label="统计仪表盘"></div>
+              </section>
             </section>
           </div>
         </div>
@@ -251,7 +319,7 @@ VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位
           <article>
             <span>01</span>
             <h3>本地取证</h3>
-            <p>扫描 Codex 和 Claude Code 会话，先脱敏，再生成可分析的证据摘要。</p>
+            <p>默认自动探测 Codex 和 Claude Code 会话；两个来源都存在时融合分析，先脱敏，再生成可分析的证据摘要。</p>
           </article>
           <article>
             <span>02</span>
@@ -261,7 +329,7 @@ VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位
           <article>
             <span>03</span>
             <h3>云端分享报告</h3>
-            <p>一条命令打开报告链接。默认模式只在浏览器渲染，不上传原始日志。</p>
+            <p>默认打开本机完整报告；显式 --share 时只上传脱敏摘要，生成公网分享页。</p>
           </article>
           <article>
             <span>04</span>
@@ -290,6 +358,6 @@ VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位
       </section>
     </main>
 
-    <script src="./app.js" type="module"></script>
+    <script src="/app.js" type="module"></script>
   </body>
 </html>

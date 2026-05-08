@@ -9,6 +9,19 @@
 
 ```json
 {
+  "source": "codex+claude",
+  "sources": ["codex", "claude"],
+  "roots": [
+    {
+      "source": "codex",
+      "path": "/Users/example/.codex/sessions"
+    },
+    {
+      "source": "claude",
+      "path": "/Users/example/.claude/projects"
+    }
+  ],
+  "analysisMode": "standard",
   "rank": {
     "level": 6,
     "label": "六品 · 已有大成",
@@ -304,9 +317,15 @@
 }
 ```
 
-`shareImagePrompt` 和 `judgePrompt` 只出现在本地 CLI 报告或显式写出的提示词文件里。公开 `#data` 链接和短链接 payload 不包含这两个长文本字段；网页会基于脱敏报告即时生成对应提示词。
+默认 `analysisMode` 为 `standard`，不会生成 `advancedAnalysis`。开启 `--advanced-analysis` 或 `--advanced` 时，`analysisMode` 变为 `advanced`，并加入本地高级分析审计。`advancedAnalysis` 包含 `decisionTrace`、`gateAudit`、`dimensionRubric`、`evidenceAudit`、`upgradePlan` 和 `limitations`。高级分析只把现有规则引擎的中间依据转成用户可读摘要，不调用外部 LLM，不要求 API key，不上传原始日志。
 
-CLI `--print-json` 的外层对象还包含 `url`、`outPath`、`shareImagePromptPath`、`judgePromptPath`、`linkPath` 和 `linkAdvice`。`linkAdvice` 用于提示公开链接长度是否超过建议阈值；当 `warning=true` 时，建议改用 `--short-link --open` 或 `--write-link .airank/report-url.txt`。这些外层字段不属于公开报告 payload。
+`source` 是本次评分来源标签，单源为 `codex` 或 `claude`，融合模式为 `codex+claude`。`sources` 是实际参与评分的来源数组。`roots` 只出现在本地完整报告里，用于说明本机读取了哪些会话目录；公网 `/share/<id>` payload 不包含 `roots` 或 `root`。
+
+`reportId`、`reportPayloadType` 和 `reportLinkMode` 标识报告链接模式。默认写入 `.airank/reports/<reportId>.json`，并返回 `/report/<reportId>`、`local-full-report` / `local-full`；显式 `--share` 或 `--upload-url` 返回 `/share/<reportId>`、`public-share-link` / `public-summary`。
+
+`shareImagePrompt` 和 `judgePrompt` 只出现在本地 CLI 报告或显式写出的提示词文件里。公网 `/share/<id>` payload 不包含这两个长文本字段；网页会基于脱敏报告即时生成对应提示词。本地 `/report/<id>` 读取的是同一份完整本地报告，可能包含完整证据摘要和提示词字段。
+
+CLI `--print-json` 的外层对象还包含 `url`、`reportId`、`reportPayloadType`、`reportLinkMode`、`outPath`、`localReportPath`、`qrUrl`、`shareImagePromptPath`、`judgePromptPath`、`linkPath` 和 `linkAdvice`。`linkAdvice` 用于提示公开链接长度是否超过建议阈值；当 `warning=true` 时，建议改用 `--share --open` 或 `--write-link .airank/report-url.txt`。这些外层字段不属于公开报告 payload。
 
 公开链接使用压缩后的 public payload：
 
@@ -318,8 +337,9 @@ CLI `--print-json` 的外层对象还包含 `url`、`outPath`、`shareImagePromp
 - `strongestEvidence` 只保留前 3 条脱敏摘要；公开 payload 的 `evidence` 为空数组。
 - `statEvidence` 只保留硬统计证据结论、前 3 条正向/风险/投入依据，不包含完整行为明细。
 - `statProfile` 只保留分享所需字段；完整 `matchedRules` 只保存在本地报告。
+- 高级模式下的 `advancedAnalysis` 只保留关键门槛、最多 6 个维度、3-5 条证据摘要和 2-3 条升级建议。
 - `usageStats`、`signalCounts`、`narrative` 等冗余字段不会进入公开 payload，网页会从 `hardStats` 或 fallback 文案还原展示。
-- 完整证据、路径和片段只保存在本地报告，不进入公开链接或短链接存储。
+- `source` 和 `sources` 会进入公开 payload，用于说明评分来源；`roots`、完整证据、路径和片段只保存在本地报告，不进入公网分享存储。
 
 ## 中文报告要求
 

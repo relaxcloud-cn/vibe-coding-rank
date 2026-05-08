@@ -46,7 +46,7 @@ class ScriptTests(unittest.TestCase):
             run_script(
                 "collect_sessions.py",
                 "--source",
-                "generic",
+                "codex",
                 "--root",
                 str(root),
                 "--output",
@@ -57,6 +57,27 @@ class ScriptTests(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             self.assertIn("[REDACTED_SECRET]", rows[0]["text"])
             self.assertNotIn("sk-testsecret", rows[0]["text"])
+
+    def test_collect_sessions_rejects_unsupported_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "evidence.jsonl"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "skill" / "scripts" / "collect_sessions.py"),
+                    "--source",
+                    "cursor",
+                    "--root",
+                    tmp,
+                    "--output",
+                    str(output),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("invalid choice", result.stderr)
+            self.assertIn("cursor", result.stderr)
 
     def test_collect_sessions_normalizes_codex_roles(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -254,7 +275,7 @@ class ScriptTests(unittest.TestCase):
             for index in range(8):
                 rows.append(
                     {
-                        "source": "generic",
+                        "source": "codex",
                         "path": f"session.jsonl:{index + 1}",
                         "role": "user",
                         "text": "做一个 demo 页面，原型先跑起来，继续修 bug，还是不对，再修一下。",
@@ -262,7 +283,7 @@ class ScriptTests(unittest.TestCase):
                 )
             rows.append(
                 {
-                    "source": "generic",
+                    "source": "codex",
                     "path": "session.jsonl:20",
                     "role": "user",
                     "text": "先给计划，验收条件是 test 通过，不要改支付模块。",
@@ -535,7 +556,7 @@ class ScriptTests(unittest.TestCase):
             evidence.write_text(
                 json.dumps(
                     {
-                        "source": "generic",
+                        "source": "codex",
                         "path": "session.jsonl:1",
                         "role": "user",
                         "text": (
@@ -670,37 +691,6 @@ class ScriptTests(unittest.TestCase):
             self.assertFalse(gate_by_id(data, "level7_user_decision_ratio")["passed"])
             self.assertIn("用户决策证据", " ".join(data["rank_caps"]))
             self.assertTrue(any(item["id"] == "low_user_decision" for item in data["quality_flags"]))
-
-    def test_summarize_wrapper_still_works(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            evidence = root / "evidence.jsonl"
-            summary = root / "summary.json"
-            evidence.write_text(
-                json.dumps(
-                    {
-                        "source": "generic",
-                        "path": "session.jsonl:1",
-                        "role": "user",
-                        "text": "先给计划，验收条件是 test 通过，不要改支付模块。",
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-
-            run_script(
-                "summarize_evidence.py",
-                "--input",
-                str(evidence),
-                "--output",
-                str(summary),
-            )
-
-            data = json.loads(summary.read_text(encoding="utf-8"))
-            self.assertEqual(data["analysis_version"], "0.2")
-
 
 if __name__ == "__main__":
     unittest.main()

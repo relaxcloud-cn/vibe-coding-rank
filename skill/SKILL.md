@@ -1,6 +1,6 @@
 ---
 name: vibe-coding-rank
-description: Analyze Codex, Claude Code, or other AI coding session records to rate a developer against the Vibe Coding 九品体系. Use when the user wants a Chinese, evidence-based AI coding ability assessment from real transcripts, logs, repo instructions, or agent workflow traces rather than a self-report questionnaire.
+description: Analyze Codex and Claude Code session records to rate a developer against the Vibe Coding 九品体系. Use when the user wants a Chinese, evidence-based AI coding ability assessment from real transcripts, logs, repo instructions, or agent workflow traces rather than a self-report questionnaire.
 ---
 
 # Vibe Coding Rank
@@ -47,6 +47,16 @@ python3 "$SKILL_DIR/scripts/collect_sessions.py" \
 ```bash
 python3 "$SKILL_DIR/scripts/prepare_evidence.py" \
   --input /tmp/airank-codex-evidence.jsonl \
+  --output /tmp/airank-vibe-summary.json
+```
+
+To fuse Codex and Claude Code, concatenate the two JSONL evidence files and prepare the merged file once:
+
+```bash
+cat /tmp/airank-codex-evidence.jsonl /tmp/airank-claude-evidence.jsonl > /tmp/airank-merged-evidence.jsonl
+
+python3 "$SKILL_DIR/scripts/prepare_evidence.py" \
+  --input /tmp/airank-merged-evidence.jsonl \
   --output /tmp/airank-vibe-summary.json
 ```
 

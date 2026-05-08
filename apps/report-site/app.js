@@ -315,35 +315,47 @@ const SHARE_HARD_CARD_PRIORITY = [
 ];
 
 let currentReport = SAMPLE;
-
-function decodeBase64Url(value) {
-  const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
-  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
-  const binary = atob(padded);
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0) & 0xff);
-  return new TextDecoder().decode(bytes);
-}
+let currentReportContext = {
+  mode: "sample",
+  id: "",
+  payloadType: "sample",
+  linkMode: "sample",
+};
 
 async function loadReport() {
-  const hash = new URLSearchParams(location.hash.slice(1));
-  if (hash.has("data")) {
-    try {
-      return JSON.parse(decodeBase64Url(hash.get("data")));
-    } catch {
-      throw new Error("报告链接损坏，无法解析本地数据。");
-    }
-  }
-  if (hash.has("id")) {
-    const response = await fetch(`/api/reports/${hash.get("id")}`);
+  const pathMatch = location.pathname.match(/^\/(report|share)\/([a-zA-Z0-9_-]{6,64})\/?$/);
+  if (pathMatch) {
+    const [, routeMode, id] = pathMatch;
+    currentReportContext = {
+      mode: routeMode,
+      id,
+      payloadType: routeMode === "report" ? "local-full" : "public-summary",
+      linkMode: routeMode === "report" ? "local-full-report" : "public-share-link",
+    };
+    const response = await fetch(`/api/reports/${id}`);
     if (response.ok) {
       const payload = await response.json();
-      return payload.report || payload;
+      const report = payload.report || payload;
+      currentReportContext = {
+        mode: routeMode,
+        id: report.reportId || payload.id || id,
+        payloadType: report.reportPayloadType || (routeMode === "report" ? "local-full" : "public-summary"),
+        linkMode: report.reportLinkMode || (routeMode === "report" ? "local-full-report" : "public-share-link"),
+      };
+      return report;
     }
     if (response.status === 404) {
       throw new Error("报告不存在或已经过期。");
     }
-    throw new Error("短链接报告加载失败，请稍后重试。");
+    throw new Error("报告加载失败，请稍后重试。");
   }
+
+  currentReportContext = {
+    mode: "sample",
+    id: "",
+    payloadType: "sample",
+    linkMode: "sample",
+  };
   return SAMPLE;
 }
 
@@ -371,11 +383,164 @@ function renderEvidence(report) {
   }
 }
 
+function rankLabelText(rank) {
+  if (!rank) return "未知";
+  return rank.label || (rank.level !== undefined ? rankLevelName(rank.level) : "未知");
+}
+
+function advancedDecisionText(advanced) {
+  const trace = advanced?.decisionTrace || {};
+  const parts = [
+    `初始支持${rankLabelText(trace.initialRank)}`,
+    Array.isArray(trace.capReasons) && trace.capReasons.length ? `封顶原因：${trace.capReasons[0]}` : "",
+    `最终${rankLabelText(trace.finalRank)}`,
+    trace.confidenceImpact ? `置信度影响：${trace.confidenceImpact}` : "",
+  ].filter(Boolean);
+  return parts.join("；");
+}
+
+function appendAdvancedRow(parent, title, body = "", detail = "", className = "") {
+  const row = document.createElement("div");
+  row.className = `advanced-row${className ? ` ${className}` : ""}`;
+  row.innerHTML = `<strong>${title}</strong>${body ? `<span>${body}</span>` : ""}${detail ? `<small>${detail}</small>` : ""}`;
+  parent.append(row);
+}
+
+function renderAdvancedAnalysis(report) {
+  const section = document.querySelector("#advanced-analysis");
+  const advanced = report.analysisMode === "advanced" ? report.advancedAnalysis : null;
+  if (!advanced) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const keyGate = advanced.gateAudit?.keyGate;
+  document.querySelector("#advanced-decision").textContent = advancedDecisionText(advanced);
+  document.querySelector("#advanced-key-gate").textContent = keyGate
+    ? `${keyGate.label || keyGate.id}：${keyGate.summary || "需要补齐下一品门槛。"}`
+    : "当前关键门槛已通过，继续看下一品证据缺口。";
+
+  const gateGrid = document.querySelector("#advanced-gates");
+  gateGrid.innerHTML = "";
+  const passed = Array.isArray(advanced.gateAudit?.passed) ? advanced.gateAudit.passed : [];
+  const failed = Array.isArray(advanced.gateAudit?.failed) ? advanced.gateAudit.failed : [];
+  for (const item of passed.slice(0, 3)) {
+    appendAdvancedRow(gateGrid, `通过：${item.label || item.id}`, item.summary || "");
+  }
+  for (const item of failed.slice(0, 3)) {
+    appendAdvancedRow(gateGrid, `未过：${item.label || item.id}`, item.summary || "");
+  }
+  if (!gateGrid.children.length) {
+    appendAdvancedRow(gateGrid, "暂无门槛审计", "当前报告没有机器门槛数据。");
+  }
+
+  const dimensionGrid = document.querySelector("#advanced-dimensions");
+  dimensionGrid.innerHTML = "";
+  for (const item of (advanced.dimensionRubric || []).slice(0, 6)) {
+    appendAdvancedRow(
+      dimensionGrid,
+      `${item.label || item.id}｜${item.status || "缺失"}｜${Number(item.score || 0)}/100`,
+      `证据 ${item.evidenceCount ?? 0} 条，强证据 ${item.strongEvidenceCount ?? 0} 条。`,
+      item.nextGap || "",
+    );
+  }
+  if (!dimensionGrid.children.length) {
+    appendAdvancedRow(dimensionGrid, "暂无六维依据", "当前报告没有维度数据。");
+  }
+
+  const evidenceGrid = document.querySelector("#advanced-evidence");
+  evidenceGrid.innerHTML = "";
+  const accepted = Array.isArray(advanced.evidenceAudit?.accepted) ? advanced.evidenceAudit.accepted : [];
+  const downranked = Array.isArray(advanced.evidenceAudit?.downranked) ? advanced.evidenceAudit.downranked : [];
+  for (const item of accepted.slice(0, 5)) {
+    appendAdvancedRow(evidenceGrid, `采纳：${item.label || item.signal}：${item.reason || ""}`, "", item.dimension || item.strength || "", "accepted");
+  }
+  for (const item of downranked.slice(0, 3)) {
+    appendAdvancedRow(evidenceGrid, `降权：${item.label || item.signal}：${item.reason || ""}`, "", item.dimension || item.strength || "", "downranked");
+  }
+  if (!evidenceGrid.children.length) {
+    appendAdvancedRow(evidenceGrid, "暂无证据审计", "当前报告没有证据采纳或降权摘要。");
+  }
+
+  const planGrid = document.querySelector("#advanced-upgrade-plan");
+  planGrid.innerHTML = "";
+  for (const item of (advanced.upgradePlan || []).slice(0, 3)) {
+    appendAdvancedRow(planGrid, item);
+  }
+  if (!planGrid.children.length) {
+    appendAdvancedRow(planGrid, "继续积累真实项目证据，并把成功做法沉淀成可复用工作流。");
+  }
+
+  const limitations = document.querySelector("#advanced-limitations");
+  limitations.innerHTML = "";
+  for (const item of (advanced.limitations || []).slice(0, 4)) {
+    const row = document.createElement("div");
+    row.textContent = item;
+    limitations.append(row);
+  }
+}
+
+function reportTitle(report) {
+  return report.analysisMode === "advanced" ? "高级分析报告" : "AI 段位分析报告";
+}
+
+function formatGeneratedAt(value) {
+  if (!value) return "未知";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString("zh-CN", { hour12: false });
+}
+
+function reportSourceText(context, report) {
+  const payloadType = report.reportPayloadType || context.payloadType;
+  if (payloadType === "local-full") return "local-full";
+  if (payloadType === "public-summary") return "脱敏摘要";
+  return payloadType || "样例";
+}
+
+function reportPrivacyText(context, report) {
+  const payloadType = report.reportPayloadType || context.payloadType;
+  if (payloadType === "local-full") return "本地完整报告";
+  if (payloadType === "public-summary") {
+    if (context.mode === "share") return "脱敏公开分享";
+    return "公网脱敏摘要";
+  }
+  return "样例数据";
+}
+
+function qrHref(context, report) {
+  const id = report.reportId || context.id;
+  const linkMode = report.reportLinkMode || context.linkMode;
+  if (!id || !["local-full-report", "public-share-link"].includes(String(linkMode))) return "";
+  return `${location.origin}/api/reports/${id}/qr.svg`;
+}
+
+function renderReportMeta(report) {
+  const context = currentReportContext;
+  const hasReportRoute = ["report", "share"].includes(context.mode);
+  document.body.classList.toggle("report-mode", hasReportRoute);
+  document.querySelector("#report-title").textContent = reportTitle(report);
+  document.querySelector("#report-id").textContent = report.reportId || context.id || "sample";
+  document.querySelector("#report-generated-at").textContent = formatGeneratedAt(report.generatedAt);
+  document.querySelector("#report-source").textContent = reportSourceText(context, report);
+  document.querySelector("#report-privacy").textContent = reportPrivacyText(context, report);
+  const qr = document.querySelector("#qr-report-link");
+  const href = qrHref(context, report);
+  if (href) {
+    qr.hidden = false;
+    qr.href = href;
+  } else {
+    qr.hidden = true;
+    qr.removeAttribute("href");
+  }
+}
+
 function render(report) {
   document.querySelector(".dashboard").classList.remove("error-state");
   currentReport = report;
   const rank = report.rank || SAMPLE.rank;
   const level = Number(rank.level || 0);
+  renderReportMeta(report);
   document.querySelector("#rank-label").textContent = rank.label || RANKS[level][1];
   document.querySelector("#verdict").textContent = report.verdict || report.narrative?.oneLine || SAMPLE.verdict;
   document.querySelector("#score-value").textContent = rank.score || 0;
@@ -414,6 +579,7 @@ function render(report) {
   renderMetricGroups(report);
   renderRail(level);
   renderEvidence(report);
+  renderAdvancedAnalysis(report);
   renderShareState(report);
 }
 
@@ -425,6 +591,13 @@ function renderError(error) {
   document.querySelector("#score-value").textContent = "!";
   document.querySelector("#judgment-mode").textContent = "链接错误";
   document.querySelector("#share-note").textContent = "请检查链接，或重新运行 CLI 生成新的报告。";
+  document.body.classList.add("report-mode");
+  document.querySelector("#report-title").textContent = "AI 段位分析报告";
+  document.querySelector("#report-id").textContent = currentReportContext.id || "未知";
+  document.querySelector("#report-generated-at").textContent = "未加载";
+  document.querySelector("#report-source").textContent = "不可用";
+  document.querySelector("#report-privacy").textContent = "未加载";
+  document.querySelector("#qr-report-link").hidden = true;
   document.querySelector("#confidence").textContent = "-";
   document.querySelector("#ownership").textContent = "-";
   document.querySelector("#strong-evidence").textContent = "-";
@@ -442,7 +615,7 @@ function renderError(error) {
   document.querySelector("#next-action-body").textContent = "重新运行 CLI，生成有效的脱敏报告链接。";
   document.querySelector("#next-action-gate").textContent = "当前链接无法解析。";
   document.querySelector("#rank-cap").textContent = "报告数据不可用。";
-  document.querySelector("#upgrade-path").textContent = "重新运行 npx github:relaxcloud-cn/vibe-coding-rank --source codex --short-link --open";
+  document.querySelector("#upgrade-path").textContent = "重新运行 npx github:relaxcloud-cn/vibe-coding-rank --open";
   document.querySelector("#unlock-status").textContent = "未加载";
   document.querySelector("#usage-summary").textContent = "暂无";
   document.querySelector("#quality-summary").textContent = "暂无";
@@ -456,6 +629,7 @@ function renderError(error) {
   document.querySelector("#drag-factors").textContent = "暂无";
   document.querySelector("#hard-stat-grid").innerHTML = "";
   document.querySelector("#metric-group-grid").innerHTML = "";
+  document.querySelector("#advanced-analysis").hidden = true;
 }
 
 function judgmentText(report) {
@@ -1163,7 +1337,7 @@ function buildSharePrompt(report) {
   return `
 Use case: infographic-diagram
 Asset type: 4:5 vertical Chinese social-share poster for Airank Vibe Coding Rank
-Primary request: Create a premium Chinese AI ability report poster. It must look like a polished product report, not a meme or generic certificate.
+Primary request: Create a premium Chinese AI ability report poster. It must look like a polished product report, not a meme or template certificate.
 
 Exact Chinese text to include:
 标题：Vibe Coding 九品报告
@@ -1240,6 +1414,14 @@ Visual direction:
 `.trim();
 }
 
+function rankGatePromptLine(item) {
+  const parts = [`- ${item.label || item.id}：${item.passed ? "通过" : "未通过"}`];
+  if (item.observed !== undefined) parts.push(`观测=${JSON.stringify(item.observed)}`);
+  if (item.required !== undefined) parts.push(`要求=${JSON.stringify(item.required)}`);
+  if (item.reason) parts.push(`原因=${item.reason}`);
+  return parts.join("；");
+}
+
 function buildJudgePrompt(report) {
   const rank = report.rank || SAMPLE.rank;
   const nextRank = report.nextRank || {};
@@ -1255,7 +1437,7 @@ function buildJudgePrompt(report) {
     .map((item) => `- ${item.label || item.id}：${item.status || "缺失"}，${Number(item.score || 0)}/100，证据 ${item.evidence_count ?? item.evidenceCount ?? "未知"} 条`)
     .join("\n");
   const gates = (report.rankGates || [])
-    .map((item) => `- ${item.label || item.id}：${item.passed ? "通过" : "未通过"}；观测=${JSON.stringify(item.observed)}；要求=${JSON.stringify(item.required)}；原因=${item.reason || ""}`)
+    .map(rankGatePromptLine)
     .join("\n");
   const evidenceRows = (report.strongestEvidence?.length ? report.strongestEvidence : report.evidence?.length ? report.evidence : SAMPLE.evidence)
     .slice(0, 8)
@@ -1362,17 +1544,12 @@ function shareLink() {
 
 function renderShareState(report) {
   const note = document.querySelector("#share-note");
-  const hash = new URLSearchParams(location.hash.slice(1));
-  if (hash.has("id")) {
-    note.textContent = "当前是短链接，报告 JSON 已脱敏后存储，原始日志不会上传。";
+  if (currentReportContext.mode === "report") {
+    note.textContent = "当前是本地完整报告；只从本机服务读取，未上传公网。";
     return;
   }
-  if (hash.has("data")) {
-    if (report.privacy?.localPathsRemoved) {
-      note.textContent = "当前是本地浏览器链接，URL hash 只包含脱敏报告摘要，原始日志不会上传。";
-      return;
-    }
-    note.textContent = "当前是本地浏览器链接，报告数据只在 URL hash 中渲染。";
+  if (currentReportContext.mode === "share") {
+    note.textContent = "当前是官网公开分享报告；官网存储的是脱敏摘要，原始日志未上传。";
     return;
   }
   if (report.privacy?.rawLogsUploaded === false) {
@@ -1380,6 +1557,43 @@ function renderShareState(report) {
     return;
   }
   note.textContent = "当前是样例报告。运行 CLI 后可生成你的个人链接。";
+}
+
+function activateSideItem(targetId) {
+  for (const item of document.querySelectorAll(".side-item")) {
+    item.classList.toggle("active", item.dataset.target === targetId);
+  }
+}
+
+function setupReportNavigation() {
+  const items = [...document.querySelectorAll(".side-item[data-target]")];
+  for (const item of items) {
+    item.addEventListener("click", () => {
+      const target = document.getElementById(item.dataset.target);
+      if (!target) return;
+      activateSideItem(item.dataset.target);
+      if (typeof target.scrollIntoView === "function") {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
+
+  if (typeof IntersectionObserver === "undefined") return;
+
+  const dashboard = document.querySelector(".dashboard");
+  const observer = new IntersectionObserver((entries) => {
+    const visible = entries
+      .filter((entry) => entry.isIntersecting)
+      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+    if (visible?.target?.id) activateSideItem(visible.target.id);
+  }, {
+    root: dashboard,
+    threshold: [0.2, 0.45, 0.7],
+  });
+
+  for (const section of document.querySelectorAll(".report-section")) {
+    observer.observe(section);
+  }
 }
 
 function renderQuality(report) {
@@ -1417,12 +1631,48 @@ function translateOwnership(value) {
   }[value] || value;
 }
 
+async function copyText(text) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to the textarea fallback below.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.top = "0";
+  textarea.style.left = "0";
+  textarea.style.width = "1px";
+  textarea.style.height = "1px";
+  textarea.style.opacity = "0";
+  textarea.style.pointerEvents = "none";
+  document.body.append(textarea);
+  textarea.focus();
+  textarea.select();
+  textarea.setSelectionRange(0, textarea.value.length);
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  textarea.remove();
+  return copied;
+}
+
 document.querySelector("#copy-command").addEventListener("click", async () => {
-  const command = "npx github:relaxcloud-cn/vibe-coding-rank --source codex --open";
-  await navigator.clipboard.writeText(command);
+  const command = "npx github:relaxcloud-cn/vibe-coding-rank --open";
   const button = document.querySelector("#copy-command");
   const previous = button.innerHTML;
-  button.innerHTML = `<span><span class="prompt">$</span> 已复制到剪贴板</span><span class="copy-icon" aria-hidden="true">OK</span>`;
+  const copied = await copyText(command);
+  button.innerHTML = copied
+    ? `<span><span class="prompt">$</span> 已复制到剪贴板</span><span class="copy-icon" aria-hidden="true">OK</span>`
+    : `<span><span class="prompt">$</span> 复制失败，请手动选中命令</span><span class="copy-icon" aria-hidden="true">!</span>`;
   setTimeout(() => {
     button.innerHTML = previous;
   }, 1200);
@@ -1431,9 +1681,11 @@ document.querySelector("#copy-command").addEventListener("click", async () => {
 document.querySelector("#copy-report-link").addEventListener("click", async () => {
   const button = document.querySelector("#copy-report-link");
   const status = document.querySelector("#share-copy-status");
-  await navigator.clipboard.writeText(shareLink());
-  button.textContent = "已复制链接";
-  status.textContent = location.hash.includes("id=") ? "短链接已复制" : "链接已复制";
+  const copied = await copyText(shareLink());
+  button.textContent = copied ? "已复制链接" : "复制失败";
+  status.textContent = copied
+    ? ["report", "share"].includes(currentReportContext.mode) ? "报告链接已复制" : "链接已复制"
+    : "浏览器拒绝复制，请手动复制当前地址。";
   setTimeout(() => {
     button.textContent = "复制报告链接";
     status.textContent = "";
@@ -1443,9 +1695,9 @@ document.querySelector("#copy-report-link").addEventListener("click", async () =
 document.querySelector("#copy-share-prompt").addEventListener("click", async () => {
   const button = document.querySelector("#copy-share-prompt");
   const status = document.querySelector("#share-copy-status");
-  await navigator.clipboard.writeText(buildSharePrompt(currentReport));
-  button.textContent = "已复制";
-  status.textContent = "可直接交给 Imagen / imagegen 生成分享图";
+  const copied = await copyText(buildSharePrompt(currentReport));
+  button.textContent = copied ? "已复制" : "复制失败";
+  status.textContent = copied ? "可直接交给 Imagen / imagegen 生成分享图" : "浏览器拒绝复制，请稍后重试。";
   setTimeout(() => {
     button.textContent = "复制图片报告提示词";
     status.textContent = "";
@@ -1455,13 +1707,15 @@ document.querySelector("#copy-share-prompt").addEventListener("click", async () 
 document.querySelector("#copy-judge-prompt").addEventListener("click", async () => {
   const button = document.querySelector("#copy-judge-prompt");
   const status = document.querySelector("#share-copy-status");
-  await navigator.clipboard.writeText(buildJudgePrompt(currentReport));
-  button.textContent = "已复制";
-  status.textContent = "可交给 AI judge 做最终复核";
+  const copied = await copyText(buildJudgePrompt(currentReport));
+  button.textContent = copied ? "已复制" : "复制失败";
+  status.textContent = copied ? "可交给 AI judge 做最终复核" : "浏览器拒绝复制，请稍后重试。";
   setTimeout(() => {
     button.textContent = "复制深度判定提示词";
     status.textContent = "";
   }, 1600);
 });
+
+setupReportNavigation();
 
 loadReport().then(render).catch(renderError);
