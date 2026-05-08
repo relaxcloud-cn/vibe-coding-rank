@@ -102,6 +102,14 @@ const SAMPLE = {
     promotion_record_count: 32,
     promotion_record_density: 0.2667,
     strong_evidence_record_count: 12,
+    promotion_usable_signal_count: 12,
+    promotion_usable_record_count: 8,
+    promotion_usable_signal_ratio: 0.25,
+    promotion_usable_record_ratio: 0.25,
+    downgraded_assistant_signal_count: 32,
+    downgraded_assistant_record_count: 18,
+    downgraded_assistant_signal_ratio: 0.5714,
+    downgraded_assistant_record_ratio: 0.15,
     average_promotion_signals_per_record: 1.5,
     user_control_count: 8,
     user_control_record_count: 8,
@@ -260,6 +268,8 @@ const SAMPLE = {
     { id: "sample_validity", label: "有效样本", value: "94%", detail: "120/128 条可分析", interpretation: "排除系统上下文、token 统计和工具结果后，只看真实行为。" },
     { id: "strong_evidence_density", label: "强证据密度", value: "10%", detail: "12 条强证据", interpretation: "强证据越密，越能支撑高段位；低密度会降低置信度。" },
     { id: "strong_record_density", label: "强记录占比", value: "10%", detail: "12/120 条记录", interpretation: "按记录去重看强证据，防止一条长消息反复命中。" },
+    { id: "usable_promotion_signal", label: "可升品高阶信号", value: "25%", detail: "12/48 个高阶信号", interpretation: "只统计由用户行为支撑、可用于升品的高阶证据。" },
+    { id: "assistant_self_report_downgrade", label: "助手自述降权", value: "32 条", detail: "18 条记录受影响", interpretation: "助手说“已完成/已验证/已重构”只算交付痕迹，不算强升品证据。" },
     { id: "user_control", label: "用户主动控制", value: "17%", detail: "8 条主动控制证据", interpretation: "衡量你是否在定义目标、边界、架构和验收。" },
     { id: "user_decision", label: "用户决策占比", value: "17%", detail: "助手执行 75%", interpretation: "高段位必须看到人的系统级决策，而不是 AI 自述完成。" },
     { id: "validation_density", label: "验证闭环密度", value: "11%", detail: "13 条验证信号", interpretation: "测试、构建、lint、截图和人工验收越稳定，结果越可托付。" },
@@ -269,31 +279,33 @@ const SAMPLE = {
   metricGroups: [
     { id: "investment", label: "投入强度", value: "128万 token", signal: "活跃 6 天 / 12 会话", basis: "峰值日占比 33%", ratingImpact: "只解释 AI 使用投入和样本稳定性，不直接升品。", risk: "投入分布没有明显单日集中风险。" },
     { id: "sample_quality", label: "样本可信度", value: "120/128", signal: "证据来源 3 个，强记录占比 10%", basis: "信号覆盖 64%", ratingImpact: "影响置信度和高段位封顶；样本薄时不能判六品以上。", risk: "样本里有可复核的强证据。" },
-    { id: "human_control", label: "人类控制", value: "17%", signal: "主动控制 17%，用户决策 17%", basis: "助手执行 75%", ratingImpact: "决定六品、七品能否成立；高段位必须看到人的系统级决策。", risk: "用户决策足以支撑更高段位复核。" },
+    { id: "human_control", label: "人类控制", value: "17%", signal: "主动控制 17%，用户决策 17%", basis: "助手执行 75%；可升品信号 25%", ratingImpact: "决定六品、七品能否成立；高段位必须看到人的系统级决策。", risk: "用户决策足以支撑更高段位复核。" },
     { id: "validation_loop", label: "验证闭环", value: "11%", signal: "13 条验证信号", basis: "5/6 个维度成立", ratingImpact: "验证不足会压住六品；验收是主要证据。", risk: "有验证信号，但仍要看是否由人定义验收标准。" },
-    { id: "efficiency_risk", label: "效率风险", value: "0%", signal: "0 条 Bug 循环信号", basis: "弱信号占比 18%", ratingImpact: "返工和弱信号不直接扣分，但会解释为什么系统归属不稳。", risk: "没有明显困在修补循环。" },
+    { id: "efficiency_risk", label: "效率风险", value: "0%", signal: "0 条 Bug 循环信号", basis: "弱信号占比 18%", ratingImpact: "返工和弱信号不直接扣分，但会解释为什么系统归属不稳。", risk: "32 条助手自述已降权。" },
   ],
   statProfile: {
-    id: "system_owner",
-    label: "系统拥有型",
-    summary: "硬统计显示，人类决策、验证闭环和多维能力同时成立；这类样本更像人在拥有系统，而不是 AI 自述完成。",
-    controlReading: "用户决策占比达到七品复核线，能支撑“人在控”的判断。",
-    validationReading: "验证密度较好，系统结果有可托付证据。",
+    id: "assistant_self_report_heavy",
+    label: "助手自述偏重型",
+    summary: "高阶词不少，但大量来自助手自述完成；这能证明 AI 执行很多，不能直接证明人拥有系统。",
+    controlReading: "用户决策占比达到七品复核线，但可升品高阶信号仍偏薄。",
+    validationReading: "验证密度较好，系统结果有可托付证据；仍要确认验收是否由人定义。",
     investmentReading: "token 投入能说明 AI 使用强度，但不会直接抬高段位。",
-    evidenceReading: "强记录和信号覆盖足以支撑较高置信度复核。",
-    riskLevel: "low",
+    evidenceReading: "强记录存在，但助手自述被降权后，高阶证据厚度需要继续补强。",
+    riskLevel: "high",
     ratingUse: "统计画像用于解释置信度、封顶和下一步，不直接升品。",
     reasons: [
       "用户决策 17%，用户系统级取舍足够强。",
       "验证密度 11%，结果有可托付证据。",
-      "成立维度 5/6，能力结构比较完整。",
+      "可升品信号 25%，高阶词里用户行为支撑不足。",
+      "助手自述降权 32，助手完成类表述不计为强升品证据。",
     ],
     matchedRules: [
       { metric: "用户决策", observed: "17%", threshold: ">=12%", interpretation: "用户系统级取舍足够强。" },
       { metric: "验证密度", observed: "11%", threshold: ">=8%", interpretation: "结果有可托付证据。" },
-      { metric: "成立维度", observed: "5/6", threshold: ">=5/6", interpretation: "能力结构比较完整。" },
+      { metric: "可升品信号", observed: "25%", threshold: "<35%", interpretation: "高阶词里用户行为支撑不足。" },
+      { metric: "助手自述降权", observed: "32", threshold: ">0", interpretation: "助手完成类表述不计为强升品证据。" },
     ],
-    signals: ["用户决策 17%", "主动控制 17%", "助手执行 75%", "验证密度 11%", "强记录 10%", "成立维度 5/6"],
+    signals: ["用户决策 17%", "主动控制 17%", "助手执行 75%", "可升品信号 25%", "助手降权 32 条", "验证密度 11%", "强记录 10%"],
   },
 };
 
@@ -301,9 +313,11 @@ const SHARE_HARD_CARD_PRIORITY = [
   "ai_investment",
   "estimated_cost",
   "user_decision",
-  "user_control",
+  "usable_promotion_signal",
+  "assistant_self_report_downgrade",
   "validation_density",
   "rework_pressure",
+  "user_control",
   "strong_record_density",
   "sample_validity",
   "sample_stability",
@@ -516,6 +530,16 @@ function formatPercent(value) {
   return `${Math.round(number * 100)}%`;
 }
 
+function hasPromotionUsabilityStats(stats = {}) {
+  return Object.prototype.hasOwnProperty.call(stats, "promotion_usable_signal_ratio")
+    || Object.prototype.hasOwnProperty.call(stats, "promotion_usable_signal_count")
+    || Object.prototype.hasOwnProperty.call(stats, "promotion_usable_record_count");
+}
+
+function promotionUsabilityRatio(stats = {}) {
+  return hasPromotionUsabilityStats(stats) ? Number(stats.promotion_usable_signal_ratio || 0) : 1;
+}
+
 function rankLevelName(level) {
   const row = RANKS[Number(level)];
   return String(row?.[1] || `${level}品`).split(" · ")[0];
@@ -548,6 +572,7 @@ function evidenceStructureSummary(report) {
   if (stats.peak_day_token_share) parts.push(`峰值日 token 占比 ${formatPercent(stats.peak_day_token_share)}`);
   if (stats.validation_density) parts.push(`验证密度 ${formatPercent(stats.validation_density)}`);
   if (stats.strong_record_density) parts.push(`强记录占比 ${formatPercent(stats.strong_record_density)}`);
+  if (hasPromotionUsabilityStats(stats) && stats.promotion_usable_signal_ratio) parts.push(`可升品信号 ${formatPercent(stats.promotion_usable_signal_ratio)}`);
   return parts.length ? `${parts.join("；")}。` : "暂无证据结构统计。";
 }
 
@@ -558,6 +583,8 @@ function behaviorMixSummary(report) {
   const parts = [];
   if (userDecision) parts.push(`用户决策 ${formatPercent(userDecision)}`);
   if (assistantExecution) parts.push(`助手执行 ${formatPercent(assistantExecution)}`);
+  if (hasPromotionUsabilityStats(stats) && stats.promotion_usable_signal_ratio) parts.push(`可升品信号 ${formatPercent(stats.promotion_usable_signal_ratio)}`);
+  if (stats.downgraded_assistant_signal_count) parts.push(`助手降权 ${stats.downgraded_assistant_signal_count} 条`);
   if (stats.user_decision_count) parts.push(`决策证据 ${stats.user_decision_count} 条`);
   if (stats.bug_loop_density) parts.push(`返工压力 ${formatPercent(stats.bug_loop_density)}`);
   return parts.length ? `${parts.join("；")}。` : "暂无行为结构统计。";
@@ -607,6 +634,9 @@ function statEvidence(report) {
   const userDecisionRatio = Number(stats.promotion_user_decision_ratio ?? stats.user_decision_ratio ?? 0);
   const validationDensity = Number(stats.validation_density || 0);
   const assistantExecutionRatio = Number(stats.promotion_assistant_execution_ratio || 0);
+  const hasUsabilityStats = hasPromotionUsabilityStats(stats);
+  const usablePromotionRatio = promotionUsabilityRatio(stats);
+  const downgradedAssistantCount = Number(stats.downgraded_assistant_signal_count || 0);
   const bugLoopDensity = Number(stats.bug_loop_density || 0);
   const peakDayShare = Number(stats.peak_day_token_share || 0);
   const totalTokens = Number(stats.total_tokens || report.usageStats?.total_tokens || 0);
@@ -648,14 +678,16 @@ function statEvidence(report) {
     riskSignals.push(`强记录占比 ${formatPercent(strongRecordDensity)}、高阶记录 ${promotionRecordCount} 条，高段位证据偏薄。`);
   }
   if (assistantExecutionRatio >= 0.7) riskSignals.push(`助手执行 ${formatPercent(assistantExecutionRatio)}，需要确认高阶结论不是 AI 自述完成。`);
+  if (hasUsabilityStats && usablePromotionRatio > 0 && usablePromotionRatio < 0.35) riskSignals.push(`可升品高阶信号 ${formatPercent(usablePromotionRatio)}，高阶词里用户行为支撑不足。`);
+  if (downgradedAssistantCount > 0) riskSignals.push(`${downgradedAssistantCount} 条助手自述高阶信号已降权，不计为强升品证据。`);
   if (bugLoopDensity >= 0.08) riskSignals.push(`返工压力 ${formatPercent(bugLoopDensity)}，可能仍困在局部 patch 循环。`);
   if (peakDayShare >= 0.5) riskSignals.push(`峰值日 token 占比 ${formatPercent(peakDayShare)}，投入集中会削弱稳定性判断。`);
   if (totalTokens) investmentSignals.push(`总 token ${formatTokens(totalTokens)}`);
   if (stats.peak_day_tokens) investmentSignals.push(`峰值日 ${formatTokens(stats.peak_day_tokens)}`);
 
-  if (userDecisionRatio >= 0.08 && userControlRatio >= 0.1 && validationDensity >= 0.08 && establishedDimensions >= 5 && strongRecordDensity >= 0.08 && sourceCount >= 3) {
+  if (userDecisionRatio >= 0.08 && userControlRatio >= 0.1 && validationDensity >= 0.08 && establishedDimensions >= 5 && strongRecordDensity >= 0.08 && usablePromotionRatio >= 0.35 && sourceCount >= 3) {
     supportLevel = 7;
-  } else if (userDecisionRatio >= 0.03 && userControlRatio >= 0.05 && validationDensity > 0 && establishedDimensions >= 4 && promotionRecordCount >= 4) {
+  } else if (userDecisionRatio >= 0.03 && userControlRatio >= 0.05 && validationDensity > 0 && establishedDimensions >= 4 && promotionRecordCount >= 4 && usablePromotionRatio >= 0.25) {
     supportLevel = 6;
   } else if (validationDensity > 0 && establishedDimensions >= 3) {
     supportLevel = 5;
@@ -663,7 +695,7 @@ function statEvidence(report) {
     supportLevel = 4;
   }
 
-  const confidenceImpact = riskSignals.length >= 3 || strongRecordDensity < 0.05 || userDecisionRatio < 0.03 || assistantExecutionRatio >= 0.7
+  const confidenceImpact = riskSignals.length >= 3 || strongRecordDensity < 0.05 || userDecisionRatio < 0.03 || assistantExecutionRatio >= 0.7 || (hasUsabilityStats && usablePromotionRatio > 0 && usablePromotionRatio < 0.35)
     ? "降低置信度并可能封顶"
     : riskSignals.length ? "局部降低置信度" : "提高置信度";
   const label = supportLevel >= level
@@ -709,6 +741,9 @@ function statProfile(report) {
   const userControlRatio = Number(stats.user_control_ratio || 0);
   const userDecisionRatio = Number(stats.promotion_user_decision_ratio ?? stats.user_decision_ratio ?? 0);
   const assistantExecutionRatio = Number(stats.promotion_assistant_execution_ratio || 0);
+  const hasUsabilityStats = hasPromotionUsabilityStats(stats);
+  const usablePromotionRatio = promotionUsabilityRatio(stats);
+  const downgradedAssistantCount = Number(stats.downgraded_assistant_signal_count || 0);
   const validationDensity = Number(stats.validation_density || 0);
   const strongRecordDensity = Number(stats.strong_record_density || 0);
   const signalCoverageRatio = Number(stats.signal_coverage_ratio || 0);
@@ -741,6 +776,12 @@ function statProfile(report) {
   if (totalTokens >= 500000) {
     addReason("token 投入", `${Math.round(totalTokens / 10000)}万`, ">=50万", "AI 使用强度很高。");
   }
+  if (hasUsabilityStats && usablePromotionRatio < 0.35) {
+    addReason("可升品信号", formatPercent(usablePromotionRatio), "<35%", "高阶词里用户行为支撑不足。");
+  }
+  if (downgradedAssistantCount > 0) {
+    addReason("助手自述降权", String(downgradedAssistantCount), ">0", "助手完成类表述不计为强升品证据。");
+  }
   if (bugLoopDensity >= 0.08) {
     addReason("返工压力", formatPercent(bugLoopDensity), ">=8%", "容易陷入局部修补循环。");
   }
@@ -761,7 +802,7 @@ function statProfile(report) {
     summary: "投入、样本、验证和控制力没有明显单点失衡；段位主要取决于证据链能否继续补强。",
     riskLevel: "low",
   };
-  if (userDecisionRatio >= 0.12 && validationDensity >= 0.08 && establishedDimensions >= 5) {
+  if (userDecisionRatio >= 0.12 && validationDensity >= 0.08 && establishedDimensions >= 5 && usablePromotionRatio >= 0.35) {
     profile = {
       id: "system_owner",
       label: "系统拥有型",
@@ -773,6 +814,13 @@ function statProfile(report) {
       id: "ai_labor_dependent",
       label: "AI 代工依赖型",
       summary: "token 投入很高，但用户决策占比偏低；这说明 AI 很忙，不等于人真正拥有系统。",
+      riskLevel: "high",
+    };
+  } else if (hasUsabilityStats && usablePromotionRatio < 0.35 && downgradedAssistantCount > 0) {
+    profile = {
+      id: "assistant_self_report_heavy",
+      label: "助手自述偏重型",
+      summary: "高阶词不少，但大量来自助手自述完成；这能证明 AI 执行很多，不能直接证明人拥有系统。",
       riskLevel: "high",
     };
   } else if (validationDensity < 0.03 && establishedDimensions >= 4) {
@@ -833,12 +881,14 @@ function statProfile(report) {
       `用户决策 ${formatPercent(userDecisionRatio)}`,
       `主动控制 ${formatPercent(userControlRatio)}`,
       `助手执行 ${formatPercent(assistantExecutionRatio)}`,
+      hasUsabilityStats ? `可升品信号 ${formatPercent(usablePromotionRatio)}` : "",
+      `助手降权 ${downgradedAssistantCount} 条`,
       `验证密度 ${formatPercent(validationDensity)}`,
       `强记录 ${formatPercent(strongRecordDensity)}`,
       `成立维度 ${establishedDimensions}/6`,
       `稳定维度 ${stableDimensions}/6`,
       `峰值日 token ${formatPercent(peakDayShare)}`,
-    ],
+    ].filter(Boolean),
   };
 }
 
@@ -989,6 +1039,20 @@ function fallbackHardStatCards(report) {
       interpretation: "防止一条长消息命中多个关键词后被重复当成高阶证据。",
     },
     {
+      id: "usable_promotion_signal",
+      label: "可升品高阶信号",
+      value: hasPromotionUsabilityStats(stats) && stats.promotion_usable_signal_ratio ? formatPercent(stats.promotion_usable_signal_ratio) : "0%",
+      detail: `${stats.promotion_usable_signal_count || 0}/${stats.promotion_evidence_count || 0} 个高阶信号`,
+      interpretation: "只统计由用户行为支撑、可用于升品的高阶证据。",
+    },
+    {
+      id: "assistant_self_report_downgrade",
+      label: "助手自述降权",
+      value: stats.downgraded_assistant_signal_count ? `${stats.downgraded_assistant_signal_count} 条` : "0 条",
+      detail: `${stats.downgraded_assistant_record_count || 0} 条记录受影响`,
+      interpretation: "助手说“已完成/已验证/已重构”只算交付痕迹，不算强升品证据。",
+    },
+    {
       id: "user_control",
       label: "用户主动控制",
       value: stats.user_control_ratio ? formatPercent(stats.user_control_ratio) : "0%",
@@ -1043,6 +1107,8 @@ function fallbackMetricGroups(report) {
   const validationDensity = Number(stats.validation_density || 0);
   const bugLoopDensity = Number(stats.bug_loop_density || 0);
   const assistantExecutionRatio = Number(stats.promotion_assistant_execution_ratio || 0);
+  const usablePromotionRatio = hasPromotionUsabilityStats(stats) ? Number(stats.promotion_usable_signal_ratio || 0) : 0;
+  const downgradedAssistantCount = Number(stats.downgraded_assistant_signal_count || 0);
   const signalCoverageRatio = Number(stats.signal_coverage_ratio || 0);
   const establishedDimensions = Number(stats.established_dimension_count || 0);
   const nonScoringRatio = Number(stats.non_scoring_record_ratio || 0);
@@ -1072,7 +1138,7 @@ function fallbackMetricGroups(report) {
       label: "人类控制",
       value: formatPercent(userDecisionRatio || userControlRatio),
       signal: `主动控制 ${formatPercent(userControlRatio)}，用户决策 ${formatPercent(userDecisionRatio)}`,
-      basis: assistantExecutionRatio ? `助手执行 ${formatPercent(assistantExecutionRatio)}` : "缺少助手执行占比",
+      basis: assistantExecutionRatio ? `助手执行 ${formatPercent(assistantExecutionRatio)}；可升品信号 ${formatPercent(usablePromotionRatio)}` : "缺少助手执行占比",
       ratingImpact: "决定六品、七品能否成立；高段位必须看到人的系统级决策。",
       risk: userDecisionRatio < 0.03 ? "用户决策占比偏低，容易被封顶五品。" : "用户决策足以支撑更高段位复核。",
     },
@@ -1092,7 +1158,7 @@ function fallbackMetricGroups(report) {
       signal: `${stats.bug_loop_count || 0} 条 Bug 循环信号`,
       basis: stats.weak_signal_ratio ? `弱信号占比 ${formatPercent(stats.weak_signal_ratio)}` : "缺少弱信号占比",
       ratingImpact: "返工和弱信号不直接扣分，但会解释为什么系统归属不稳。",
-      risk: bugLoopDensity >= 0.08 ? "返工压力高，可能仍停在局部 patch 循环。" : "没有明显困在修补循环。",
+      risk: downgradedAssistantCount ? `${downgradedAssistantCount} 条助手自述已降权。` : bugLoopDensity >= 0.08 ? "返工压力高，可能仍停在局部 patch 循环。" : "没有明显困在修补循环。",
     },
   ];
 }
@@ -1210,7 +1276,7 @@ ${rankGateSummary(report)}
 质量提示：
 ${qualityFlagSummary(report)}
 
-拖累项：
+拖累项 / 返工压力：
 ${dragFactorSummary(report)}
 
 六维画像：

@@ -184,6 +184,14 @@ Vibe Coding Rank 想测的是更深的一层：
     "strong_evidence_density": 0.1,
     "promotion_record_count": 32,
     "average_promotion_signals_per_record": 1.5,
+    "promotion_usable_signal_count": 12,
+    "promotion_usable_record_count": 8,
+    "promotion_usable_signal_ratio": 0.25,
+    "promotion_usable_record_ratio": 0.25,
+    "downgraded_assistant_signal_count": 32,
+    "downgraded_assistant_record_count": 18,
+    "downgraded_assistant_signal_ratio": 0.5714,
+    "downgraded_assistant_record_ratio": 0.15,
     "user_control_ratio": 0.1667,
     "promotion_user_decision_ratio": 0.1667,
     "promotion_assistant_execution_ratio": 0.75,
@@ -204,34 +212,35 @@ Vibe Coding Rank 想测的是更深的一层：
   "statEvidence": {
     "id": "supports_current_rank",
     "label": "硬统计支撑当前段位",
-    "supportLevel": 7,
-    "supportLabel": "七品统计支撑",
-    "confidenceImpact": "局部降低置信度",
+    "supportLevel": 6,
+    "supportLabel": "六品统计支撑",
+    "confidenceImpact": "降低置信度并可能封顶",
     "conclusion": "数字侧能支撑六品 · 已有大成的可信度，但不会单独升品。",
     "positiveSignals": [
       "用户决策 17%，达到七品复核线。",
       "验证密度 11%，结果有可托付证据。"
     ],
     "riskSignals": [
-      "助手执行 75%，需要确认高阶结论不是 AI 自述完成。"
+      "助手执行 75%，需要确认高阶结论不是 AI 自述完成。",
+      "可升品高阶信号 25%，高阶词里用户行为支撑不足。"
     ],
     "investmentSignals": ["总 token 128万", "峰值日 42万"],
     "ratingUse": "硬统计用于支撑置信度、解释封顶和定位下一步；token 和成本只说明投入强度，不能直接升品。"
   },
   "statProfile": {
-    "id": "system_owner",
-    "label": "系统拥有型",
-    "summary": "硬统计显示，人类决策、验证闭环和多维能力同时成立；这类样本更像人在拥有系统，而不是 AI 自述完成。",
-    "controlReading": "用户决策占比达到七品复核线，能支撑“人在控”的判断。",
-    "validationReading": "验证密度较好，系统结果有可托付证据。",
+    "id": "assistant_self_report_heavy",
+    "label": "助手自述偏重型",
+    "summary": "高阶词不少，但大量来自助手自述完成；这能证明 AI 执行很多，不能直接证明人拥有系统。",
+    "controlReading": "用户决策占比达到七品复核线，但可升品高阶信号仍偏薄。",
+    "validationReading": "验证密度较好，系统结果有可托付证据；仍要确认验收是否由人定义。",
     "investmentReading": "token 投入能说明 AI 使用强度，但不会直接抬高段位。",
-    "evidenceReading": "强记录和信号覆盖足以支撑较高置信度复核。",
-    "riskLevel": "low",
+    "evidenceReading": "强记录存在，但助手自述被降权后，高阶证据厚度需要继续补强。",
+    "riskLevel": "high",
     "ratingUse": "统计画像用于解释置信度、封顶和下一步，不直接升品。",
     "reasons": [
       "用户决策 17%，用户系统级取舍足够强。",
       "验证密度 11%，结果有可托付证据。",
-      "成立维度 5/6，能力结构比较完整。"
+      "可升品信号 25%，高阶词里用户行为支撑不足。"
     ],
     "matchedRules": [
       {
@@ -241,7 +250,7 @@ Vibe Coding Rank 想测的是更深的一层：
         "interpretation": "用户系统级取舍足够强。"
       }
     ],
-    "signals": ["用户决策 17%", "主动控制 17%", "助手执行 75%", "验证密度 11%"]
+    "signals": ["用户决策 17%", "主动控制 17%", "助手执行 75%", "可升品信号 25%"]
   },
   "hardStatCards": [
     {

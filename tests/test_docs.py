@@ -60,7 +60,7 @@ class DocsTests(unittest.TestCase):
         self.assertIn("supportLevel", example["statEvidence"])
         self.assertIn("ratingUse", example["statEvidence"])
         self.assertIn("token 和成本只说明投入强度", example["statEvidence"]["ratingUse"])
-        self.assertEqual(example["statProfile"]["id"], "system_owner")
+        self.assertEqual(example["statProfile"]["id"], "assistant_self_report_heavy")
         self.assertIn("ratingUse", example["statProfile"])
         self.assertIn("reasons", example["statProfile"])
         self.assertIn("matchedRules", example["statProfile"])

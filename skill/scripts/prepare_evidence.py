@@ -410,6 +410,34 @@ def is_user_role(role: str) -> bool:
     return role.strip().lower() == "user"
 
 
+def effective_signal_strength(signal: str, behavior_class: str) -> str:
+    """Downgrade assistant self-reports so they cannot masquerade as user-owned proof."""
+    strength = str(SIGNAL_META[signal]["strength"])
+    if behavior_class == "assistant_execution" and strength == "强":
+        return "中"
+    if behavior_class == "assistant_summary" and strength in {"强", "中"}:
+        return "弱"
+    return strength
+
+
+def usable_for_promotion(signal: str, behavior_class: str) -> bool:
+    if not is_promotion_signal(signal):
+        return False
+    return behavior_class in {"user_decision", "user_instruction"}
+
+
+def evidence_judgment_note(behavior_class: str, raw_strength: str, effective_strength: str) -> str:
+    if behavior_class == "assistant_execution" and raw_strength != effective_strength:
+        return "助手自述完成只能证明交付痕迹，不能作为升品强证据。"
+    if behavior_class == "assistant_summary" and raw_strength != effective_strength:
+        return "助手总结只能作为辅助线索，不能替代用户决策。"
+    if behavior_class == "user_decision":
+        return "用户主动定义边界、架构、验收或取舍，可作为高阶判断证据。"
+    if behavior_class == "user_instruction":
+        return "用户普通指令可作为协作证据，但高段位仍需系统级决策。"
+    return "仅作辅助证据。"
+
+
 def classify_behavior(record: dict[str, Any], text: str, signals: list[str] | None = None) -> str:
     role = str(record.get("role", "")).strip().lower()
     signal_set = set(signals or [])
@@ -545,6 +573,10 @@ def build_hard_stats(
     promotion_evidence_count: int,
     promotion_record_count: int,
     strong_evidence_record_count: int,
+    promotion_usable_signal_count: int,
+    promotion_usable_record_count: int,
+    downgraded_assistant_signal_count: int,
+    downgraded_assistant_record_count: int,
     user_control_signal_count: int,
     user_control_record_count: int,
     user_control_source_count: int,
@@ -621,6 +653,14 @@ def build_hard_stats(
         "promotion_record_count": promotion_record_count,
         "promotion_record_density": ratio(promotion_record_count, analyzed_record_count),
         "strong_evidence_record_count": strong_evidence_record_count,
+        "promotion_usable_signal_count": promotion_usable_signal_count,
+        "promotion_usable_record_count": promotion_usable_record_count,
+        "promotion_usable_signal_ratio": ratio(promotion_usable_signal_count, promotion_evidence_count),
+        "promotion_usable_record_ratio": ratio(promotion_usable_record_count, promotion_record_count),
+        "downgraded_assistant_signal_count": downgraded_assistant_signal_count,
+        "downgraded_assistant_record_count": downgraded_assistant_record_count,
+        "downgraded_assistant_signal_ratio": ratio(downgraded_assistant_signal_count, signal_total),
+        "downgraded_assistant_record_ratio": ratio(downgraded_assistant_record_count, analyzed_record_count),
         "average_promotion_signals_per_record": ratio(promotion_evidence_count, promotion_record_count),
         "user_control_count": user_control_record_count,
         "user_control_record_count": user_control_record_count,
@@ -842,6 +882,8 @@ def build_quality_flags(hard_stats: dict[str, Any]) -> list[dict[str, str]]:
     user_control_ratio = float(hard_stats.get("user_control_ratio") or 0)
     user_decision_ratio = float(hard_stats.get("promotion_user_decision_ratio") or 0)
     assistant_execution_ratio = float(hard_stats.get("promotion_assistant_execution_ratio") or 0)
+    downgraded_assistant_ratio = float(hard_stats.get("downgraded_assistant_signal_ratio") or 0)
+    promotion_usable_signal_ratio = float(hard_stats.get("promotion_usable_signal_ratio") or 0)
     dominant_signal_ratio = float(hard_stats.get("dominant_signal_ratio") or 0)
     peak_day_token_share = float(hard_stats.get("peak_day_token_share") or 0)
     behavior_counts = hard_stats.get("behavior_counts") or {}
@@ -935,6 +977,28 @@ def build_quality_flags(hard_stats: dict[str, Any]) -> list[dict[str, str]]:
             )
         )
 
+    if downgraded_assistant_ratio >= 0.25:
+        flags.append(
+            quality_flag(
+                "assistant_self_report_downgraded",
+                "warning",
+                "助手自述已降权",
+                percent(downgraded_assistant_ratio),
+                "大量“已完成/已验证/已重构”来自助手自述，已从强证据中降权处理。",
+            )
+        )
+
+    if promotion_evidence_count > 0 and promotion_usable_signal_ratio < 0.35:
+        flags.append(
+            quality_flag(
+                "low_usable_promotion_signal",
+                "risk",
+                "可升品证据偏低",
+                percent(promotion_usable_signal_ratio),
+                "高阶词很多，但真正由用户行为支撑、可用于升品的比例偏低。",
+            )
+        )
+
     if dominant_signal_ratio >= 0.45:
         flags.append(
             quality_flag(
@@ -986,6 +1050,8 @@ def metric_groups(hard_stats: dict[str, Any], usage_stats: dict[str, Any]) -> li
     user_control_ratio = float(hard_stats.get("user_control_ratio") or 0)
     user_decision_ratio = float(hard_stats.get("promotion_user_decision_ratio") or hard_stats.get("user_decision_ratio") or 0)
     assistant_execution_ratio = float(hard_stats.get("promotion_assistant_execution_ratio") or 0)
+    promotion_usable_signal_ratio = float(hard_stats.get("promotion_usable_signal_ratio") or 0)
+    downgraded_assistant_signal_count = int(hard_stats.get("downgraded_assistant_signal_count") or 0)
     validation_density = float(hard_stats.get("validation_density") or 0)
     established_dimensions = int(hard_stats.get("established_dimension_count") or 0)
     bug_loop_density = float(hard_stats.get("bug_loop_density") or 0)
@@ -1022,7 +1088,11 @@ def metric_groups(hard_stats: dict[str, Any], usage_stats: dict[str, Any]) -> li
             "label": "人类控制",
             "value": percent(user_decision_ratio or user_control_ratio),
             "signal": f"主动控制 {percent(user_control_ratio)}，用户决策 {percent(user_decision_ratio)}",
-            "basis": f"助手执行 {percent(assistant_execution_ratio)}" if assistant_execution_ratio else "缺少助手执行占比",
+            "basis": (
+                f"助手执行 {percent(assistant_execution_ratio)}；可升品信号 {percent(promotion_usable_signal_ratio)}"
+                if assistant_execution_ratio
+                else "缺少助手执行占比"
+            ),
             "ratingImpact": "决定六品、七品能否成立；高段位必须看到人的系统级决策。",
             "risk": "用户决策占比偏低，容易被封顶五品。" if user_decision_ratio < 0.03 else "用户决策足以支撑更高段位复核。",
         },
@@ -1042,7 +1112,11 @@ def metric_groups(hard_stats: dict[str, Any], usage_stats: dict[str, Any]) -> li
             "signal": f"{int(hard_stats.get('bug_loop_count') or 0)} 条 Bug 循环信号",
             "basis": f"弱信号占比 {percent(weak_signal_ratio)}" if weak_signal_ratio else "缺少弱信号占比",
             "ratingImpact": "返工和弱信号不直接扣分，但会解释为什么系统归属不稳。",
-            "risk": "返工压力高，可能仍停在局部 patch 循环。" if bug_loop_density >= 0.08 else "没有明显困在修补循环。",
+            "risk": (
+                f"{downgraded_assistant_signal_count} 条助手自述已降权。"
+                if downgraded_assistant_signal_count
+                else "返工压力高，可能仍停在局部 patch 循环。" if bug_loop_density >= 0.08 else "没有明显困在修补循环。"
+            ),
         },
     ]
 
@@ -1059,6 +1133,8 @@ def build_stat_evidence(hard_stats: dict[str, Any], rank_level: int, rank_label:
     user_decision_ratio = float(hard_stats.get("promotion_user_decision_ratio") or hard_stats.get("user_decision_ratio") or 0)
     validation_density = float(hard_stats.get("validation_density") or 0)
     assistant_execution_ratio = float(hard_stats.get("promotion_assistant_execution_ratio") or 0)
+    promotion_usable_signal_ratio = float(hard_stats.get("promotion_usable_signal_ratio") or 0)
+    downgraded_assistant_signal_count = int(hard_stats.get("downgraded_assistant_signal_count") or 0)
     bug_loop_density = float(hard_stats.get("bug_loop_density") or 0)
     peak_day_share = float(hard_stats.get("peak_day_token_share") or 0)
     total_tokens = int(hard_stats.get("total_tokens") or 0)
@@ -1101,6 +1177,10 @@ def build_stat_evidence(hard_stats: dict[str, Any], rank_level: int, rank_label:
 
     if assistant_execution_ratio >= 0.7:
         risk_signals.append(f"助手执行 {percent(assistant_execution_ratio)}，需要确认高阶结论不是 AI 自述完成。")
+    if promotion_usable_signal_ratio and promotion_usable_signal_ratio < 0.35:
+        risk_signals.append(f"可升品高阶信号 {percent(promotion_usable_signal_ratio)}，高阶词里用户行为支撑不足。")
+    if downgraded_assistant_signal_count:
+        risk_signals.append(f"{downgraded_assistant_signal_count} 条助手自述高阶信号已降权，不计为强升品证据。")
     if bug_loop_density >= 0.08:
         risk_signals.append(f"返工压力 {percent(bug_loop_density)}，可能仍困在局部 patch 循环。")
     if peak_day_share >= 0.5:
@@ -1123,6 +1203,7 @@ def build_stat_evidence(hard_stats: dict[str, Any], rank_level: int, rank_label:
         and validation_density >= 0.08
         and established_dimensions >= 5
         and strong_record_density >= 0.08
+        and promotion_usable_signal_ratio >= 0.35
         and source_count >= 3
     ):
         support_level = 7
@@ -1132,6 +1213,7 @@ def build_stat_evidence(hard_stats: dict[str, Any], rank_level: int, rank_label:
         and validation_density > 0
         and established_dimensions >= 4
         and promotion_record_count >= 4
+        and promotion_usable_signal_ratio >= 0.25
     ):
         support_level = 6
     elif validation_density > 0 and established_dimensions >= 3:
@@ -1139,7 +1221,13 @@ def build_stat_evidence(hard_stats: dict[str, Any], rank_level: int, rank_label:
     elif user_control_ratio > 0 or validation_density > 0:
         support_level = 4
 
-    if len(risk_signals) >= 3 or strong_record_density < 0.05 or user_decision_ratio < 0.03 or assistant_execution_ratio >= 0.7:
+    if (
+        len(risk_signals) >= 3
+        or strong_record_density < 0.05
+        or user_decision_ratio < 0.03
+        or assistant_execution_ratio >= 0.7
+        or (promotion_usable_signal_ratio > 0 and promotion_usable_signal_ratio < 0.35)
+    ):
         confidence_impact = "降低置信度并可能封顶"
     elif risk_signals:
         confidence_impact = "局部降低置信度"
@@ -1180,6 +1268,8 @@ def build_stat_profile(hard_stats: dict[str, Any]) -> dict[str, Any]:
     user_control_ratio = float(hard_stats.get("user_control_ratio") or 0)
     user_decision_ratio = float(hard_stats.get("promotion_user_decision_ratio") or 0)
     assistant_execution_ratio = float(hard_stats.get("promotion_assistant_execution_ratio") or 0)
+    promotion_usable_signal_ratio = float(hard_stats.get("promotion_usable_signal_ratio") or 0)
+    downgraded_assistant_signal_count = int(hard_stats.get("downgraded_assistant_signal_count") or 0)
     validation_density = float(hard_stats.get("validation_density") or 0)
     strong_record_density = float(hard_stats.get("strong_record_density") or 0)
     signal_coverage_ratio = float(hard_stats.get("signal_coverage_ratio") or 0)
@@ -1219,6 +1309,10 @@ def build_stat_profile(hard_stats: dict[str, Any]) -> dict[str, Any]:
 
     if total_tokens >= 500_000:
         add_reason("token 投入", f"{round(total_tokens / 10000)}万", ">=50万", "AI 使用强度很高。")
+    if promotion_usable_signal_ratio < 0.35:
+        add_reason("可升品信号", percent(promotion_usable_signal_ratio), "<35%", "高阶词里用户行为支撑不足。")
+    if downgraded_assistant_signal_count:
+        add_reason("助手自述降权", str(downgraded_assistant_signal_count), ">0", "助手完成类表述不计为强升品证据。")
 
     if bug_loop_density >= 0.08:
         add_reason("返工压力", percent(bug_loop_density), ">=8%", "容易陷入局部修补循环。")
@@ -1231,7 +1325,12 @@ def build_stat_profile(hard_stats: dict[str, Any]) -> dict[str, Any]:
     elif strong_record_density >= 0.1:
         add_reason("强记录", percent(strong_record_density), ">=10%", "有可复核的高阶证据。")
 
-    if user_decision_ratio >= 0.12 and validation_density >= 0.08 and established_dimensions >= 5:
+    if (
+        user_decision_ratio >= 0.12
+        and validation_density >= 0.08
+        and established_dimensions >= 5
+        and promotion_usable_signal_ratio >= 0.35
+    ):
         profile_id = "system_owner"
         label = "系统拥有型"
         summary = "硬统计显示，人类决策、验证闭环和多维能力同时成立；这类样本更像人在拥有系统，而不是 AI 自述完成。"
@@ -1239,6 +1338,10 @@ def build_stat_profile(hard_stats: dict[str, Any]) -> dict[str, Any]:
         profile_id = "ai_labor_dependent"
         label = "AI 代工依赖型"
         summary = "token 投入很高，但用户决策占比偏低；这说明 AI 很忙，不等于人真正拥有系统。"
+    elif promotion_usable_signal_ratio < 0.35 and downgraded_assistant_signal_count:
+        profile_id = "assistant_self_report_heavy"
+        label = "助手自述偏重型"
+        summary = "高阶词不少，但大量来自助手自述完成；这能证明 AI 执行很多，不能直接证明人拥有系统。"
     elif validation_density < 0.03 and established_dimensions >= 4:
         profile_id = "architecture_floating"
         label = "架构悬浮型"
@@ -1296,7 +1399,11 @@ def build_stat_profile(hard_stats: dict[str, Any]) -> dict[str, Any]:
         "validationReading": validation_reading,
         "investmentReading": investment_reading,
         "evidenceReading": evidence_reading,
-        "riskLevel": "high" if profile_id in {"ai_labor_dependent", "architecture_floating", "rework_trapped", "thin_evidence"} else "medium" if profile_id == "burst_operator" else "low",
+        "riskLevel": (
+            "high"
+            if profile_id in {"ai_labor_dependent", "assistant_self_report_heavy", "architecture_floating", "rework_trapped", "thin_evidence"}
+            else "medium" if profile_id == "burst_operator" else "low"
+        ),
         "ratingUse": "统计画像用于解释置信度、封顶和下一步，不直接升品。",
         "reasons": reasons[:4],
         "matchedRules": matched_rules[:4],
@@ -1304,6 +1411,8 @@ def build_stat_profile(hard_stats: dict[str, Any]) -> dict[str, Any]:
             f"用户决策 {percent(user_decision_ratio)}",
             f"主动控制 {percent(user_control_ratio)}",
             f"助手执行 {percent(assistant_execution_ratio)}",
+            f"可升品信号 {percent(promotion_usable_signal_ratio)}",
+            f"助手降权 {downgraded_assistant_signal_count} 条",
             f"验证密度 {percent(validation_density)}",
             f"强记录 {percent(strong_record_density)}",
             f"成立维度 {established_dimensions}/6",
@@ -1645,9 +1754,16 @@ def score_for(level: int, counts: Counter[str], total_records: int) -> int:
     return value
 
 
-def evidence_card(record: dict[str, Any], signal: str, text: str) -> dict[str, Any]:
+def evidence_card(
+    record: dict[str, Any],
+    signal: str,
+    text: str,
+    behavior_class: str | None = None,
+) -> dict[str, Any]:
     meta = SIGNAL_META[signal]
-    behavior_class = classify_behavior(record, text, [signal])
+    behavior_class = behavior_class or classify_behavior(record, text, [signal])
+    raw_strength = str(meta["strength"])
+    effective_strength = effective_signal_strength(signal, behavior_class)
     return {
         "signal": signal,
         "evidence_type": meta["type"],
@@ -1658,11 +1774,13 @@ def evidence_card(record: dict[str, Any], signal: str, text: str) -> dict[str, A
         "behavior": snippet(text, 96),
         "proves": meta["proves"],
         "supports_levels": meta["supports_levels"],
-        "strength": meta["strength"],
+        "strength": effective_strength,
+        "raw_strength": raw_strength,
+        "judgment_note": evidence_judgment_note(behavior_class, raw_strength, effective_strength),
         "source": record_source(record),
         "session": source_session(record),
         "snippet": snippet(text),
-        "usable_for_promotion": signal not in {"snippet_generation", "demo_generation", "bug_loop", "team_system"},
+        "usable_for_promotion": usable_for_promotion(signal, behavior_class),
     }
 
 
@@ -1741,6 +1859,10 @@ def main() -> int:
     behavior_counts: Counter[str] = Counter()
     promotion_signal_behavior_counts: Counter[str] = Counter()
     promotion_record_behavior_counts: Counter[str] = Counter()
+    promotion_usable_signal_count = 0
+    promotion_usable_records: set[str] = set()
+    downgraded_assistant_signal_count = 0
+    downgraded_assistant_records: set[str] = set()
     promotion_record_count = 0
     strong_evidence_records: set[str] = set()
     user_control_signal_count = 0
@@ -1761,6 +1883,7 @@ def main() -> int:
         behavior_class = classify_behavior(record, text, signals)
         behavior_counts[behavior_class] += 1
         promotion_signals = [signal for signal in signals if is_promotion_signal(signal)]
+        record_key = f"{session}:{record_index}"
         if promotion_signals:
             promotion_record_count += 1
             promotion_record_behavior_counts[behavior_class] += 1
@@ -1771,15 +1894,23 @@ def main() -> int:
             counts[signal] += 1
             signal_sources[signal].add(session)
             meta = SIGNAL_META[signal]
+            effective_strength = effective_signal_strength(signal, behavior_class)
+            signal_usable_for_promotion = usable_for_promotion(signal, behavior_class)
+            if meta["strength"] != effective_strength and behavior_class in {"assistant_execution", "assistant_summary"}:
+                downgraded_assistant_signal_count += 1
+                downgraded_assistant_records.add(record_key)
             if is_promotion_signal(signal):
                 promotion_counts[signal] += 1
                 promotion_signal_behavior_counts[behavior_class] += 1
+                if signal_usable_for_promotion:
+                    promotion_usable_signal_count += 1
+                    promotion_usable_records.add(record_key)
                 if is_user_role(role):
                     user_control_signal_count += 1
-            if meta["strength"] == "强" and is_promotion_signal(signal):
+            if effective_strength == "强" and is_promotion_signal(signal):
                 strong_counts[signal] += 1
                 strong_signal_sources[signal].add(session)
-                strong_evidence_records.add(f"{session}:{record_index}")
+                strong_evidence_records.add(record_key)
             if len(evidence[signal]) < args.max_evidence:
                 evidence[signal].append(
                     {
@@ -1788,12 +1919,12 @@ def main() -> int:
                         "snippet": snippet(text),
                     }
                 )
-            if meta["strength"] == "弱":
+            if effective_strength == "弱":
                 if len(weak_signals) < args.max_evidence * 4:
                     weak_signals.append(weak_signal_card(record, signal, text))
                 continue
             if len(evidence_cards) < args.max_evidence * 8:
-                evidence_cards.append(evidence_card(record, signal, text))
+                evidence_cards.append(evidence_card(record, signal, text, behavior_class))
 
     excluded_total = sum(excluded_reasons.values())
     analyzed_record_count = len(records) - excluded_total
@@ -1820,6 +1951,10 @@ def main() -> int:
         promotion_evidence_count,
         promotion_record_count,
         strong_evidence_record_count,
+        promotion_usable_signal_count,
+        len(promotion_usable_records),
+        downgraded_assistant_signal_count,
+        len(downgraded_assistant_records),
         user_control_signal_count,
         user_control_record_count,
         user_control_source_count,
@@ -1900,6 +2035,10 @@ def main() -> int:
         "promotion_evidence_count": promotion_evidence_count,
         "promotion_record_count": promotion_record_count,
         "strong_evidence_record_count": strong_evidence_record_count,
+        "promotion_usable_signal_count": promotion_usable_signal_count,
+        "promotion_usable_record_count": len(promotion_usable_records),
+        "downgraded_assistant_signal_count": downgraded_assistant_signal_count,
+        "downgraded_assistant_record_count": len(downgraded_assistant_records),
         "user_control_count": user_control_record_count,
         "user_control_record_count": user_control_record_count,
         "user_control_signal_count": user_control_signal_count,
