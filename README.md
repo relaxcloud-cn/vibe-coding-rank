@@ -418,6 +418,8 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 
 这个文件只包含段位、分数、硬统计、证据摘要、封顶原因和下一步，不包含原始日志、本地路径、session id、源码或密钥。可以直接交给 Imagen、imagegen 或其他图片模型生成中文报告图。
 
+如果要让 Codex 从报告继续生成信息图，可以读取 `skill/references/infographic-prompt.md` 作为通用模板，并使用 imagegen / `gpt-image-2` 这类位图生图模型生成。不要用 HTML、SVG、Mermaid、canvas 或 CSS 伪造信息图。
+
 生成 AI 深度判定提示词：
 
 ```bash
