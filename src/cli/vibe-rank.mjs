@@ -1876,11 +1876,8 @@ function publicReport(report) {
     .map(publicEvidence);
   const publicHardCards = shareHardStatCards(report.hardStatCards).slice(0, 6);
   return {
-    product: report.product,
-    generatedAt: report.generatedAt,
     source: report.source,
     judgmentMode: report.judgmentMode,
-    judgmentModeLabel: report.judgmentModeLabel,
     isFinal: report.isFinal,
     rank: report.rank,
     nextRank: report.nextRank,
@@ -1888,10 +1885,8 @@ function publicReport(report) {
     analyzedRecordCount: report.analyzedRecordCount,
     excludedRecordCount: report.excludedRecordCount,
     signalCount: report.signalCount,
-    signalCounts: report.signalCounts,
     strongEvidenceCount: report.strongEvidenceCount,
     userControlCount: report.userControlCount,
-    usageStats: pickFields(report.usageStats, PUBLIC_USAGE_STATS_FIELDS),
     hardStats: pickFields(report.hardStats, PUBLIC_HARD_STATS_FIELDS),
     costEstimate: report.costEstimate,
     statsInsight: report.statsInsight,
@@ -1911,19 +1906,10 @@ function publicReport(report) {
     unlockStatus: report.unlockStatus,
     gateUpgradeAdvice: report.gateUpgradeAdvice,
     upgradePath: report.upgradePath,
-    narrative: {
-      title: report.narrative?.title,
-      oneLine: report.narrative?.oneLine,
-      rankReason: report.narrative?.rankReason,
-      nextRankGap: report.narrative?.nextRankGap,
-      capSummary: report.narrative?.capSummary,
-      upgradeSummary: report.narrative?.upgradeSummary,
-    },
     privacy: {
       localPathsRemoved: true,
       rawLogsUploaded: false,
       compactPublicReport: true,
-      note: "Public links store only compact sanitized report JSON, not raw Codex or Claude Code logs.",
     },
   };
 }
