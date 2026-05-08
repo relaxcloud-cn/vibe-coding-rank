@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Vibe Coding Rank: 本地扫描 Codex / Claude Code 记录，生成可分享的 AI 编程段位报告。" />
+    <title>Vibe Coding 九品体系</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="site-bg" aria-hidden="true">
+      <pre>VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位
+系统归属  证据门槛  本地取证  AI 工作能力  CODEX  CLAUDE
+目标  边界  验收  架构  验证  工作流  下一品路径
+九品体系  真实记录  云端报告  不上传原始日志  团队复制
+VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位  VIBE 段位
+系统归属  证据门槛  本地取证  AI 工作能力  CODEX  CLAUDE
+目标  边界  验收  架构  验证  工作流  下一品路径
+九品体系  真实记录  云端报告  不上传原始日志  团队复制</pre>
+    </div>
+
+    <nav class="topbar">
+      <a class="brand" href="#">
+        <span class="brand-mark">九</span>
+        <span>Airank</span>
+        <strong>九品</strong>
+      </a>
+      <div class="nav-actions">
+        <a href="#report">样例报告</a>
+        <a href="#capabilities">能力</a>
+        <a href="https://github.com/relaxcloud-cn/vibe-coding-rank">GitHub</a>
+        <a class="login" href="https://github.com/relaxcloud-cn/vibe-coding-rank">开源</a>
+      </div>
+    </nav>
+
+    <main>
+      <section class="hero">
+        <div class="hero-inner">
+          <p class="hero-kicker">本地优先 · 真实记录 · AI 工作段位</p>
+          <h1 class="hero-title">Vibe Coding 九品体系</h1>
+          <p class="hero-subtitle">测的不是你会不会用 AI，而是系统到底是不是你的。</p>
+          <pre class="ascii" aria-label="Vibe Coding Rank ascii mark">
+██╗   ██╗██╗██████╗ ███████╗    ██████╗  █████╗ ███╗   ██╗██╗  ██╗
+██║   ██║██║██╔══██╗██╔════╝    ██╔══██╗██╔══██╗████╗  ██║██║ ██╔╝
+██║   ██║██║██████╔╝█████╗      ██████╔╝███████║██╔██╗ ██║█████╔╝
+╚██╗ ██╔╝██║██╔══██╗██╔══╝      ██╔══██╗██╔══██║██║╚██╗██║██╔═██╗
+ ╚████╔╝ ██║██████╔╝███████╗    ██║  ██║██║  ██║██║ ╚████║██║  ██╗
+  ╚═══╝  ╚═╝╚═════╝ ╚══════╝    ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝</pre>
+          <p class="hero-line">一条命令读取 Codex / Claude Code 记录，生成可分享的中文九品报告。</p>
+          <button class="install-command" id="copy-command" type="button">
+            <span><span class="prompt">$</span> npx github:relaxcloud-cn/vibe-coding-rank --source codex --open</span>
+            <span class="copy-icon" aria-hidden="true">⌘C</span>
+          </button>
+          <p class="localhost">打开 <span>vibe.yisec.ai/#data</span> · 原始日志只留在本地</p>
+        </div>
+      </section>
+
+      <section class="workspace-wrap" id="report">
+        <div class="workspace">
+          <div class="window-bar">
+            <div class="traffic">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="crumb">airank / 本地证据 / 九品报告</div>
+            <div class="host">vibe.yisec.ai</div>
+          </div>
+          <div class="app-shell">
+            <aside class="sidebar">
+              <div class="side-title">证据</div>
+              <button class="side-item active">总览</button>
+              <button class="side-item">会话记录</button>
+              <button class="side-item">能力信号</button>
+              <button class="side-item">段位上限</button>
+              <button class="side-item">升级路径</button>
+              <div class="side-footer">
+                <span>本地优先</span>
+                <strong>不上传原始日志</strong>
+              </div>
+            </aside>
+            <section class="dashboard">
+              <div class="report-head">
+                <div>
+                  <p class="label">当前段位</p>
+                  <h1 id="rank-label">六品 · 已有大成</h1>
+                  <p class="rank-copy" id="verdict">系统开始真正属于你。你不是让 AI 乱写代码，而是在用目标、边界、架构和验证 gate 驱动交付。</p>
+                  <p class="judgment-mode" id="judgment-mode">自动初筛 · 非最终高段位判定</p>
+                </div>
+                <div class="rank-score">
+                  <span id="score-value">76</span>
+                  <small>AI 段位</small>
+                </div>
+              </div>
+              <div class="report-actions">
+                <button class="report-action primary" id="copy-report-link" type="button">复制报告链接</button>
+                <button class="report-action" id="copy-share-prompt" type="button">复制图片报告提示词</button>
+                <button class="report-action" id="copy-judge-prompt" type="button">复制深度判定提示词</button>
+                <span id="share-copy-status" aria-live="polite"></span>
+              </div>
+              <p class="share-note" id="share-note">当前是本地浏览器链接，原始日志不会上传。</p>
+
+              <div class="metrics">
+                <div><span>置信度</span><strong id="confidence">高</strong></div>
+                <div><span>系统归属</span><strong id="ownership">强</strong></div>
+                <div><span>强证据</span><strong id="strong-evidence">12</strong></div>
+                <div><span>主动控制</span><strong id="user-control">8</strong></div>
+                <div><span>证据数</span><strong id="signals">56</strong></div>
+                <div><span>有效记录</span><strong id="records">120</strong></div>
+              </div>
+              <p class="quality-note" id="quality-note">已过滤 8 条系统上下文，评分只看真实工作证据。</p>
+
+              <div class="signal-strip">
+                <span>目标</span>
+                <span>边界</span>
+                <span>验收</span>
+                <span>架构</span>
+                <span>验证</span>
+                <span>工作流</span>
+              </div>
+
+              <div class="dimension-grid" id="dimension-grid"></div>
+
+              <div class="narrative-grid">
+                <article>
+                  <span>为什么是这个段位</span>
+                  <strong id="why-this-rank">你已经形成从问题定义到系统交付的闭环。</strong>
+                </article>
+                <article>
+                  <span>为什么还不是下一品</span>
+                  <strong id="why-not-next">要进入七品，需要让审核、验证和架构判断更系统化。</strong>
+                </article>
+              </div>
+
+              <div class="next-action-card">
+                <div>
+                  <span>下一品关键动作</span>
+                  <strong id="next-action-title">先补齐八品团队复制门槛</strong>
+                </div>
+                <p id="next-action-body">找至少 2 个其他人或项目复用你的 rules、skill 或 playbook，并记录复用结果。</p>
+                <small id="next-action-gate">八品团队复制未通过：需要团队方法复制强证据。</small>
+              </div>
+
+              <div class="main-grid">
+                <div class="panel">
+                  <div class="panel-head">
+                    <span>九品阶梯</span>
+                    <small>0 → 9</small>
+                  </div>
+                  <div class="rank-rail" id="rank-rail"></div>
+                </div>
+                <div class="panel">
+                  <div class="panel-head">
+                    <span>真实证据流</span>
+                    <small>工作记录</small>
+                  </div>
+                  <div class="evidence-list" id="evidence-grid"></div>
+                </div>
+              </div>
+
+              <div class="bottom-grid">
+                <div class="insight-card">
+                  <span>段位上限</span>
+                  <strong id="rank-cap">缺少团队级方法复制证据，暂不判定八品。</strong>
+                </div>
+                <div class="insight-card">
+                  <span>下一步</span>
+                  <strong id="upgrade-path">把成功协作沉淀成 AGENTS.md、rules、skill 或团队 playbook。</strong>
+                </div>
+                <div class="insight-card">
+                  <span>高段位锁</span>
+                  <strong id="unlock-status">八品未解锁：缺少团队复用强证据。</strong>
+                </div>
+                <div class="insight-card usage-card">
+                  <span>AI 投入强度</span>
+                  <strong id="usage-summary">总 token 128万；峰值日 42万；活跃 6 天 / 12 会话。</strong>
+                  <small>Token 是硬统计，不参与段位升品。</small>
+                </div>
+                <div class="insight-card quality-card">
+                  <span>证据质量</span>
+                  <strong id="quality-summary">有效样本 120/128；强证据密度 10%；主动控制占比 17%。</strong>
+                  <small>看真实行为密度，不看自我包装。</small>
+                </div>
+                <div class="insight-card evidence-structure-card">
+                  <span>证据结构</span>
+                  <strong id="evidence-structure">证据跨度 6 天；信号覆盖度 64%；最高信号集中度 23%。</strong>
+                  <small>防止单日爆量或单一信号误判高段位。</small>
+                </div>
+                <div class="insight-card behavior-mix-card">
+                  <span>行为结构</span>
+                  <strong id="behavior-mix">用户决策 17%；助手执行 75%；决策证据 18 条。</strong>
+                  <small>区分人在控，还是 AI 在自述完成。</small>
+                </div>
+                <div class="insight-card stats-insight-card">
+                  <span>统计解读</span>
+                  <strong id="stats-insight">样本跨越多个工作日，稳定性比单次会话更可信。</strong>
+                  <small>把数字翻译成评级意义。</small>
+                </div>
+                <div class="insight-card stat-evidence-card">
+                  <span>硬统计证据</span>
+                  <strong id="stat-evidence">硬统计支撑当前段位：数字侧能支撑六品 · 已有大成的可信度，但不会单独升品。</strong>
+                  <small id="stat-evidence-detail">七品统计支撑；提高置信度。Token 和成本只说明投入强度。</small>
+                </div>
+                <div class="insight-card stat-profile-card">
+                  <span>统计画像</span>
+                  <strong id="stat-profile">系统拥有型：人类决策、验证闭环和多维能力同时成立。</strong>
+                  <small id="stat-profile-detail">统计画像解释置信度、封顶和下一步，不直接升品。</small>
+                </div>
+                <div class="insight-card rank-gate-card">
+                  <span>关键门槛</span>
+                  <strong id="rank-gate-summary">八品团队复制未通过：需要团队方法复制强证据。</strong>
+                  <small>机器可读门槛，避免只看文案。</small>
+                </div>
+                <div class="insight-card quality-flag-card">
+                  <span>质量提示</span>
+                  <strong id="quality-flags">样本跨度较好：跨多天、多会话的证据比单次高光更可信。</strong>
+                  <small>暴露样本风险，避免误读硬统计。</small>
+                </div>
+                <div class="insight-card drag-factor-card">
+                  <span>拖累项</span>
+                  <strong id="drag-factors">暂无明显拖累项。</strong>
+                  <small>看哪些行为正在拉低系统归属。</small>
+                </div>
+              </div>
+              <div class="hard-stat-grid" id="hard-stat-grid" aria-label="硬指标卡"></div>
+              <div class="metric-group-grid" id="metric-group-grid" aria-label="统计仪表盘"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="section integrations">
+        <div class="section-kicker">接入</div>
+        <h2>直接读取程序员已经留下的 AI 工作痕迹。</h2>
+        <div class="logo-strip">
+          <div>Codex</div>
+          <div>Claude Code</div>
+          <div>Cursor</div>
+          <div>OpenClaw</div>
+          <div>Git</div>
+          <div>终端日志</div>
+        </div>
+      </section>
+
+      <section class="section split-section" id="capabilities">
+        <div>
+          <div class="section-kicker">能力</div>
+          <h2>不是 prompt 常识题，而是基于证据的 AI 工作段位。</h2>
+        </div>
+        <div class="capability-grid">
+          <article>
+            <span>01</span>
+            <h3>本地取证</h3>
+            <p>扫描 Codex 和 Claude Code 会话，先脱敏，再生成可分析的证据摘要。</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>系统归属评分</h3>
+            <p>识别目标、非目标、架构边界、验证门槛、工作流和段位上限。</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>云端分享报告</h3>
+            <p>一条命令打开报告链接。默认模式只在浏览器渲染，不上传原始日志。</p>
+          </article>
+          <article>
+            <span>04</span>
+            <h3>团队诊断入口</h3>
+            <p>用同一套段位语言做团队评估、训练建议和 Airank 企业报告。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section usecases">
+        <div class="section-kicker">使用场景</div>
+        <h2>从“我会用 AI”，到“系统结果是我的”。</h2>
+        <div class="usecase-board">
+          <div class="usecase active">个人晒段位</div>
+          <div class="usecase">团队 AI 诊断</div>
+          <div class="usecase">招聘 / 晋升评估</div>
+          <div class="usecase">训练营前后测</div>
+          <div class="usecase">开源社区 Benchmark</div>
+        </div>
+      </section>
+
+      <section class="section closing">
+        <pre class="mini-ascii">AI 写代码  ━━━━━━━━▶  我拥有系统</pre>
+        <h2>本地运行，晒出段位，升级你的 AI 工作流。</h2>
+        <a class="final-cta" href="https://github.com/relaxcloud-cn/vibe-coding-rank">去 GitHub 开源仓库</a>
+      </section>
+    </main>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

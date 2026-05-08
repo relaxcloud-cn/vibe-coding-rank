@@ -1,0 +1,49 @@
+{
+  "name": "@airank/vibe-coding-rank",
+  "version": "0.1.0",
+  "description": "Evidence-based Vibe Coding rank reports from local Codex and Claude Code sessions.",
+  "type": "module",
+  "homepage": "https://vibe.yisec.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/relaxcloud-cn/vibe-coding-rank.git"
+  },
+  "bugs": {
+    "url": "https://github.com/relaxcloud-cn/vibe-coding-rank/issues"
+  },
+  "bin": {
+    "vibe-rank": "./src/cli/vibe-rank.mjs",
+    "airank-vibe": "./src/cli/vibe-rank.mjs"
+  },
+  "scripts": {
+    "check": "node --check src/cli/vibe-rank.mjs && node --check src/worker/index.js && node tests/test_worker.mjs && node tests/test_site.mjs && python3 -B -m unittest discover -s tests",
+    "demo": "node src/cli/vibe-rank.mjs --demo",
+    "site": "python3 -m http.server 4173 -d apps/report-site",
+    "deploy:dry-run": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "apps",
+    "assets",
+    "docs",
+    "skill",
+    "src",
+    "wrangler.toml"
+  ],
+  "keywords": [
+    "airank",
+    "codex",
+    "claude-code",
+    "vibe-coding",
+    "ai-assessment",
+    "codex-skill"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "jsdom": "^27.3.0",
+    "wrangler": "^4.90.0"
+  }
+}

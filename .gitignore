@@ -1,8 +1,13 @@
 __pycache__/
 *.py[cod]
 .DS_Store
+node_modules/
+.wrangler/
+.npm-cache/
+.dev.vars
 
 # Local evidence and generated reports should stay private.
+.airank/
 /runs/
 /reports/
 *-evidence.jsonl
