@@ -292,7 +292,17 @@ Vibe Coding Rank 想测的是更深的一层：
 }
 ```
 
-说明：CLI 的本地完整报告使用 camelCase 字段，并包含 `shareImagePrompt` / `judgePrompt` 这类长文本，方便自查和二次生成。公开 `#data` 链接和短链接使用压缩后的 public payload，不包含原始日志、本地路径、源码片段、session id 或提示词长文本。
+说明：上面是本地完整报告结构。CLI 的本地完整报告使用 camelCase 字段，并包含 `usageStats`、`signalCounts`、`narrative`、`shareImagePrompt` / `judgePrompt` 这类自查和二次生成字段。公开 `#data` 链接和短链接使用压缩后的 public payload，不包含原始日志、本地路径、源码片段、session id、提示词长文本，也会去掉 `usageStats`、`signalCounts`、`narrative` 等可由网页 fallback 或 `hardStats` 还原展示的冗余字段。
+
+公开分享 payload 的压缩规则：
+
+- `hardStats` 只保留关键统计，不包含完整行为明细。
+- `hardStatCards` 只保留优先级最高的 6 张解释卡。
+- `rankGates` 只保留第一个未通过的下一品门槛。
+- `qualityFlags` / `dragFactors` 各只保留前 2 条。
+- `strongestEvidence` 只保留前 3 条脱敏摘要；公开 payload 的 `evidence` 为空数组。
+- `statProfile` 只保留分享所需字段，不包含完整 `matchedRules`。
+- 完整证据、路径、片段和完整规则只保存在本地报告，不进入公开链接或短链接存储。
 
 ## 适合谁
 

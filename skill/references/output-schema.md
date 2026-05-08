@@ -293,8 +293,12 @@
 
 - 只保留网页展示、分享图和深度判定需要的字段。
 - `hardStats` 只保留关键统计，不包含完整行为明细。
-- `hardStatCards` 只保留优先级最高的 8 张解释卡。
-- `strongestEvidence` 只保留脱敏后的最强证据摘要；公开 payload 的 `evidence` 可为空。
+- `hardStatCards` 只保留优先级最高的 6 张解释卡。
+- `rankGates` 只保留第一个未通过的下一品门槛。
+- `qualityFlags` / `dragFactors` 各只保留前 2 条。
+- `strongestEvidence` 只保留前 3 条脱敏摘要；公开 payload 的 `evidence` 为空数组。
+- `statProfile` 只保留分享所需字段；完整 `matchedRules` 只保存在本地报告。
+- `usageStats`、`signalCounts`、`narrative` 等冗余字段不会进入公开 payload，网页会从 `hardStats` 或 fallback 文案还原展示。
 - 完整证据、路径和片段只保存在本地报告，不进入公开链接或短链接存储。
 
 ## 中文报告要求
