@@ -70,6 +70,7 @@ The script only performs local cleaning, evidence classification, and conservati
 - `references/output-schema.md` for the expected report shape.
 - `references/report-template.md` for the Chinese human-facing report.
 - `references/image-report-prompt.md` when the user asks for a share image or image report.
+- `references/infographic-prompt.md` when the user asks for an infographic.
 
 4. Judge from evidence cards, not from raw word hits:
 
@@ -99,7 +100,7 @@ The script only performs local cleaning, evidence classification, and conservati
 - 下一品升级路线。
 - 证据质量说明。
 
-6. If the user asks for a 图片报告, 海报, 朋友圈图, or share image, generate it with Imagen/imagegen:
+6. If the user asks for a 图片报告, 海报, 朋友圈图, share image, or infographic, generate it with Imagen/imagegen:
 
 - Use only sanitized report facts: rank, score, confidence, top signal summaries, rank caps, and next step.
 - Do not include raw transcript snippets, local file paths, session IDs, customer data, source code, tokens, or secrets.
@@ -107,6 +108,7 @@ The script only performs local cleaning, evidence classification, and conservati
 - If a CLI report contains `shareImagePrompt`, use it as the first draft because it is already sanitized for image generation.
 - The report site also exposes a "复制图片报告提示词" button for the same sanitized prompt.
 - Use `references/image-report-prompt.md` as the prompt template.
+- For generic infographics, use `references/infographic-prompt.md` and do not substitute HTML, SVG, Mermaid, canvas, CSS, or other code-rendered diagrams for the raster image.
 
 ## Ranking Rules
 

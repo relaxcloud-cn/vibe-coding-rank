@@ -219,6 +219,51 @@ assert.equal(
   shortDom.window.document.querySelector("#share-note").textContent,
   "当前是本地完整报告；只从本机服务读取，未上传公网。",
 );
+const unsafeDom = await renderAt("report/unsafe", {
+  body: {
+    report: {
+      reportId: "unsafe",
+      reportLinkMode: "local-full-report",
+      reportPayloadType: "local-full",
+      analysisMode: "advanced",
+      rank: { level: 6, label: "六品 · 已有大成", score: 76, confidence: "high", systemOwnership: "strong" },
+      verdict: "包含转义测试",
+      strongestEvidence: [
+        { label: "<img src=x onerror=alert(1)>", reason: "<script>alert(2)</script>", summary: "<b>bold</b>" },
+      ],
+      dimensionProfile: [{ label: "<img src=x onerror=alert(3)>", status: "<b>成立</b>", score: 65 }],
+      hardStatCards: [{ label: "<img src=x onerror=alert(4)>", value: "<b>4 天</b>", detail: "<i>detail</i>", interpretation: "<script>alert(5)</script>" }],
+      metricGroups: [{ label: "<img src=x onerror=alert(6)>", value: "<b>20%</b>", signal: "<i>signal</i>", ratingImpact: "<em>impact</em>", risk: "<p>risk</p>" }],
+      advancedAnalysis: {
+        decisionTrace: { finalRank: { level: 6, label: "六品 · 已有大成" } },
+        gateAudit: {
+          passed: [{ id: "unsafe_gate", label: "<img src=x onerror=alert(7)>", summary: "<b>summary</b>" }],
+          failed: [],
+          keyGate: { id: "unsafe_gate", label: "<img src=x onerror=alert(8)>", summary: "<b>summary</b>" },
+        },
+        dimensionRubric: [{ id: "unsafe_dimension", label: "<img src=x onerror=alert(9)>", status: "<b>成立</b>", score: 65, nextGap: "<i>gap</i>" }],
+        evidenceAudit: {
+          accepted: [{ label: "<img src=x onerror=alert(10)>", reason: "<b>reason</b>", dimension: "<i>dimension</i>" }],
+          downranked: [],
+        },
+        upgradePlan: ["<b>plan</b>"],
+        limitations: ["<script>alert(11)</script>"],
+      },
+      privacy: { rawLogsUploaded: false },
+    },
+  },
+});
+assert.match(unsafeDom.window.document.querySelector("#evidence-grid").textContent, /<b>bold<\/b>/);
+assert.equal(unsafeDom.window.document.querySelector("#evidence-grid img"), null);
+assert.equal(unsafeDom.window.document.querySelector("#evidence-grid script"), null);
+assert.match(unsafeDom.window.document.querySelector("#dimension-grid").textContent, /<b>成立<\/b>/);
+assert.equal(unsafeDom.window.document.querySelector("#dimension-grid img"), null);
+assert.match(unsafeDom.window.document.querySelector("#hard-stat-grid").textContent, /<b>4 天<\/b>/);
+assert.equal(unsafeDom.window.document.querySelector("#hard-stat-grid script"), null);
+assert.match(unsafeDom.window.document.querySelector("#metric-group-grid").textContent, /<em>impact<\/em>/);
+assert.equal(unsafeDom.window.document.querySelector("#metric-group-grid img"), null);
+assert.match(unsafeDom.window.document.querySelector("#advanced-gates").textContent, /<b>summary<\/b>/);
+assert.equal(unsafeDom.window.document.querySelector("#advanced-gates img"), null);
 assert.equal(
   shortDom.window.document.querySelector("#evidence-structure").textContent,
   "证据跨度 4 天；信号覆盖度 50%；最高信号集中度 25%；成立维度 3/6；峰值日 token 占比 40%；验证密度 12%；强记录占比 8%。",
