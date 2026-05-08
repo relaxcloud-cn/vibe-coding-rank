@@ -227,6 +227,7 @@ const PUBLIC_STAT_PROFILE_FIELDS = [
   "summary",
   "riskLevel",
   "ratingUse",
+  "reasons",
   "signals",
 ];
 
@@ -629,6 +630,18 @@ function sampleSummary() {
       evidenceReading: "强记录和信号覆盖足以支撑较高置信度复核。",
       riskLevel: "low",
       ratingUse: "统计画像用于解释置信度、封顶和下一步，不直接升品。",
+      reasons: [
+        "用户决策 17%，用户系统级取舍足够强。",
+        "验证密度 11%，结果有可托付证据。",
+        "成立维度 5/6，能力结构比较完整。",
+        "强记录 10%，有可复核的高阶证据。",
+      ],
+      matchedRules: [
+        { metric: "用户决策", observed: "17%", threshold: ">=12%", interpretation: "用户系统级取舍足够强。" },
+        { metric: "验证密度", observed: "11%", threshold: ">=8%", interpretation: "结果有可托付证据。" },
+        { metric: "成立维度", observed: "5/6", threshold: ">=5/6", interpretation: "能力结构比较完整。" },
+        { metric: "强记录", observed: "10%", threshold: ">=10%", interpretation: "有可复核的高阶证据。" },
+      ],
       signals: [
         "用户决策 17%",
         "主动控制 17%",
@@ -1160,7 +1173,10 @@ function statProfileLine(report) {
   const signals = Array.isArray(profile.signals) && profile.signals.length
     ? `（${profile.signals.slice(0, 4).join("，")}）`
     : "";
-  return `${profile.label || "统计画像"}：${profile.summary || ""}${signals}`;
+  const reasons = Array.isArray(profile.reasons) && profile.reasons.length
+    ? ` 依据：${profile.reasons.slice(0, 2).join("；")}`
+    : "";
+  return `${profile.label || "统计画像"}：${profile.summary || ""}${signals}${reasons}`;
 }
 
 function statsInsight(report) {
@@ -1211,6 +1227,47 @@ function statProfile(report) {
   const bugLoopDensity = Number(stats.bug_loop_density || 0);
   const peakDayShare = Number(stats.peak_day_token_share || 0);
   const weakSignalRatio = Number(stats.weak_signal_ratio || 0);
+  const reasons = [];
+  const matchedRules = [];
+  const addReason = (metric, observed, threshold, interpretation) => {
+    reasons.push(`${metric} ${observed}，${interpretation}`);
+    matchedRules.push({ metric, observed, threshold, interpretation });
+  };
+
+  if (userDecisionRatio >= 0.12) {
+    addReason("用户决策", formatPercent(userDecisionRatio), ">=12%", "用户系统级取舍足够强。");
+  } else if (userDecisionRatio >= 0.08) {
+    addReason("用户决策", formatPercent(userDecisionRatio), ">=8%", "达到七品复核线。");
+  } else if (userDecisionRatio < 0.05) {
+    addReason("用户决策", formatPercent(userDecisionRatio), "<5%", "人在控证据偏弱。");
+  }
+  if (validationDensity >= 0.08) {
+    addReason("验证密度", formatPercent(validationDensity), ">=8%", "结果有可托付证据。");
+  } else if (validationDensity < 0.03) {
+    addReason("验证密度", formatPercent(validationDensity), "<3%", "验证闭环偏弱。");
+  }
+  if (establishedDimensions >= 5) {
+    addReason("成立维度", `${establishedDimensions}/6`, ">=5/6", "能力结构比较完整。");
+  } else if (establishedDimensions >= 4) {
+    addReason("成立维度", `${establishedDimensions}/6`, ">=4/6", "有系统化线索但还需验证。");
+  }
+  if (totalTokens >= 500_000) {
+    addReason("token 投入", `${Math.round(totalTokens / 10000)}万`, ">=50万", "AI 使用强度很高。");
+  }
+  if (bugLoopDensity >= 0.08) {
+    addReason("返工压力", formatPercent(bugLoopDensity), ">=8%", "容易陷入局部修补循环。");
+  }
+  if (weakSignalRatio >= 0.35) {
+    addReason("弱信号", formatPercent(weakSignalRatio), ">=35%", "Demo、片段或修补占比偏高。");
+  }
+  if (peakDayShare >= 0.5) {
+    addReason("峰值日 token", formatPercent(peakDayShare), ">=50%", "投入集中在少数日期。");
+  }
+  if (strongRecordDensity < 0.05) {
+    addReason("强记录", formatPercent(strongRecordDensity), "<5%", "高阶强证据偏薄。");
+  } else if (strongRecordDensity >= 0.1) {
+    addReason("强记录", formatPercent(strongRecordDensity), ">=10%", "有可复核的高阶证据。");
+  }
 
   let profile = {
     id: "balanced_operator",
@@ -1286,6 +1343,8 @@ function statProfile(report) {
         ? "强记录存在，但覆盖还不够厚，需要更多不同任务证据。"
         : "强记录偏薄，自动初筛应保守。",
     ratingUse: "统计画像用于解释置信度、封顶和下一步，不直接升品。",
+    reasons: reasons.slice(0, 4),
+    matchedRules: matchedRules.slice(0, 4),
     signals: [
       `用户决策 ${formatPercent(userDecisionRatio)}`,
       `主动控制 ${formatPercent(userControlRatio)}`,
@@ -1553,6 +1612,7 @@ function buildShareImagePrompt(report, url = "") {
   const insight = statsInsight(report);
   const profile = report.statProfile || statProfile(report);
   const profileSignals = Array.isArray(profile.signals) ? profile.signals.slice(0, 6).join("，") : "";
+  const profileReasons = Array.isArray(profile.reasons) ? profile.reasons.slice(0, 3).join("；") : "";
   const rankCap = shortText(report.rankCaps?.[0] || report.narrative?.capSummary || "暂无明显封顶原因", 52);
   const upgrade = shortText(report.gateUpgradeAdvice || report.upgradePath?.[0] || report.narrative?.upgradeSummary || "继续沉淀可复用工作流", 52);
   const hardCards = shareHardStatCards(report.hardStatCards)
@@ -1599,6 +1659,7 @@ ${insight}
 统计画像：
 ${profile.label || "统计画像"}：${profile.summary || ""}
 ${profileSignals ? `关键数字：${profileSignals}` : ""}
+${profileReasons ? `画像依据：${profileReasons}` : ""}
 ${profile.ratingUse || "统计画像用于解释置信度、封顶和下一步，不直接升品。"}
 
 关键门槛：
@@ -1661,6 +1722,7 @@ function buildJudgePrompt(report, url = "") {
   const dragFactors = dragFactorLine(report);
   const profile = report.statProfile || statProfile(report);
   const profileSignals = Array.isArray(profile.signals) ? profile.signals.join("；") : "";
+  const profileReasons = Array.isArray(profile.reasons) ? profile.reasons.map((item) => `- ${item}`).join("\n") : "";
   const rankCaps = (report.rankCaps || []).slice(0, 5).map((item) => `- ${item}`).join("\n") || "- 暂无明显封顶原因";
   const reportUrl = url ? `\n公开报告链接：${url}` : "";
 
@@ -1704,6 +1766,8 @@ ${metricRows || "- 暂无统计仪表盘"}
 - 验证：${profile.validationReading || ""}
 - 投入：${profile.investmentReading || ""}
 - 证据：${profile.evidenceReading || ""}
+- 画像依据：
+${profileReasons || "- 暂无"}
 - 关键数字：${profileSignals || "暂无"}
 - 使用边界：${profile.ratingUse || "统计画像用于解释置信度、封顶和下一步，不直接升品。"}
 
@@ -1760,6 +1824,9 @@ function publicStatProfile(profile) {
   const result = pickFields(profile, PUBLIC_STAT_PROFILE_FIELDS);
   if (Array.isArray(result.signals)) {
     result.signals = result.signals.slice(0, 4);
+  }
+  if (Array.isArray(result.reasons)) {
+    result.reasons = result.reasons.slice(0, 2);
   }
   return result;
 }

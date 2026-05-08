@@ -243,6 +243,19 @@
     "evidenceReading": "强记录和信号覆盖足以支撑较高置信度复核。",
     "riskLevel": "low",
     "ratingUse": "统计画像用于解释置信度、封顶和下一步，不直接升品。",
+    "reasons": [
+      "用户决策 17%，用户系统级取舍足够强。",
+      "验证密度 11%，结果有可托付证据。",
+      "成立维度 5/6，能力结构比较完整。"
+    ],
+    "matchedRules": [
+      {
+        "metric": "用户决策",
+        "observed": "17%",
+        "threshold": ">=12%",
+        "interpretation": "用户系统级取舍足够强。"
+      }
+    ],
     "signals": ["用户决策 17%", "主动控制 17%", "助手执行 75%", "验证密度 11%"]
   },
   "dimensionProfile": [

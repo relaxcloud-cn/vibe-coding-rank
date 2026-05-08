@@ -288,6 +288,8 @@ class ScriptTests(unittest.TestCase):
             self.assertIn("demo_heavy", factor_ids)
             self.assertEqual(data["stat_profile"]["id"], "rework_trapped")
             self.assertIn("返工消耗型", data["stat_profile"]["label"])
+            self.assertTrue(any("返工压力" in item or "弱信号" in item for item in data["stat_profile"]["reasons"]))
+            self.assertIn("matchedRules", data["stat_profile"])
 
     def test_prepare_evidence_filters_system_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -513,6 +515,7 @@ class ScriptTests(unittest.TestCase):
             self.assertIn("用户决策足以支撑", data["metric_groups"][2]["risk"])
             self.assertEqual(data["stat_profile"]["id"], "burst_operator")
             self.assertIn("统计画像用于解释置信度", data["stat_profile"]["ratingUse"])
+            self.assertTrue(any(rule["metric"] == "峰值日 token" for rule in data["stat_profile"]["matchedRules"]))
             self.assertEqual(data["excluded_reason_counts"]["role:usage_stats"], 2)
             self.assertIn("quality_flags", data)
             self.assertTrue(any(item["id"] == "peak_day_concentrated" for item in data["quality_flags"]))

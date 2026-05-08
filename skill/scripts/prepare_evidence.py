@@ -1056,6 +1056,50 @@ def build_stat_profile(hard_stats: dict[str, Any]) -> dict[str, Any]:
     bug_loop_density = float(hard_stats.get("bug_loop_density") or 0)
     peak_day_share = float(hard_stats.get("peak_day_token_share") or 0)
     weak_signal_ratio = float(hard_stats.get("weak_signal_ratio") or 0)
+    reasons: list[str] = []
+    matched_rules: list[dict[str, str]] = []
+
+    def add_reason(metric: str, observed: str, threshold: str, interpretation: str) -> None:
+        reasons.append(f"{metric} {observed}，{interpretation}")
+        matched_rules.append(
+            {
+                "metric": metric,
+                "observed": observed,
+                "threshold": threshold,
+                "interpretation": interpretation,
+            }
+        )
+
+    if user_decision_ratio >= 0.12:
+        add_reason("用户决策", percent(user_decision_ratio), ">=12%", "用户系统级取舍足够强。")
+    elif user_decision_ratio >= 0.08:
+        add_reason("用户决策", percent(user_decision_ratio), ">=8%", "达到七品复核线。")
+    elif user_decision_ratio < 0.05:
+        add_reason("用户决策", percent(user_decision_ratio), "<5%", "人在控证据偏弱。")
+
+    if validation_density >= 0.08:
+        add_reason("验证密度", percent(validation_density), ">=8%", "结果有可托付证据。")
+    elif validation_density < 0.03:
+        add_reason("验证密度", percent(validation_density), "<3%", "验证闭环偏弱。")
+
+    if established_dimensions >= 5:
+        add_reason("成立维度", f"{established_dimensions}/6", ">=5/6", "能力结构比较完整。")
+    elif established_dimensions >= 4:
+        add_reason("成立维度", f"{established_dimensions}/6", ">=4/6", "有系统化线索但还需验证。")
+
+    if total_tokens >= 500_000:
+        add_reason("token 投入", f"{round(total_tokens / 10000)}万", ">=50万", "AI 使用强度很高。")
+
+    if bug_loop_density >= 0.08:
+        add_reason("返工压力", percent(bug_loop_density), ">=8%", "容易陷入局部修补循环。")
+    if weak_signal_ratio >= 0.35:
+        add_reason("弱信号", percent(weak_signal_ratio), ">=35%", "Demo、片段或修补占比偏高。")
+    if peak_day_share >= 0.5:
+        add_reason("峰值日 token", percent(peak_day_share), ">=50%", "投入集中在少数日期。")
+    if strong_record_density < 0.05:
+        add_reason("强记录", percent(strong_record_density), "<5%", "高阶强证据偏薄。")
+    elif strong_record_density >= 0.1:
+        add_reason("强记录", percent(strong_record_density), ">=10%", "有可复核的高阶证据。")
 
     if user_decision_ratio >= 0.12 and validation_density >= 0.08 and established_dimensions >= 5:
         profile_id = "system_owner"
@@ -1124,6 +1168,8 @@ def build_stat_profile(hard_stats: dict[str, Any]) -> dict[str, Any]:
         "evidenceReading": evidence_reading,
         "riskLevel": "high" if profile_id in {"ai_labor_dependent", "architecture_floating", "rework_trapped", "thin_evidence"} else "medium" if profile_id == "burst_operator" else "low",
         "ratingUse": "统计画像用于解释置信度、封顶和下一步，不直接升品。",
+        "reasons": reasons[:4],
+        "matchedRules": matched_rules[:4],
         "signals": [
             f"用户决策 {percent(user_decision_ratio)}",
             f"主动控制 {percent(user_control_ratio)}",

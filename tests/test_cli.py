@@ -43,6 +43,9 @@ class CliTests(unittest.TestCase):
         self.assertIn("metricGroups", shared)
         self.assertIn("statProfile", shared)
         self.assertEqual(shared["statProfile"]["id"], "system_owner")
+        self.assertIn("reasons", shared["statProfile"])
+        self.assertLessEqual(len(shared["statProfile"]["reasons"]), 2)
+        self.assertNotIn("matchedRules", shared["statProfile"])
         self.assertEqual(len(shared["metricGroups"]), 5)
         self.assertEqual(shared["metricGroups"][2]["id"], "human_control")
         self.assertNotIn("behaviorCounts", shared)
@@ -107,6 +110,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("statProfile", payload["report"])
         self.assertEqual(payload["report"]["statProfile"]["label"], "系统拥有型")
         self.assertIn("不直接升品", payload["report"]["statProfile"]["ratingUse"])
+        self.assertIn("用户决策 17%", payload["report"]["statProfile"]["reasons"][0])
+        self.assertEqual(payload["report"]["statProfile"]["matchedRules"][0]["metric"], "用户决策")
         self.assertEqual(
             [item["id"] for item in payload["report"]["metricGroups"]],
             ["investment", "sample_quality", "human_control", "validation_loop", "efficiency_risk"],
@@ -124,6 +129,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("统计解读", payload["report"]["shareImagePrompt"])
         self.assertIn("统计画像", payload["report"]["shareImagePrompt"])
         self.assertIn("系统拥有型", payload["report"]["shareImagePrompt"])
+        self.assertIn("画像依据", payload["report"]["shareImagePrompt"])
         self.assertIn("关键门槛", payload["report"]["shareImagePrompt"])
         self.assertIn("质量提示", payload["report"]["shareImagePrompt"])
         self.assertIn("拖累项", payload["report"]["shareImagePrompt"])
@@ -139,6 +145,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("统计仪表盘", payload["report"]["judgePrompt"])
         self.assertIn("统计画像", payload["report"]["judgePrompt"])
         self.assertIn("系统拥有型", payload["report"]["judgePrompt"])
+        self.assertIn("画像依据", payload["report"]["judgePrompt"])
         self.assertNotIn("demo/session.jsonl", payload["report"]["judgePrompt"])
         self.assertIn("statsInsight", payload["report"])
         self.assertEqual(payload["report"]["usageStats"]["average_day_tokens"], 213333)
@@ -448,6 +455,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("statProfile", uploaded)
         self.assertEqual(uploaded["metricGroups"][0]["id"], "investment")
         self.assertEqual(uploaded["statProfile"]["id"], "system_owner")
+        self.assertNotIn("matchedRules", uploaded["statProfile"])
         self.assertNotIn("judgePrompt", uploaded)
         self.assertTrue(uploaded["privacy"]["compactPublicReport"])
         self.assertLessEqual(len(uploaded["hardStatCards"]), 8)

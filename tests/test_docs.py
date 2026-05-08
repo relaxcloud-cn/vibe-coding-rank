@@ -51,6 +51,8 @@ class DocsTests(unittest.TestCase):
         self.assertIn("risk", example["metricGroups"][0])
         self.assertEqual(example["statProfile"]["id"], "system_owner")
         self.assertIn("ratingUse", example["statProfile"])
+        self.assertIn("reasons", example["statProfile"])
+        self.assertIn("matchedRules", example["statProfile"])
         self.assertNotIn("judgment_mode", example)
         self.assertNotIn("is_final", example)
         self.assertNotIn("usage_stats", example)
