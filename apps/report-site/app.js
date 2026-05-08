@@ -394,6 +394,9 @@ function render(report) {
   document.querySelector("#evidence-structure").textContent = evidenceStructureSummary(report);
   document.querySelector("#behavior-mix").textContent = behaviorMixSummary(report);
   document.querySelector("#stats-insight").textContent = statsInsight(report);
+  const statEvidenceRow = statEvidence(report);
+  document.querySelector("#stat-evidence").textContent = `${statEvidenceRow.label || "硬统计证据"}：${statEvidenceRow.conclusion || ""}`;
+  document.querySelector("#stat-evidence-detail").textContent = statEvidenceDetail(statEvidenceRow);
   const profile = statProfile(report);
   document.querySelector("#stat-profile").textContent = `${profile.label || "统计画像"}：${profile.summary || ""}`;
   document.querySelector("#stat-profile-detail").textContent = profileDetail(profile);
@@ -513,6 +516,11 @@ function formatPercent(value) {
   return `${Math.round(number * 100)}%`;
 }
 
+function rankLevelName(level) {
+  const row = RANKS[Number(level)];
+  return String(row?.[1] || `${level}品`).split(" · ")[0];
+}
+
 function formatMoney(value) {
   const number = Number(value || 0);
   if (!Number.isFinite(number) || number <= 0) return "$0";
@@ -582,6 +590,112 @@ function statsInsight(report) {
     return "样本跨越多个工作日，稳定性比单次会话更可信。";
   }
   return "硬统计用于解释投入强度、样本质量和证据结构，不直接参与段位升品。";
+}
+
+function statEvidence(report) {
+  if (report.statEvidence?.label || report.statEvidence?.conclusion) return report.statEvidence;
+  const stats = report.hardStats || {};
+  const level = Number(report.rank?.level || 0);
+  const activeDays = Number(stats.active_days || 0);
+  const sourceCount = Number(stats.source_count || 0);
+  const analyzed = Number(stats.analyzed_record_count ?? report.analyzedRecordCount ?? 0);
+  const promotionRecordCount = Number(stats.promotion_record_count || 0);
+  const strongRecordDensity = Number(stats.strong_record_density || 0);
+  const signalCoverageRatio = Number(stats.signal_coverage_ratio || 0);
+  const establishedDimensions = Number(stats.established_dimension_count || 0);
+  const userControlRatio = Number(stats.user_control_ratio || 0);
+  const userDecisionRatio = Number(stats.promotion_user_decision_ratio ?? stats.user_decision_ratio ?? 0);
+  const validationDensity = Number(stats.validation_density || 0);
+  const assistantExecutionRatio = Number(stats.promotion_assistant_execution_ratio || 0);
+  const bugLoopDensity = Number(stats.bug_loop_density || 0);
+  const peakDayShare = Number(stats.peak_day_token_share || 0);
+  const totalTokens = Number(stats.total_tokens || report.usageStats?.total_tokens || 0);
+  const positiveSignals = [];
+  const riskSignals = [];
+  const investmentSignals = [];
+  let supportLevel = 3;
+
+  if (activeDays >= 5 || sourceCount >= 3) {
+    positiveSignals.push(`样本跨 ${activeDays || "未知"} 天、${sourceCount || "未知"} 个来源，稳定性好于单次高光。`);
+  } else if (analyzed < 20 || sourceCount < 2) {
+    riskSignals.push(`样本只有 ${analyzed} 条有效记录、${sourceCount} 个来源，高段位置信度不足。`);
+  }
+  if (userDecisionRatio >= 0.08) {
+    positiveSignals.push(`用户决策 ${formatPercent(userDecisionRatio)}，达到七品复核线。`);
+  } else if (userDecisionRatio >= 0.03) {
+    positiveSignals.push(`用户决策 ${formatPercent(userDecisionRatio)}，可支撑六品复核。`);
+  } else {
+    riskSignals.push(`用户决策 ${formatPercent(userDecisionRatio)}，系统级取舍证据不足。`);
+  }
+  if (userControlRatio >= 0.1) {
+    positiveSignals.push(`主动控制 ${formatPercent(userControlRatio)}，人在定义目标、边界、架构和验收。`);
+  } else if (userControlRatio > 0 && userControlRatio < 0.05) {
+    riskSignals.push(`主动控制 ${formatPercent(userControlRatio)}，高阶信号容易被助手自述稀释。`);
+  }
+  if (validationDensity >= 0.08) {
+    positiveSignals.push(`验证密度 ${formatPercent(validationDensity)}，结果有可托付证据。`);
+  } else if (validationDensity < 0.03) {
+    riskSignals.push(`验证密度 ${formatPercent(validationDensity)}，闭环不足会压住六品。`);
+  }
+  if (establishedDimensions >= 5 && signalCoverageRatio >= 0.5) {
+    positiveSignals.push(`成立维度 ${establishedDimensions}/6、信号覆盖 ${formatPercent(signalCoverageRatio)}，能力结构较完整。`);
+  } else if (establishedDimensions < 4) {
+    riskSignals.push(`成立维度 ${establishedDimensions}/6，系统能力结构还不完整。`);
+  }
+  if (strongRecordDensity >= 0.1) {
+    positiveSignals.push(`强记录占比 ${formatPercent(strongRecordDensity)}，可复核高阶证据足够厚。`);
+  } else if (strongRecordDensity < 0.05 || promotionRecordCount < 4) {
+    riskSignals.push(`强记录占比 ${formatPercent(strongRecordDensity)}、高阶记录 ${promotionRecordCount} 条，高段位证据偏薄。`);
+  }
+  if (assistantExecutionRatio >= 0.7) riskSignals.push(`助手执行 ${formatPercent(assistantExecutionRatio)}，需要确认高阶结论不是 AI 自述完成。`);
+  if (bugLoopDensity >= 0.08) riskSignals.push(`返工压力 ${formatPercent(bugLoopDensity)}，可能仍困在局部 patch 循环。`);
+  if (peakDayShare >= 0.5) riskSignals.push(`峰值日 token 占比 ${formatPercent(peakDayShare)}，投入集中会削弱稳定性判断。`);
+  if (totalTokens) investmentSignals.push(`总 token ${formatTokens(totalTokens)}`);
+  if (stats.peak_day_tokens) investmentSignals.push(`峰值日 ${formatTokens(stats.peak_day_tokens)}`);
+
+  if (userDecisionRatio >= 0.08 && userControlRatio >= 0.1 && validationDensity >= 0.08 && establishedDimensions >= 5 && strongRecordDensity >= 0.08 && sourceCount >= 3) {
+    supportLevel = 7;
+  } else if (userDecisionRatio >= 0.03 && userControlRatio >= 0.05 && validationDensity > 0 && establishedDimensions >= 4 && promotionRecordCount >= 4) {
+    supportLevel = 6;
+  } else if (validationDensity > 0 && establishedDimensions >= 3) {
+    supportLevel = 5;
+  } else if (userControlRatio > 0 || validationDensity > 0) {
+    supportLevel = 4;
+  }
+
+  const confidenceImpact = riskSignals.length >= 3 || strongRecordDensity < 0.05 || userDecisionRatio < 0.03 || assistantExecutionRatio >= 0.7
+    ? "降低置信度并可能封顶"
+    : riskSignals.length ? "局部降低置信度" : "提高置信度";
+  const label = supportLevel >= level
+    ? "硬统计支撑当前段位"
+    : supportLevel < level ? "硬统计低于当前段位" : "硬统计支撑";
+  const rankText = report.rank?.label || rankLevelName(level);
+  const conclusion = supportLevel >= level
+    ? `数字侧能支撑${rankText}的可信度，但不会单独升品。`
+    : `数字侧最多稳定支撑到${rankLevelName(supportLevel)}，当前段位需要依赖行为证据和 AI 深度复核。`;
+  return {
+    id: supportLevel >= level ? "supports_current_rank" : "caps_confidence",
+    label,
+    supportLevel,
+    supportLabel: `${rankLevelName(supportLevel)}统计支撑`,
+    confidenceImpact,
+    conclusion,
+    positiveSignals: positiveSignals.slice(0, 4),
+    riskSignals: riskSignals.slice(0, 4),
+    investmentSignals: investmentSignals.slice(0, 3),
+    ratingUse: "硬统计用于支撑置信度、解释封顶和定位下一步；token 和成本只说明投入强度，不能直接升品。",
+  };
+}
+
+function statEvidenceDetail(evidence) {
+  const support = [evidence.supportLabel, evidence.confidenceImpact].filter(Boolean).join("；");
+  const positives = Array.isArray(evidence.positiveSignals) && evidence.positiveSignals.length
+    ? `正向：${evidence.positiveSignals.slice(0, 2).join("；")}。`
+    : "";
+  const risks = Array.isArray(evidence.riskSignals) && evidence.riskSignals.length
+    ? `风险：${evidence.riskSignals.slice(0, 2).join("；")}。`
+    : "";
+  return `${support ? `${support}。` : ""}${positives}${risks}${evidence.ratingUse || "硬统计用于支撑置信度、解释封顶和定位下一步；token 和成本只说明投入强度，不能直接升品。"}`;
 }
 
 function statProfile(report) {
@@ -1040,6 +1154,11 @@ function buildSharePrompt(report) {
   const profile = statProfile(report);
   const profileSignals = Array.isArray(profile.signals) ? profile.signals.slice(0, 6).join("，") : "";
   const profileReasons = Array.isArray(profile.reasons) ? profile.reasons.slice(0, 3).join("；") : "";
+  const statEvidenceRow = statEvidence(report);
+  const statEvidenceSignals = [
+    ...(Array.isArray(statEvidenceRow.positiveSignals) ? statEvidenceRow.positiveSignals.slice(0, 2) : []),
+    ...(Array.isArray(statEvidenceRow.riskSignals) ? statEvidenceRow.riskSignals.slice(0, 2) : []),
+  ].join("；");
   const url = location.href;
   return `
 Use case: infographic-diagram
@@ -1072,6 +1191,12 @@ ${behaviorMixSummary(report)}
 
 统计解读：
 ${statsInsight(report)}
+
+硬统计证据结论：
+${statEvidenceRow.label || "硬统计证据"}：${statEvidenceRow.conclusion || ""}
+${statEvidenceRow.supportLabel || ""}；${statEvidenceRow.confidenceImpact || ""}
+${statEvidenceSignals ? `关键依据：${statEvidenceSignals}` : ""}
+${statEvidenceRow.ratingUse || "硬统计用于支撑置信度、解释封顶和定位下一步；token 和成本只说明投入强度，不能直接升品。"}
 
 统计画像：
 ${profile.label || "统计画像"}：${profile.summary || ""}
@@ -1139,6 +1264,13 @@ function buildJudgePrompt(report) {
   const profile = statProfile(report);
   const profileSignals = Array.isArray(profile.signals) ? profile.signals.join("；") : "";
   const profileReasons = Array.isArray(profile.reasons) ? profile.reasons.map((item) => `- ${item}`).join("\n") : "";
+  const statEvidenceRow = statEvidence(report);
+  const statEvidencePositive = Array.isArray(statEvidenceRow.positiveSignals)
+    ? statEvidenceRow.positiveSignals.map((item) => `- ${item}`).join("\n")
+    : "";
+  const statEvidenceRisks = Array.isArray(statEvidenceRow.riskSignals)
+    ? statEvidenceRow.riskSignals.map((item) => `- ${item}`).join("\n")
+    : "";
 
   return `
 你是 Airank Vibe Coding 九品体系的 AI 深度判定官。请基于下面这份已脱敏报告做最终复核。
@@ -1172,6 +1304,16 @@ ${metricRows || "- 暂无统计仪表盘"}
 - ${evidenceStructureSummary(report)}
 - ${behaviorMixSummary(report)}
 - 统计解读：${statsInsight(report)}
+
+硬统计证据结论：
+- 类型：${statEvidenceRow.label || "硬统计证据"}（${statEvidenceRow.supportLabel || ""}，${statEvidenceRow.confidenceImpact || ""}）
+- 结论：${statEvidenceRow.conclusion || ""}
+- 正向统计：
+${statEvidencePositive || "- 暂无"}
+- 风险统计：
+${statEvidenceRisks || "- 暂无"}
+- 投入统计：${Array.isArray(statEvidenceRow.investmentSignals) && statEvidenceRow.investmentSignals.length ? statEvidenceRow.investmentSignals.join("；") : "暂无"}
+- 使用边界：${statEvidenceRow.ratingUse || "硬统计用于支撑置信度、解释封顶和定位下一步；token 和成本只说明投入强度，不能直接升品。"}
 
 统计画像：
 - 类型：${profile.label || "统计画像"}（${profile.id || "unknown"}，风险=${profile.riskLevel || "unknown"}）

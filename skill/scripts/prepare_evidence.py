@@ -266,6 +266,8 @@ RANKS = [
     (9, "九品 · 大宗师"),
 ]
 
+RANK_LABELS = {level: label for level, label in RANKS}
+
 SCORE_BANDS = {
     0: (0, 9),
     1: (10, 19),
@@ -709,6 +711,10 @@ def percent(value: float) -> str:
     return f"{round(value * 100)}%"
 
 
+def rank_level_name(level: int) -> str:
+    return str(RANK_LABELS.get(level, f"{level}品")).split(" · ")[0]
+
+
 def quality_flag(
     flag_id: str,
     severity: str,
@@ -1039,6 +1045,130 @@ def metric_groups(hard_stats: dict[str, Any], usage_stats: dict[str, Any]) -> li
             "risk": "返工压力高，可能仍停在局部 patch 循环。" if bug_loop_density >= 0.08 else "没有明显困在修补循环。",
         },
     ]
+
+
+def build_stat_evidence(hard_stats: dict[str, Any], rank_level: int, rank_label: str) -> dict[str, Any]:
+    active_days = int(hard_stats.get("active_days") or 0)
+    source_count = int(hard_stats.get("source_count") or 0)
+    analyzed = int(hard_stats.get("analyzed_record_count") or 0)
+    promotion_record_count = int(hard_stats.get("promotion_record_count") or 0)
+    strong_record_density = float(hard_stats.get("strong_record_density") or 0)
+    signal_coverage_ratio = float(hard_stats.get("signal_coverage_ratio") or 0)
+    established_dimensions = int(hard_stats.get("established_dimension_count") or 0)
+    user_control_ratio = float(hard_stats.get("user_control_ratio") or 0)
+    user_decision_ratio = float(hard_stats.get("promotion_user_decision_ratio") or hard_stats.get("user_decision_ratio") or 0)
+    validation_density = float(hard_stats.get("validation_density") or 0)
+    assistant_execution_ratio = float(hard_stats.get("promotion_assistant_execution_ratio") or 0)
+    bug_loop_density = float(hard_stats.get("bug_loop_density") or 0)
+    peak_day_share = float(hard_stats.get("peak_day_token_share") or 0)
+    total_tokens = int(hard_stats.get("total_tokens") or 0)
+    positive_signals: list[str] = []
+    risk_signals: list[str] = []
+    investment_signals: list[str] = []
+    support_level = 3
+
+    if active_days >= 5 or source_count >= 3:
+        positive_signals.append(f"样本跨 {active_days or '未知'} 天、{source_count or '未知'} 个来源，稳定性好于单次高光。")
+    elif analyzed < 20 or source_count < 2:
+        risk_signals.append(f"样本只有 {analyzed} 条有效记录、{source_count} 个来源，高段位置信度不足。")
+
+    if user_decision_ratio >= 0.08:
+        positive_signals.append(f"用户决策 {percent(user_decision_ratio)}，达到七品复核线。")
+    elif user_decision_ratio >= 0.03:
+        positive_signals.append(f"用户决策 {percent(user_decision_ratio)}，可支撑六品复核。")
+    else:
+        risk_signals.append(f"用户决策 {percent(user_decision_ratio)}，系统级取舍证据不足。")
+
+    if user_control_ratio >= 0.1:
+        positive_signals.append(f"主动控制 {percent(user_control_ratio)}，人在定义目标、边界、架构和验收。")
+    elif 0 < user_control_ratio < 0.05:
+        risk_signals.append(f"主动控制 {percent(user_control_ratio)}，高阶信号容易被助手自述稀释。")
+
+    if validation_density >= 0.08:
+        positive_signals.append(f"验证密度 {percent(validation_density)}，结果有可托付证据。")
+    elif validation_density < 0.03:
+        risk_signals.append(f"验证密度 {percent(validation_density)}，闭环不足会压住六品。")
+
+    if established_dimensions >= 5 and signal_coverage_ratio >= 0.5:
+        positive_signals.append(f"成立维度 {established_dimensions}/6、信号覆盖 {percent(signal_coverage_ratio)}，能力结构较完整。")
+    elif established_dimensions < 4:
+        risk_signals.append(f"成立维度 {established_dimensions}/6，系统能力结构还不完整。")
+
+    if strong_record_density >= 0.1:
+        positive_signals.append(f"强记录占比 {percent(strong_record_density)}，可复核高阶证据足够厚。")
+    elif strong_record_density < 0.05 or promotion_record_count < 4:
+        risk_signals.append(f"强记录占比 {percent(strong_record_density)}、高阶记录 {promotion_record_count} 条，高段位证据偏薄。")
+
+    if assistant_execution_ratio >= 0.7:
+        risk_signals.append(f"助手执行 {percent(assistant_execution_ratio)}，需要确认高阶结论不是 AI 自述完成。")
+    if bug_loop_density >= 0.08:
+        risk_signals.append(f"返工压力 {percent(bug_loop_density)}，可能仍困在局部 patch 循环。")
+    if peak_day_share >= 0.5:
+        risk_signals.append(f"峰值日 token 占比 {percent(peak_day_share)}，投入集中会削弱稳定性判断。")
+
+    if total_tokens:
+        if total_tokens >= 100000000:
+            token_text = f"{total_tokens / 100000000:.1f}亿"
+        elif total_tokens >= 10000:
+            token_text = f"{round(total_tokens / 10000)}万"
+        else:
+            token_text = str(total_tokens)
+        investment_signals.append(f"总 token {token_text}")
+    if hard_stats.get("peak_day_tokens"):
+        investment_signals.append(f"峰值日 {hard_stats.get('peak_day_tokens')} token")
+
+    if (
+        user_decision_ratio >= 0.08
+        and user_control_ratio >= 0.1
+        and validation_density >= 0.08
+        and established_dimensions >= 5
+        and strong_record_density >= 0.08
+        and source_count >= 3
+    ):
+        support_level = 7
+    elif (
+        user_decision_ratio >= 0.03
+        and user_control_ratio >= 0.05
+        and validation_density > 0
+        and established_dimensions >= 4
+        and promotion_record_count >= 4
+    ):
+        support_level = 6
+    elif validation_density > 0 and established_dimensions >= 3:
+        support_level = 5
+    elif user_control_ratio > 0 or validation_density > 0:
+        support_level = 4
+
+    if len(risk_signals) >= 3 or strong_record_density < 0.05 or user_decision_ratio < 0.03 or assistant_execution_ratio >= 0.7:
+        confidence_impact = "降低置信度并可能封顶"
+    elif risk_signals:
+        confidence_impact = "局部降低置信度"
+    else:
+        confidence_impact = "提高置信度"
+
+    label = "硬统计支撑"
+    if support_level >= rank_level:
+        label = "硬统计支撑当前段位"
+    elif support_level < rank_level:
+        label = "硬统计低于当前段位"
+
+    if support_level >= rank_level:
+        conclusion = f"数字侧能支撑{rank_label}的可信度，但不会单独升品。"
+    else:
+        conclusion = f"数字侧最多稳定支撑到{rank_level_name(support_level)}，当前段位需要依赖行为证据和 AI 深度复核。"
+
+    return {
+        "id": "supports_current_rank" if support_level >= rank_level else "caps_confidence",
+        "label": label,
+        "supportLevel": support_level,
+        "supportLabel": f"{rank_level_name(support_level)}统计支撑",
+        "confidenceImpact": confidence_impact,
+        "conclusion": conclusion,
+        "positiveSignals": positive_signals[:4],
+        "riskSignals": risk_signals[:4],
+        "investmentSignals": investment_signals[:3],
+        "ratingUse": "硬统计用于支撑置信度、解释封顶和定位下一步；token 和成本只说明投入强度，不能直接升品。",
+    }
 
 
 def build_stat_profile(hard_stats: dict[str, Any]) -> dict[str, Any]:
@@ -1724,10 +1854,6 @@ def main() -> int:
         method_replication_status,
         args.allow_team_rank,
     )
-    quality_flags = build_quality_flags(hard_stats)
-    drag_factors = build_drag_factors(counts, hard_stats)
-    metric_group_rows = metric_groups(hard_stats, usage_stats)
-    stat_profile = build_stat_profile(hard_stats)
     level, label, caps, unlocks = choose_rank(
         counts,
         analyzed_record_count,
@@ -1741,6 +1867,11 @@ def main() -> int:
         method_replication_status,
         args.allow_team_rank,
     )
+    quality_flags = build_quality_flags(hard_stats)
+    drag_factors = build_drag_factors(counts, hard_stats)
+    metric_group_rows = metric_groups(hard_stats, usage_stats)
+    stat_profile = build_stat_profile(hard_stats)
+    stat_evidence = build_stat_evidence(hard_stats, level, label)
     if excluded_total:
         caps.insert(0, excluded_note(excluded_reasons))
     score = score_for(level, counts, analyzed_record_count)
@@ -1781,6 +1912,7 @@ def main() -> int:
         "hard_stats": hard_stats,
         "metric_groups": metric_group_rows,
         "stat_profile": stat_profile,
+        "stat_evidence": stat_evidence,
         "source_count": source_count,
         "preliminary_rank": preliminary_rank,
         "heuristic_rank": preliminary_rank,

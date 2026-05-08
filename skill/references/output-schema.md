@@ -233,6 +233,23 @@
     }
   ],
   "statsInsight": "主动控制占比充足，用户在目标、边界、架构和验收上有明确主导痕迹。",
+  "statEvidence": {
+    "id": "supports_current_rank",
+    "label": "硬统计支撑当前段位",
+    "supportLevel": 7,
+    "supportLabel": "七品统计支撑",
+    "confidenceImpact": "局部降低置信度",
+    "conclusion": "数字侧能支撑六品 · 已有大成的可信度，但不会单独升品。",
+    "positiveSignals": [
+      "用户决策 17%，达到七品复核线。",
+      "验证密度 11%，结果有可托付证据。"
+    ],
+    "riskSignals": [
+      "助手执行 75%，需要确认高阶结论不是 AI 自述完成。"
+    ],
+    "investmentSignals": ["总 token 128万", "峰值日 42万"],
+    "ratingUse": "硬统计用于支撑置信度、解释封顶和定位下一步；token 和成本只说明投入强度，不能直接升品。"
+  },
   "statProfile": {
     "id": "system_owner",
     "label": "系统拥有型",
@@ -297,6 +314,7 @@
 - `rankGates` 只保留第一个未通过的下一品门槛。
 - `qualityFlags` / `dragFactors` 各只保留前 2 条。
 - `strongestEvidence` 只保留前 3 条脱敏摘要；公开 payload 的 `evidence` 为空数组。
+- `statEvidence` 只保留硬统计证据结论、前 3 条正向/风险/投入依据，不包含完整行为明细。
 - `statProfile` 只保留分享所需字段；完整 `matchedRules` 只保存在本地报告。
 - `usageStats`、`signalCounts`、`narrative` 等冗余字段不会进入公开 payload，网页会从 `hardStats` 或 fallback 文案还原展示。
 - 完整证据、路径和片段只保存在本地报告，不进入公开链接或短链接存储。

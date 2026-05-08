@@ -111,6 +111,19 @@
 
 每组都必须写清 `ratingImpact`：这个指标到底影响置信度、封顶、下一步，还是仅解释投入强度。
 
+## 硬统计证据结论
+
+{stat_evidence}
+
+优先展示 `statEvidence` / `stat_evidence`。这一段要回答四件事：
+
+- 统计上最多支撑到几品：`supportLevel` / `supportLabel`。
+- 这些数字对置信度的影响：`confidenceImpact`。
+- 哪些数字是正向证据：`positiveSignals`。
+- 哪些数字是风险或封顶原因：`riskSignals`。
+
+必须写清边界：token、成本和峰值日只说明投入强度或稳定性，不直接升品。
+
 ## 统计画像
 
 {stat_profile}

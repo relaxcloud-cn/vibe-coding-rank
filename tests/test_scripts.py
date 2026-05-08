@@ -503,6 +503,7 @@ class ScriptTests(unittest.TestCase):
             self.assertEqual(data["hard_stats"]["established_dimension_count"], 0)
             self.assertIn("metric_groups", data)
             self.assertIn("stat_profile", data)
+            self.assertIn("stat_evidence", data)
             self.assertEqual([item["id"] for item in data["metric_groups"]], [
                 "investment",
                 "sample_quality",
@@ -513,6 +514,10 @@ class ScriptTests(unittest.TestCase):
             self.assertEqual(data["metric_groups"][0]["value"], "400 token")
             self.assertIn("不直接升品", data["metric_groups"][0]["ratingImpact"])
             self.assertIn("用户决策足以支撑", data["metric_groups"][2]["risk"])
+            self.assertEqual(data["stat_evidence"]["id"], "supports_current_rank")
+            self.assertEqual(data["stat_evidence"]["supportLevel"], 4)
+            self.assertIn("token 和成本只说明投入强度", data["stat_evidence"]["ratingUse"])
+            self.assertTrue(any("峰值日 token" in item for item in data["stat_evidence"]["riskSignals"]))
             self.assertEqual(data["stat_profile"]["id"], "burst_operator")
             self.assertIn("统计画像用于解释置信度", data["stat_profile"]["ratingUse"])
             self.assertTrue(any(rule["metric"] == "峰值日 token" for rule in data["stat_profile"]["matchedRules"]))
@@ -604,6 +609,8 @@ class ScriptTests(unittest.TestCase):
             self.assertLessEqual(data["preliminary_rank"]["level"], 5)
             self.assertLess(data["hard_stats"]["user_control_ratio"], 0.05)
             self.assertGreater(data["hard_stats"]["promotion_assistant_execution_ratio"], 0.9)
+            self.assertEqual(data["stat_evidence"]["confidenceImpact"], "降低置信度并可能封顶")
+            self.assertTrue(any("助手执行" in item for item in data["stat_evidence"]["riskSignals"]))
             self.assertFalse(gate_by_id(data, "level6_user_control_ratio")["passed"])
             self.assertFalse(gate_by_id(data, "level7_user_control_ratio")["passed"])
             self.assertIn("用户主动控制", " ".join(data["rank_caps"]))

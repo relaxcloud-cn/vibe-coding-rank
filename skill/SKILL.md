@@ -68,6 +68,7 @@ The script only performs local cleaning, evidence classification, and conservati
 - Treat `usage_stats` and `hard_stats` as objective usage/sample-quality facts, not promotion evidence.
 - Use `hardStatCards` to explain objective stats to users: token volume, optional cost estimate, effective sample ratio, strong-record density, validation density, rework pressure, user control, and user decision ratio. Do not turn token volume or cost into a rank boost.
 - Use `metricGroups` / `metric_groups` as the hard-stat dashboard: investment intensity, sample quality, human control, validation loop, and efficiency risk. These groups can raise or lower confidence, explain caps, and guide the next action; they must not directly raise the rank.
+- Use `statEvidence` / `stat_evidence` as the hard-stat evidence conclusion. It should say which rank band the numbers can support, what improves confidence, what caps confidence, and which token/cost numbers only describe investment intensity.
 - Use `statProfile` / `stat_profile` as the hard-stat persona: 系统拥有型、AI 代工依赖型、架构悬浮型、返工消耗型、爆量冲刺型、证据偏薄型 or 均衡推进型. It is a narrative interpretation of hard numbers for confidence, caps, and next actions; it must not directly raise the rank. When present, cite `reasons` or `matchedRules` so the user can see which numeric thresholds caused the persona.
 - Treat `costEstimate` as optional and user-priced; if no token price was provided, say the report only measures token intensity, not dollars.
 - Use `qualityFlags` to surface sample or judgment risks such as low user control, low user decision ratio, assistant-heavy evidence, or token concentration.
@@ -106,6 +107,8 @@ The script only performs local cleaning, evidence classification, and conservati
 - The CLI result is an 自动初筛 unless an AI judge reads the evidence cards and produces the final report.
 - Deep judgment must explicitly say whether it maintains, upgrades, or downgrades the auto pre-screen result.
 - Do not assign 六品以上 from a single record or single session; high ranks require evidence span across multiple records, sessions, projects, or repeated workflows.
+- Do not let total token volume, estimated dollars, or one burst day raise a rank. These numbers only explain usage intensity and sample stability.
+- High ranks should be statistically credible: 六品 usually needs user decisions, human control, validation, and several promotion records; 七品 usually needs those signals to appear across multiple sources with stronger record density.
 - Distinguish generation from ownership:
   - 五品/六品 can generate and shape.
   - 七品 and above must show system ownership.

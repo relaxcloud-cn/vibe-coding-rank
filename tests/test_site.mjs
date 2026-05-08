@@ -92,6 +92,18 @@ async function renderAt(hash, fetchResponse = {}) {
             risk: "用户决策足以支撑更高段位复核。",
           },
         ],
+        statEvidence: {
+          id: "caps_confidence",
+          label: "硬统计低于当前段位",
+          supportLevel: 5,
+          supportLabel: "五品统计支撑",
+          confidenceImpact: "降低置信度并可能封顶",
+          conclusion: "数字侧最多稳定支撑到五品，当前段位需要依赖行为证据和 AI 深度复核。",
+          positiveSignals: ["验证密度 12%，结果有可托付证据。"],
+          riskSignals: ["主动控制 1%，高阶信号容易被助手自述稀释。", "助手执行 70%，需要确认高阶结论不是 AI 自述完成。"],
+          investmentSignals: ["总 token 200万"],
+          ratingUse: "硬统计用于支撑置信度、解释封顶和定位下一步；token 和成本只说明投入强度，不能直接升品。",
+        },
         statProfile: {
           id: "ai_labor_dependent",
           label: "AI 代工依赖型",
@@ -161,6 +173,14 @@ assert.equal(
   "主动控制占比偏低，高阶信号主要来自 AI 执行或总结，自动初筛会压低高段位。",
 );
 assert.equal(
+  shortDom.window.document.querySelector("#stat-evidence").textContent,
+  "硬统计低于当前段位：数字侧最多稳定支撑到五品，当前段位需要依赖行为证据和 AI 深度复核。",
+);
+assert.equal(
+  shortDom.window.document.querySelector("#stat-evidence-detail").textContent,
+  "五品统计支撑；降低置信度并可能封顶。正向：验证密度 12%，结果有可托付证据。。风险：主动控制 1%，高阶信号容易被助手自述稀释。；助手执行 70%，需要确认高阶结论不是 AI 自述完成。。硬统计用于支撑置信度、解释封顶和定位下一步；token 和成本只说明投入强度，不能直接升品。",
+);
+assert.equal(
   shortDom.window.document.querySelector("#stat-profile").textContent,
   "AI 代工依赖型：token 投入很高，但用户决策占比偏低；这说明 AI 很忙，不等于人真正拥有系统。",
 );
@@ -201,6 +221,8 @@ assert.match(shortDom.window.__copied, /用户决策占比 2%/);
 assert.match(shortDom.window.__copied, /验证闭环密度 12%/);
 assert.match(shortDom.window.__copied, /返工压力 2%/);
 assert.match(shortDom.window.__copied, /统计仪表盘/);
+assert.match(shortDom.window.__copied, /硬统计证据结论/);
+assert.match(shortDom.window.__copied, /五品统计支撑/);
 assert.match(shortDom.window.__copied, /统计画像/);
 assert.match(shortDom.window.__copied, /AI 代工依赖型/);
 assert.match(shortDom.window.__copied, /画像依据/);
@@ -211,6 +233,8 @@ assert.match(shortDom.window.__copied, /最终段位/);
 assert.match(shortDom.window.__copied, /维持、上调或下调/);
 assert.match(shortDom.window.__copied, /七品用户决策占比/);
 assert.match(shortDom.window.__copied, /统计仪表盘/);
+assert.match(shortDom.window.__copied, /硬统计证据结论/);
+assert.match(shortDom.window.__copied, /风险统计/);
 assert.match(shortDom.window.__copied, /统计画像/);
 assert.match(shortDom.window.__copied, /AI 代工依赖型/);
 assert.match(shortDom.window.__copied, /画像依据/);

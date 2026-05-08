@@ -231,6 +231,19 @@ const PUBLIC_STAT_PROFILE_FIELDS = [
   "signals",
 ];
 
+const PUBLIC_STAT_EVIDENCE_FIELDS = [
+  "id",
+  "label",
+  "supportLevel",
+  "supportLabel",
+  "confidenceImpact",
+  "conclusion",
+  "positiveSignals",
+  "riskSignals",
+  "investmentSignals",
+  "ratingUse",
+];
+
 function parseArgs(argv) {
   const options = {
     source: "codex",
@@ -934,6 +947,7 @@ function buildReport(summary, options) {
     hardStats: summary.hard_stats || {},
     metricGroups: summary.metric_groups || [],
     statProfile: summary.stat_profile || {},
+    statEvidence: summary.stat_evidence || {},
     dimensionProfile: summary.dimension_profile || [],
     verdict: copy.verdict,
     whyThisRank: copy.reason,
@@ -960,6 +974,7 @@ function buildReport(summary, options) {
   report.costEstimate = costEstimate(report, options);
   report.statsInsight = statsInsight(report);
   report.statProfile = Object.keys(report.statProfile || {}).length ? report.statProfile : statProfile(report);
+  report.statEvidence = statEvidence(report);
   report.gateUpgradeAdvice = gateUpgradeAdvice(report, upgradePath[0]);
   report.hardStatCards = hardStatCards(report);
   report.metricGroups = report.metricGroups.length ? report.metricGroups : metricGroups(report);
@@ -1017,6 +1032,10 @@ function formatPercent(value) {
   const number = Number(value || 0);
   if (!Number.isFinite(number) || number <= 0) return "0%";
   return `${Math.round(number * 100)}%`;
+}
+
+function rankLevelName(level) {
+  return String(RANKS[Number(level)] || `${level}品`).split(" · ")[0];
 }
 
 function money(value) {
@@ -1179,6 +1198,14 @@ function statProfileLine(report) {
   return `${profile.label || "统计画像"}：${profile.summary || ""}${signals}${reasons}`;
 }
 
+function statEvidenceLine(report) {
+  const evidence = report.statEvidence || {};
+  if (!evidence.label && !evidence.conclusion) return "";
+  const support = evidence.supportLabel || (evidence.supportLevel !== undefined ? `${evidence.supportLevel}品统计支撑` : "");
+  const confidence = evidence.confidenceImpact ? `；${evidence.confidenceImpact}` : "";
+  return `${evidence.label || "硬统计证据"}${support ? `（${support}）` : ""}：${evidence.conclusion || ""}${confidence}`;
+}
+
 function statsInsight(report) {
   const stats = report.hardStats || {};
   const notes = [];
@@ -1209,6 +1236,148 @@ function statsInsight(report) {
   }
 
   return notes[0] || "硬统计用于解释投入强度、样本质量和证据结构，不直接参与段位升品。";
+}
+
+function statEvidence(report) {
+  const stats = report.hardStats || {};
+  const level = Number(report.rank?.level || 0);
+  const activeDays = Number(stats.active_days || 0);
+  const sourceCount = Number(stats.source_count || report.userControlSourceCount || 0);
+  const analyzed = Number(stats.analyzed_record_count ?? report.analyzedRecordCount ?? 0);
+  const promotionRecordCount = Number(stats.promotion_record_count || 0);
+  const strongRecordDensity = Number(stats.strong_record_density || 0);
+  const signalCoverageRatio = Number(stats.signal_coverage_ratio || 0);
+  const establishedDimensions = Number(stats.established_dimension_count || 0);
+  const userControlRatio = Number(stats.user_control_ratio || 0);
+  const userDecisionRatio = Number(stats.promotion_user_decision_ratio ?? stats.user_decision_ratio ?? 0);
+  const validationDensity = Number(stats.validation_density || 0);
+  const assistantExecutionRatio = Number(stats.promotion_assistant_execution_ratio || 0);
+  const bugLoopDensity = Number(stats.bug_loop_density || 0);
+  const peakDayShare = Number(stats.peak_day_token_share || 0);
+  const totalTokens = Number(stats.total_tokens || report.usageStats?.total_tokens || 0);
+  const positiveSignals = [];
+  const riskSignals = [];
+  const investmentSignals = [];
+  let supportLevel = 3;
+
+  const addPositive = (text) => {
+    if (text) positiveSignals.push(text);
+  };
+  const addRisk = (text) => {
+    if (text) riskSignals.push(text);
+  };
+
+  if (activeDays >= 5 || sourceCount >= 3) {
+    addPositive(`样本跨 ${activeDays || "未知"} 天、${sourceCount || "未知"} 个来源，稳定性好于单次高光。`);
+  } else if (analyzed < 20 || sourceCount < 2) {
+    addRisk(`样本只有 ${analyzed} 条有效记录、${sourceCount} 个来源，高段位置信度不足。`);
+  }
+
+  if (userDecisionRatio >= 0.08) {
+    addPositive(`用户决策 ${formatPercent(userDecisionRatio)}，达到七品复核线。`);
+  } else if (userDecisionRatio >= 0.03) {
+    addPositive(`用户决策 ${formatPercent(userDecisionRatio)}，可支撑六品复核。`);
+  } else {
+    addRisk(`用户决策 ${formatPercent(userDecisionRatio)}，系统级取舍证据不足。`);
+  }
+
+  if (userControlRatio >= 0.1) {
+    addPositive(`主动控制 ${formatPercent(userControlRatio)}，人在定义目标、边界、架构和验收。`);
+  } else if (userControlRatio > 0 && userControlRatio < 0.05) {
+    addRisk(`主动控制 ${formatPercent(userControlRatio)}，高阶信号容易被助手自述稀释。`);
+  }
+
+  if (validationDensity >= 0.08) {
+    addPositive(`验证密度 ${formatPercent(validationDensity)}，结果有可托付证据。`);
+  } else if (validationDensity < 0.03) {
+    addRisk(`验证密度 ${formatPercent(validationDensity)}，闭环不足会压住六品。`);
+  }
+
+  if (establishedDimensions >= 5 && signalCoverageRatio >= 0.5) {
+    addPositive(`成立维度 ${establishedDimensions}/6、信号覆盖 ${formatPercent(signalCoverageRatio)}，能力结构较完整。`);
+  } else if (establishedDimensions < 4) {
+    addRisk(`成立维度 ${establishedDimensions}/6，系统能力结构还不完整。`);
+  }
+
+  if (strongRecordDensity >= 0.1) {
+    addPositive(`强记录占比 ${formatPercent(strongRecordDensity)}，可复核高阶证据足够厚。`);
+  } else if (strongRecordDensity < 0.05 || promotionRecordCount < 4) {
+    addRisk(`强记录占比 ${formatPercent(strongRecordDensity)}、高阶记录 ${promotionRecordCount} 条，高段位证据偏薄。`);
+  }
+
+  if (assistantExecutionRatio >= 0.7) {
+    addRisk(`助手执行 ${formatPercent(assistantExecutionRatio)}，需要确认高阶结论不是 AI 自述完成。`);
+  }
+  if (bugLoopDensity >= 0.08) {
+    addRisk(`返工压力 ${formatPercent(bugLoopDensity)}，可能仍困在局部 patch 循环。`);
+  }
+  if (peakDayShare >= 0.5) {
+    addRisk(`峰值日 token 占比 ${formatPercent(peakDayShare)}，投入集中会削弱稳定性判断。`);
+  }
+  if (totalTokens > 0) {
+    investmentSignals.push(`总 token ${formatTokens(totalTokens)}`);
+  }
+  if (stats.peak_day_tokens) {
+    investmentSignals.push(`峰值日 ${formatTokens(stats.peak_day_tokens)}`);
+  }
+  if (report.costEstimate?.configured) {
+    investmentSignals.push(`估算成本 ${money(report.costEstimate.estimatedUsd)}`);
+  }
+
+  if (
+    userDecisionRatio >= 0.08
+    && userControlRatio >= 0.1
+    && validationDensity >= 0.08
+    && establishedDimensions >= 5
+    && strongRecordDensity >= 0.08
+    && sourceCount >= 3
+  ) {
+    supportLevel = 7;
+  } else if (
+    userDecisionRatio >= 0.03
+    && userControlRatio >= 0.05
+    && validationDensity > 0
+    && establishedDimensions >= 4
+    && promotionRecordCount >= 4
+  ) {
+    supportLevel = 6;
+  } else if (validationDensity > 0 && establishedDimensions >= 3) {
+    supportLevel = 5;
+  } else if (userControlRatio > 0 || validationDensity > 0) {
+    supportLevel = 4;
+  }
+
+  let confidenceImpact = "提高置信度";
+  if (riskSignals.length >= 3 || strongRecordDensity < 0.05 || userDecisionRatio < 0.03 || assistantExecutionRatio >= 0.7) {
+    confidenceImpact = "降低置信度并可能封顶";
+  } else if (riskSignals.length) {
+    confidenceImpact = "局部降低置信度";
+  }
+
+  let label = "硬统计支撑";
+  if (supportLevel >= level) {
+    label = "硬统计支撑当前段位";
+  } else if (supportLevel < level) {
+    label = "硬统计低于当前段位";
+  }
+
+  const rankText = report.rank?.label || rankLevelName(level);
+  const conclusion = supportLevel >= level
+    ? `数字侧能支撑${rankText}的可信度，但不会单独升品。`
+    : `数字侧最多稳定支撑到${rankLevelName(supportLevel)}，当前段位需要依赖行为证据和 AI 深度复核。`;
+
+  return {
+    id: supportLevel >= level ? "supports_current_rank" : "caps_confidence",
+    label,
+    supportLevel,
+    supportLabel: `${rankLevelName(supportLevel)}统计支撑`,
+    confidenceImpact,
+    conclusion,
+    positiveSignals: positiveSignals.slice(0, 4),
+    riskSignals: riskSignals.slice(0, 4),
+    investmentSignals: investmentSignals.slice(0, 3),
+    ratingUse: "硬统计用于支撑置信度、解释封顶和定位下一步；token 和成本只说明投入强度，不能直接升品。",
+  };
 }
 
 function statProfile(report) {
@@ -1613,6 +1782,11 @@ function buildShareImagePrompt(report, url = "") {
   const profile = report.statProfile || statProfile(report);
   const profileSignals = Array.isArray(profile.signals) ? profile.signals.slice(0, 6).join("，") : "";
   const profileReasons = Array.isArray(profile.reasons) ? profile.reasons.slice(0, 3).join("；") : "";
+  const statEvidenceRow = report.statEvidence || statEvidence(report);
+  const statEvidenceSignals = [
+    ...(Array.isArray(statEvidenceRow.positiveSignals) ? statEvidenceRow.positiveSignals.slice(0, 2) : []),
+    ...(Array.isArray(statEvidenceRow.riskSignals) ? statEvidenceRow.riskSignals.slice(0, 2) : []),
+  ].join("；");
   const rankCap = shortText(report.rankCaps?.[0] || report.narrative?.capSummary || "暂无明显封顶原因", 52);
   const upgrade = shortText(report.gateUpgradeAdvice || report.upgradePath?.[0] || report.narrative?.upgradeSummary || "继续沉淀可复用工作流", 52);
   const hardCards = shareHardStatCards(report.hardStatCards)
@@ -1655,6 +1829,12 @@ ${behaviorMix}
 
 统计解读：
 ${insight}
+
+硬统计证据结论：
+${statEvidenceRow.label || "硬统计证据"}：${statEvidenceRow.conclusion || ""}
+${statEvidenceRow.supportLabel || ""}；${statEvidenceRow.confidenceImpact || ""}
+${statEvidenceSignals ? `关键依据：${statEvidenceSignals}` : ""}
+${statEvidenceRow.ratingUse || "硬统计用于支撑置信度、解释封顶和定位下一步；token 和成本只说明投入强度，不能直接升品。"}
 
 统计画像：
 ${profile.label || "统计画像"}：${profile.summary || ""}
@@ -1723,6 +1903,13 @@ function buildJudgePrompt(report, url = "") {
   const profile = report.statProfile || statProfile(report);
   const profileSignals = Array.isArray(profile.signals) ? profile.signals.join("；") : "";
   const profileReasons = Array.isArray(profile.reasons) ? profile.reasons.map((item) => `- ${item}`).join("\n") : "";
+  const statEvidenceRow = report.statEvidence || statEvidence(report);
+  const statEvidencePositive = Array.isArray(statEvidenceRow.positiveSignals)
+    ? statEvidenceRow.positiveSignals.map((item) => `- ${item}`).join("\n")
+    : "";
+  const statEvidenceRisks = Array.isArray(statEvidenceRow.riskSignals)
+    ? statEvidenceRow.riskSignals.map((item) => `- ${item}`).join("\n")
+    : "";
   const rankCaps = (report.rankCaps || []).slice(0, 5).map((item) => `- ${item}`).join("\n") || "- 暂无明显封顶原因";
   const reportUrl = url ? `\n公开报告链接：${url}` : "";
 
@@ -1758,6 +1945,16 @@ ${metricRows || "- 暂无统计仪表盘"}
 - ${evidenceStatsLine(report) || "暂无证据结构统计"}
 - ${behaviorMixLine(report) || "暂无行为结构统计"}
 - 统计解读：${statsInsight(report)}
+
+硬统计证据结论：
+- 类型：${statEvidenceRow.label || "硬统计证据"}（${statEvidenceRow.supportLabel || ""}，${statEvidenceRow.confidenceImpact || ""}）
+- 结论：${statEvidenceRow.conclusion || ""}
+- 正向统计：
+${statEvidencePositive || "- 暂无"}
+- 风险统计：
+${statEvidenceRisks || "- 暂无"}
+- 投入统计：${Array.isArray(statEvidenceRow.investmentSignals) && statEvidenceRow.investmentSignals.length ? statEvidenceRow.investmentSignals.join("；") : "暂无"}
+- 使用边界：${statEvidenceRow.ratingUse || "硬统计用于支撑置信度、解释封顶和定位下一步；token 和成本只说明投入强度，不能直接升品。"}
 
 统计画像：
 - 类型：${profile.label || "统计画像"}（${profile.id || "unknown"}，风险=${profile.riskLevel || "unknown"}）
@@ -1831,6 +2028,20 @@ function publicStatProfile(profile) {
   return result;
 }
 
+function publicStatEvidence(evidence) {
+  const result = pickFields(evidence, PUBLIC_STAT_EVIDENCE_FIELDS);
+  if (Array.isArray(result.positiveSignals)) {
+    result.positiveSignals = result.positiveSignals.slice(0, 3);
+  }
+  if (Array.isArray(result.riskSignals)) {
+    result.riskSignals = result.riskSignals.slice(0, 3);
+  }
+  if (Array.isArray(result.investmentSignals)) {
+    result.investmentSignals = result.investmentSignals.slice(0, 3);
+  }
+  return result;
+}
+
 function publicRankGates(gates, currentLevel = 0) {
   const rows = Array.isArray(gates) ? gates : [];
   const failed = rows
@@ -1890,6 +2101,7 @@ function publicReport(report) {
     hardStats: pickFields(report.hardStats, PUBLIC_HARD_STATS_FIELDS),
     costEstimate: report.costEstimate,
     statsInsight: report.statsInsight,
+    statEvidence: publicStatEvidence(report.statEvidence),
     statProfile: publicStatProfile(report.statProfile),
     hardStatCards: publicHardCards,
     metricGroups: publicMetricGroups(report.metricGroups),
@@ -1936,6 +2148,10 @@ function printHuman(report, url, outPath, linkPath = "") {
   }
   if (report.statsInsight) {
     console.log(`统计解读：${report.statsInsight}`);
+  }
+  const statEvidence = statEvidenceLine(report);
+  if (statEvidence) {
+    console.log(`硬统计证据：${statEvidence}`);
   }
   const statLine = statProfileLine(report);
   if (statLine) {
