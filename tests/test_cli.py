@@ -35,6 +35,9 @@ class CliTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertTrue(payload["url"].startswith("https://vibe.yisec.ai/#data="))
         self.assertLess(len(payload["url"]), 14000)
+        self.assertIn("linkAdvice", payload)
+        self.assertFalse(payload["linkAdvice"]["warning"])
+        self.assertEqual(payload["linkAdvice"]["length"], len(payload["url"]))
         shared = decode_hash_report(payload["url"])
         self.assertTrue(shared["privacy"]["localPathsRemoved"])
         self.assertFalse(shared["privacy"]["rawLogsUploaded"])
@@ -265,6 +268,45 @@ class CliTests(unittest.TestCase):
             self.assertIn(f"本地完整报告：{out}", text)
             self.assertIn("--write-share-prompt", text)
             self.assertIn("--write-judge-prompt", text)
+
+    def test_warns_when_public_hash_link_exceeds_safe_length(self) -> None:
+        long_site = "https://example.com/" + ("a" * 14000)
+        json_result = subprocess.run(
+            [
+                "node",
+                str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                "--demo",
+                "--site",
+                long_site,
+                "--print-json",
+                "--no-write",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        payload = json.loads(json_result.stdout)
+        self.assertGreater(payload["linkAdvice"]["length"], payload["linkAdvice"]["threshold"])
+        self.assertTrue(payload["linkAdvice"]["warning"])
+        self.assertIn("--short-link", payload["linkAdvice"]["message"])
+        self.assertEqual(payload["linkAdvice"]["recommendedCommands"], ["--short-link --open", "--write-link .airank/report-url.txt"])
+
+        human_result = subprocess.run(
+            [
+                "node",
+                str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                "--demo",
+                "--site",
+                long_site,
+                "--no-write",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertIn("超过建议阈值 14000", human_result.stdout)
+        self.assertIn("--short-link --open", human_result.stdout)
+        self.assertIn("--write-link .airank/report-url.txt", human_result.stdout)
 
     def test_demo_can_write_full_report_link(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

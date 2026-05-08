@@ -389,6 +389,8 @@ npx github:relaxcloud-cn/vibe-coding-rank \
 npx github:relaxcloud-cn/vibe-coding-rank --source codex --short-link --open
 ```
 
+CLI 会在机器可读输出里返回 `linkAdvice`。当公开链接超过建议阈值时，`linkAdvice.warning` 会变成 `true`，并给出 `--short-link --open` 或 `--write-link .airank/report-url.txt` 建议。
+
 如果你不想上传脱敏报告 JSON，也可以把完整本地 hash 链接写入文件：
 
 ```bash

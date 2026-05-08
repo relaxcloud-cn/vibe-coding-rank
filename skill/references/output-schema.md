@@ -306,6 +306,8 @@
 
 `shareImagePrompt` 和 `judgePrompt` 只出现在本地 CLI 报告或显式写出的提示词文件里。公开 `#data` 链接和短链接 payload 不包含这两个长文本字段；网页会基于脱敏报告即时生成对应提示词。
 
+CLI `--print-json` 的外层对象还包含 `url`、`outPath`、`shareImagePromptPath`、`judgePromptPath`、`linkPath` 和 `linkAdvice`。`linkAdvice` 用于提示公开链接长度是否超过建议阈值；当 `warning=true` 时，建议改用 `--short-link --open` 或 `--write-link .airank/report-url.txt`。这些外层字段不属于公开报告 payload。
+
 公开链接使用压缩后的 public payload：
 
 - 只保留网页展示、分享图和深度判定需要的字段。

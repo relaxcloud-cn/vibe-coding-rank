@@ -8,6 +8,8 @@ import { spawnSync } from "node:child_process";
 
 const ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const SOURCES = new Set(["codex", "claude", "generic"]);
+const URL_PREVIEW_LENGTH = 180;
+const LONG_PUBLIC_URL_WARNING_LENGTH = 14000;
 const VALUE_ARGS = new Set([
   "--source",
   "--root",
@@ -1013,6 +1015,22 @@ function writeReport(path, report) {
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, `${JSON.stringify(report, null, 2)}\n`, "utf-8");
   return target;
+}
+
+function linkAdvice(url) {
+  const length = String(url || "").length;
+  const warning = length > LONG_PUBLIC_URL_WARNING_LENGTH;
+  return {
+    length,
+    threshold: LONG_PUBLIC_URL_WARNING_LENGTH,
+    warning,
+    message: warning
+      ? "公开 #data 链接较长，建议改用 --short-link 生成短链接，或用 --write-link 写入完整链接文件。"
+      : "",
+    recommendedCommands: warning
+      ? ["--short-link --open", "--write-link .airank/report-url.txt"]
+      : [],
+  };
 }
 
 function openUrl(url) {
@@ -2126,7 +2144,7 @@ function publicReport(report) {
   };
 }
 
-function printHuman(report, url, outPath, linkPath = "") {
+function printHuman(report, url, outPath, linkPath = "", advice = linkAdvice(url)) {
   console.log("");
   console.log("Vibe Coding 段位报告");
   console.log(`段位：${report.rank.label}`);
@@ -2183,7 +2201,7 @@ function printHuman(report, url, outPath, linkPath = "") {
     console.log(`证据分析：${report.analyzedRecordCount}/${report.recordCount} 条记录`);
     console.log(`非评分记录：${report.excludedRecordCount} 条`);
   }
-  const displayUrl = url.length > 180 ? `${url.slice(0, 180)}...` : url;
+  const displayUrl = url.length > URL_PREVIEW_LENGTH ? `${url.slice(0, URL_PREVIEW_LENGTH)}...` : url;
   const groups = (report.metricGroups || []).slice(0, 5);
   if (groups.length) {
     console.log("");
@@ -2197,6 +2215,9 @@ function printHuman(report, url, outPath, linkPath = "") {
   console.log(`- 公开链接：${displayUrl}`);
   if (linkPath) {
     console.log(`- 完整公开链接：${linkPath}`);
+  } else if (advice.warning) {
+    console.log(`- 链接长度：${advice.length} 字符，超过建议阈值 ${advice.threshold}。`);
+    console.log("- 建议：加 --short-link --open 生成短链接，或加 --write-link .airank/report-url.txt 写入完整链接。");
   } else if (url.length > 180) {
     console.log("- 完整公开链接较长，建议加 --short-link 生成短链接，或加 --write-link .airank/report-url.txt 写入文件。");
   }
@@ -2316,10 +2337,11 @@ async function main() {
   if (options.writeLink) {
     linkPath = writeTextFile(options.writeLink, url);
   }
+  const advice = linkAdvice(url);
   if (options.printJson) {
-    console.log(JSON.stringify({ report, url, outPath, shareImagePromptPath, judgePromptPath, linkPath }, null, 2));
+    console.log(JSON.stringify({ report, url, outPath, shareImagePromptPath, judgePromptPath, linkPath, linkAdvice: advice }, null, 2));
   } else {
-    printHuman(report, url, outPath, linkPath);
+    printHuman(report, url, outPath, linkPath, advice);
   }
   if (options.open) openUrl(url);
 }
