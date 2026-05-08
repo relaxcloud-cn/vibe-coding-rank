@@ -1041,6 +1041,102 @@ def metric_groups(hard_stats: dict[str, Any], usage_stats: dict[str, Any]) -> li
     ]
 
 
+def build_stat_profile(hard_stats: dict[str, Any]) -> dict[str, Any]:
+    total_tokens = int(hard_stats.get("total_tokens") or 0)
+    active_days = int(hard_stats.get("active_days") or 0)
+    promotion_record_count = int(hard_stats.get("promotion_record_count") or 0)
+    established_dimensions = int(hard_stats.get("established_dimension_count") or 0)
+    stable_dimensions = int(hard_stats.get("stable_dimension_count") or 0)
+    user_control_ratio = float(hard_stats.get("user_control_ratio") or 0)
+    user_decision_ratio = float(hard_stats.get("promotion_user_decision_ratio") or 0)
+    assistant_execution_ratio = float(hard_stats.get("promotion_assistant_execution_ratio") or 0)
+    validation_density = float(hard_stats.get("validation_density") or 0)
+    strong_record_density = float(hard_stats.get("strong_record_density") or 0)
+    signal_coverage_ratio = float(hard_stats.get("signal_coverage_ratio") or 0)
+    bug_loop_density = float(hard_stats.get("bug_loop_density") or 0)
+    peak_day_share = float(hard_stats.get("peak_day_token_share") or 0)
+    weak_signal_ratio = float(hard_stats.get("weak_signal_ratio") or 0)
+
+    if user_decision_ratio >= 0.12 and validation_density >= 0.08 and established_dimensions >= 5:
+        profile_id = "system_owner"
+        label = "系统拥有型"
+        summary = "硬统计显示，人类决策、验证闭环和多维能力同时成立；这类样本更像人在拥有系统，而不是 AI 自述完成。"
+    elif total_tokens >= 500_000 and user_decision_ratio < 0.05:
+        profile_id = "ai_labor_dependent"
+        label = "AI 代工依赖型"
+        summary = "token 投入很高，但用户决策占比偏低；这说明 AI 很忙，不等于人真正拥有系统。"
+    elif validation_density < 0.03 and established_dimensions >= 4:
+        profile_id = "architecture_floating"
+        label = "架构悬浮型"
+        summary = "目标、边界或架构线索不少，但验证闭环偏弱；系统看起来被设计了，但还没有被可靠托付。"
+    elif bug_loop_density >= 0.08 or weak_signal_ratio >= 0.35:
+        profile_id = "rework_trapped"
+        label = "返工消耗型"
+        summary = "弱信号、Demo 或修补循环占比较高；这类样本容易证明努力很多，却难证明系统归属稳定。"
+    elif peak_day_share >= 0.5 and active_days <= 2:
+        profile_id = "burst_operator"
+        label = "爆量冲刺型"
+        summary = "token 明显集中在少数日期，更像一次冲刺高光；需要跨天复用来证明稳定能力。"
+    elif strong_record_density < 0.05 or promotion_record_count < 4:
+        profile_id = "thin_evidence"
+        label = "证据偏薄型"
+        summary = "可评分记录或强记录偏少；当前更适合低置信度初筛，不适合直接判断高段位。"
+    else:
+        profile_id = "balanced_operator"
+        label = "均衡推进型"
+        summary = "投入、样本、验证和控制力没有明显单点失衡；段位主要取决于证据链能否继续补强。"
+
+    if user_decision_ratio >= 0.08:
+        control_reading = "用户决策占比达到七品复核线，能支撑“人在控”的判断。"
+    elif user_decision_ratio >= 0.03:
+        control_reading = "用户决策占比能支撑六品复核，但进入七品仍需更多系统级取舍。"
+    else:
+        control_reading = "用户决策占比偏低，高阶结论容易被助手执行痕迹稀释。"
+
+    if validation_density >= 0.08:
+        validation_reading = "验证密度较好，系统结果有可托付证据。"
+    elif validation_density > 0:
+        validation_reading = "有验证信号，但密度不足，需要确认是否由人定义验收标准。"
+    else:
+        validation_reading = "未看到验证闭环，不能证明结果可托付。"
+
+    if peak_day_share >= 0.5:
+        investment_reading = "token 投入单日集中，稳定性需要打折。"
+    elif total_tokens > 0:
+        investment_reading = "token 投入能说明 AI 使用强度，但不会直接抬高段位。"
+    else:
+        investment_reading = "未读取到 token 统计，投入强度无法量化。"
+
+    if strong_record_density >= 0.1 and signal_coverage_ratio >= 0.5:
+        evidence_reading = "强记录和信号覆盖足以支撑较高置信度复核。"
+    elif strong_record_density >= 0.05:
+        evidence_reading = "强记录存在，但覆盖还不够厚，需要更多不同任务证据。"
+    else:
+        evidence_reading = "强记录偏薄，自动初筛应保守。"
+
+    return {
+        "id": profile_id,
+        "label": label,
+        "summary": summary,
+        "controlReading": control_reading,
+        "validationReading": validation_reading,
+        "investmentReading": investment_reading,
+        "evidenceReading": evidence_reading,
+        "riskLevel": "high" if profile_id in {"ai_labor_dependent", "architecture_floating", "rework_trapped", "thin_evidence"} else "medium" if profile_id == "burst_operator" else "low",
+        "ratingUse": "统计画像用于解释置信度、封顶和下一步，不直接升品。",
+        "signals": [
+            f"用户决策 {percent(user_decision_ratio)}",
+            f"主动控制 {percent(user_control_ratio)}",
+            f"助手执行 {percent(assistant_execution_ratio)}",
+            f"验证密度 {percent(validation_density)}",
+            f"强记录 {percent(strong_record_density)}",
+            f"成立维度 {established_dimensions}/6",
+            f"稳定维度 {stable_dimensions}/6",
+            f"峰值日 token {percent(peak_day_share)}",
+        ],
+    }
+
+
 def exclusion_reason(record: dict[str, Any], patterns: list[tuple[str, re.Pattern[str]]]) -> str | None:
     role = str(record.get("role", "")).strip().lower()
     if role in EXCLUDED_ROLES:
@@ -1585,6 +1681,7 @@ def main() -> int:
     quality_flags = build_quality_flags(hard_stats)
     drag_factors = build_drag_factors(counts, hard_stats)
     metric_group_rows = metric_groups(hard_stats, usage_stats)
+    stat_profile = build_stat_profile(hard_stats)
     level, label, caps, unlocks = choose_rank(
         counts,
         analyzed_record_count,
@@ -1637,6 +1734,7 @@ def main() -> int:
         "usage_stats": usage_stats,
         "hard_stats": hard_stats,
         "metric_groups": metric_group_rows,
+        "stat_profile": stat_profile,
         "source_count": source_count,
         "preliminary_rank": preliminary_rank,
         "heuristic_rank": preliminary_rank,

@@ -92,6 +92,18 @@ async function renderAt(hash, fetchResponse = {}) {
             risk: "用户决策足以支撑更高段位复核。",
           },
         ],
+        statProfile: {
+          id: "ai_labor_dependent",
+          label: "AI 代工依赖型",
+          summary: "token 投入很高，但用户决策占比偏低；这说明 AI 很忙，不等于人真正拥有系统。",
+          controlReading: "用户决策占比偏低，高阶结论容易被助手执行痕迹稀释。",
+          validationReading: "验证密度较好，系统结果有可托付证据。",
+          investmentReading: "token 投入能说明 AI 使用强度，但不会直接抬高段位。",
+          evidenceReading: "强记录存在，但覆盖还不够厚，需要更多不同任务证据。",
+          riskLevel: "high",
+          ratingUse: "统计画像用于解释置信度、封顶和下一步，不直接升品。",
+          signals: ["用户决策 2%", "主动控制 1%", "助手执行 70%", "验证密度 12%"],
+        },
         rankGates: [
           {
             id: "level7_user_decision_ratio",
@@ -144,6 +156,14 @@ assert.equal(
   "主动控制占比偏低，高阶信号主要来自 AI 执行或总结，自动初筛会压低高段位。",
 );
 assert.equal(
+  shortDom.window.document.querySelector("#stat-profile").textContent,
+  "AI 代工依赖型：token 投入很高，但用户决策占比偏低；这说明 AI 很忙，不等于人真正拥有系统。",
+);
+assert.equal(
+  shortDom.window.document.querySelector("#stat-profile-detail").textContent,
+  "统计画像用于解释置信度、封顶和下一步，不直接升品。关键数字：用户决策 2%；主动控制 1%；助手执行 70%；验证密度 12%。",
+);
+assert.equal(
   shortDom.window.document.querySelector("#behavior-mix").textContent,
   "用户决策 20%；助手执行 70%；决策证据 12 条；返工压力 2%。",
 );
@@ -176,6 +196,8 @@ assert.match(shortDom.window.__copied, /用户决策占比 2%/);
 assert.match(shortDom.window.__copied, /验证闭环密度 12%/);
 assert.match(shortDom.window.__copied, /返工压力 2%/);
 assert.match(shortDom.window.__copied, /统计仪表盘/);
+assert.match(shortDom.window.__copied, /统计画像/);
+assert.match(shortDom.window.__copied, /AI 代工依赖型/);
 shortDom.window.document.querySelector("#copy-judge-prompt").click();
 await new Promise((resolveReady) => setTimeout(resolveReady, 0));
 assert.match(shortDom.window.__copied, /AI 深度判定官/);
@@ -183,6 +205,8 @@ assert.match(shortDom.window.__copied, /最终段位/);
 assert.match(shortDom.window.__copied, /维持、上调或下调/);
 assert.match(shortDom.window.__copied, /七品用户决策占比/);
 assert.match(shortDom.window.__copied, /统计仪表盘/);
+assert.match(shortDom.window.__copied, /统计画像/);
+assert.match(shortDom.window.__copied, /AI 代工依赖型/);
 assert.equal(
   shortDom.window.document.querySelector("#quality-flags").textContent,
   "主动控制偏低 1%：高阶信号主要不是由用户主动定义目标、边界、架构或验收触发。",

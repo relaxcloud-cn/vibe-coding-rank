@@ -200,6 +200,18 @@ Vibe Coding Rank 想测的是更深的一层：
     "note": "硬统计只描述样本质量和 AI 投入强度，不直接参与段位升品。"
   },
   "statsInsight": "主动控制占比充足，用户在目标、边界、架构和验收上有明确主导痕迹。",
+  "statProfile": {
+    "id": "system_owner",
+    "label": "系统拥有型",
+    "summary": "硬统计显示，人类决策、验证闭环和多维能力同时成立；这类样本更像人在拥有系统，而不是 AI 自述完成。",
+    "controlReading": "用户决策占比达到七品复核线，能支撑“人在控”的判断。",
+    "validationReading": "验证密度较好，系统结果有可托付证据。",
+    "investmentReading": "token 投入能说明 AI 使用强度，但不会直接抬高段位。",
+    "evidenceReading": "强记录和信号覆盖足以支撑较高置信度复核。",
+    "riskLevel": "low",
+    "ratingUse": "统计画像用于解释置信度、封顶和下一步，不直接升品。",
+    "signals": ["用户决策 17%", "主动控制 17%", "助手执行 75%", "验证密度 11%"]
+  },
   "hardStatCards": [
     {
       "label": "AI 投入强度",

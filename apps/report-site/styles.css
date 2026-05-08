@@ -815,6 +815,20 @@ button {
   line-height: 1.45;
 }
 
+.stat-profile-card {
+  border-color: rgba(25, 111, 70, 0.22);
+  background: linear-gradient(180deg, #ffffff, #eff8f1);
+}
+
+.stat-profile-card strong {
+  color: #123923;
+}
+
+.stat-profile-card small {
+  color: #336a48;
+  font-weight: 760;
+}
+
 .hard-stat-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

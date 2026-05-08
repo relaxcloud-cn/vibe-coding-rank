@@ -286,6 +286,8 @@ class ScriptTests(unittest.TestCase):
             self.assertIn("weak_signal_heavy", factor_ids)
             self.assertIn("bug_loop_heavy", factor_ids)
             self.assertIn("demo_heavy", factor_ids)
+            self.assertEqual(data["stat_profile"]["id"], "rework_trapped")
+            self.assertIn("返工消耗型", data["stat_profile"]["label"])
 
     def test_prepare_evidence_filters_system_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -498,6 +500,7 @@ class ScriptTests(unittest.TestCase):
             self.assertEqual(data["hard_stats"]["tool_event_record_ratio"], 0)
             self.assertEqual(data["hard_stats"]["established_dimension_count"], 0)
             self.assertIn("metric_groups", data)
+            self.assertIn("stat_profile", data)
             self.assertEqual([item["id"] for item in data["metric_groups"]], [
                 "investment",
                 "sample_quality",
@@ -508,6 +511,8 @@ class ScriptTests(unittest.TestCase):
             self.assertEqual(data["metric_groups"][0]["value"], "400 token")
             self.assertIn("不直接升品", data["metric_groups"][0]["ratingImpact"])
             self.assertIn("用户决策足以支撑", data["metric_groups"][2]["risk"])
+            self.assertEqual(data["stat_profile"]["id"], "burst_operator")
+            self.assertIn("统计画像用于解释置信度", data["stat_profile"]["ratingUse"])
             self.assertEqual(data["excluded_reason_counts"]["role:usage_stats"], 2)
             self.assertIn("quality_flags", data)
             self.assertTrue(any(item["id"] == "peak_day_concentrated" for item in data["quality_flags"]))

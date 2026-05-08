@@ -273,6 +273,18 @@ const SAMPLE = {
     { id: "validation_loop", label: "验证闭环", value: "11%", signal: "13 条验证信号", basis: "5/6 个维度成立", ratingImpact: "验证不足会压住六品；验收是主要证据。", risk: "有验证信号，但仍要看是否由人定义验收标准。" },
     { id: "efficiency_risk", label: "效率风险", value: "0%", signal: "0 条 Bug 循环信号", basis: "弱信号占比 18%", ratingImpact: "返工和弱信号不直接扣分，但会解释为什么系统归属不稳。", risk: "没有明显困在修补循环。" },
   ],
+  statProfile: {
+    id: "system_owner",
+    label: "系统拥有型",
+    summary: "硬统计显示，人类决策、验证闭环和多维能力同时成立；这类样本更像人在拥有系统，而不是 AI 自述完成。",
+    controlReading: "用户决策占比达到七品复核线，能支撑“人在控”的判断。",
+    validationReading: "验证密度较好，系统结果有可托付证据。",
+    investmentReading: "token 投入能说明 AI 使用强度，但不会直接抬高段位。",
+    evidenceReading: "强记录和信号覆盖足以支撑较高置信度复核。",
+    riskLevel: "low",
+    ratingUse: "统计画像用于解释置信度、封顶和下一步，不直接升品。",
+    signals: ["用户决策 17%", "主动控制 17%", "助手执行 75%", "验证密度 11%", "强记录 10%", "成立维度 5/6"],
+  },
 };
 
 const SHARE_HARD_CARD_PRIORITY = [
@@ -372,6 +384,9 @@ function render(report) {
   document.querySelector("#evidence-structure").textContent = evidenceStructureSummary(report);
   document.querySelector("#behavior-mix").textContent = behaviorMixSummary(report);
   document.querySelector("#stats-insight").textContent = statsInsight(report);
+  const profile = statProfile(report);
+  document.querySelector("#stat-profile").textContent = `${profile.label || "统计画像"}：${profile.summary || ""}`;
+  document.querySelector("#stat-profile-detail").textContent = profileDetail(profile);
   document.querySelector("#rank-gate-summary").textContent = rankGateSummary(report);
   document.querySelector("#quality-flags").textContent = qualityFlagSummary(report);
   document.querySelector("#drag-factors").textContent = dragFactorSummary(report);
@@ -421,6 +436,8 @@ function renderError(error) {
   document.querySelector("#evidence-structure").textContent = "暂无";
   document.querySelector("#behavior-mix").textContent = "暂无";
   document.querySelector("#stats-insight").textContent = "暂无";
+  document.querySelector("#stat-profile").textContent = "暂无";
+  document.querySelector("#stat-profile-detail").textContent = "暂无";
   document.querySelector("#rank-gate-summary").textContent = "暂无";
   document.querySelector("#quality-flags").textContent = "暂无";
   document.querySelector("#drag-factors").textContent = "暂无";
@@ -555,6 +572,115 @@ function statsInsight(report) {
     return "样本跨越多个工作日，稳定性比单次会话更可信。";
   }
   return "硬统计用于解释投入强度、样本质量和证据结构，不直接参与段位升品。";
+}
+
+function statProfile(report) {
+  if (report.statProfile?.label || report.statProfile?.summary) return report.statProfile;
+  const stats = report.hardStats || {};
+  const totalTokens = Number(stats.total_tokens || 0);
+  const activeDays = Number(stats.active_days || 0);
+  const promotionRecordCount = Number(stats.promotion_record_count || 0);
+  const establishedDimensions = Number(stats.established_dimension_count || 0);
+  const stableDimensions = Number(stats.stable_dimension_count || 0);
+  const userControlRatio = Number(stats.user_control_ratio || 0);
+  const userDecisionRatio = Number(stats.promotion_user_decision_ratio ?? stats.user_decision_ratio ?? 0);
+  const assistantExecutionRatio = Number(stats.promotion_assistant_execution_ratio || 0);
+  const validationDensity = Number(stats.validation_density || 0);
+  const strongRecordDensity = Number(stats.strong_record_density || 0);
+  const signalCoverageRatio = Number(stats.signal_coverage_ratio || 0);
+  const bugLoopDensity = Number(stats.bug_loop_density || 0);
+  const peakDayShare = Number(stats.peak_day_token_share || 0);
+  const weakSignalRatio = Number(stats.weak_signal_ratio || 0);
+  let profile = {
+    id: "balanced_operator",
+    label: "均衡推进型",
+    summary: "投入、样本、验证和控制力没有明显单点失衡；段位主要取决于证据链能否继续补强。",
+    riskLevel: "low",
+  };
+  if (userDecisionRatio >= 0.12 && validationDensity >= 0.08 && establishedDimensions >= 5) {
+    profile = {
+      id: "system_owner",
+      label: "系统拥有型",
+      summary: "硬统计显示，人类决策、验证闭环和多维能力同时成立；这类样本更像人在拥有系统，而不是 AI 自述完成。",
+      riskLevel: "low",
+    };
+  } else if (totalTokens >= 500000 && userDecisionRatio < 0.05) {
+    profile = {
+      id: "ai_labor_dependent",
+      label: "AI 代工依赖型",
+      summary: "token 投入很高，但用户决策占比偏低；这说明 AI 很忙，不等于人真正拥有系统。",
+      riskLevel: "high",
+    };
+  } else if (validationDensity < 0.03 && establishedDimensions >= 4) {
+    profile = {
+      id: "architecture_floating",
+      label: "架构悬浮型",
+      summary: "目标、边界或架构线索不少，但验证闭环偏弱；系统看起来被设计了，但还没有被可靠托付。",
+      riskLevel: "high",
+    };
+  } else if (bugLoopDensity >= 0.08 || weakSignalRatio >= 0.35) {
+    profile = {
+      id: "rework_trapped",
+      label: "返工消耗型",
+      summary: "弱信号、Demo 或修补循环占比较高；这类样本容易证明努力很多，却难证明系统归属稳定。",
+      riskLevel: "high",
+    };
+  } else if (peakDayShare >= 0.5 && activeDays <= 2) {
+    profile = {
+      id: "burst_operator",
+      label: "爆量冲刺型",
+      summary: "token 明显集中在少数日期，更像一次冲刺高光；需要跨天复用来证明稳定能力。",
+      riskLevel: "medium",
+    };
+  } else if (strongRecordDensity < 0.05 || promotionRecordCount < 4) {
+    profile = {
+      id: "thin_evidence",
+      label: "证据偏薄型",
+      summary: "可评分记录或强记录偏少；当前更适合低置信度初筛，不适合直接判断高段位。",
+      riskLevel: "high",
+    };
+  }
+  return {
+    ...profile,
+    controlReading: userDecisionRatio >= 0.08
+      ? "用户决策占比达到七品复核线，能支撑“人在控”的判断。"
+      : userDecisionRatio >= 0.03
+        ? "用户决策占比能支撑六品复核，但进入七品仍需更多系统级取舍。"
+        : "用户决策占比偏低，高阶结论容易被助手执行痕迹稀释。",
+    validationReading: validationDensity >= 0.08
+      ? "验证密度较好，系统结果有可托付证据。"
+      : validationDensity > 0
+        ? "有验证信号，但密度不足，需要确认是否由人定义验收标准。"
+        : "未看到验证闭环，不能证明结果可托付。",
+    investmentReading: peakDayShare >= 0.5
+      ? "token 投入单日集中，稳定性需要打折。"
+      : totalTokens > 0
+        ? "token 投入能说明 AI 使用强度，但不会直接抬高段位。"
+        : "未读取到 token 统计，投入强度无法量化。",
+    evidenceReading: strongRecordDensity >= 0.1 && signalCoverageRatio >= 0.5
+      ? "强记录和信号覆盖足以支撑较高置信度复核。"
+      : strongRecordDensity >= 0.05
+        ? "强记录存在，但覆盖还不够厚，需要更多不同任务证据。"
+        : "强记录偏薄，自动初筛应保守。",
+    ratingUse: "统计画像用于解释置信度、封顶和下一步，不直接升品。",
+    signals: [
+      `用户决策 ${formatPercent(userDecisionRatio)}`,
+      `主动控制 ${formatPercent(userControlRatio)}`,
+      `助手执行 ${formatPercent(assistantExecutionRatio)}`,
+      `验证密度 ${formatPercent(validationDensity)}`,
+      `强记录 ${formatPercent(strongRecordDensity)}`,
+      `成立维度 ${establishedDimensions}/6`,
+      `稳定维度 ${stableDimensions}/6`,
+      `峰值日 token ${formatPercent(peakDayShare)}`,
+    ],
+  };
+}
+
+function profileDetail(profile) {
+  const signals = Array.isArray(profile.signals) && profile.signals.length
+    ? `关键数字：${profile.signals.slice(0, 4).join("；")}。`
+    : "";
+  return `${profile.ratingUse || "统计画像用于解释置信度、封顶和下一步，不直接升品。"}${signals}`;
 }
 
 function rankGateSummary(report) {
@@ -856,6 +982,8 @@ function buildSharePrompt(report) {
     .slice(0, 5)
     .map((item) => `${item.label} ${item.value}：${shortText(item.ratingImpact || item.risk || "", 28)}`)
     .join("；");
+  const profile = statProfile(report);
+  const profileSignals = Array.isArray(profile.signals) ? profile.signals.slice(0, 6).join("，") : "";
   const url = location.href;
   return `
 Use case: infographic-diagram
@@ -888,6 +1016,11 @@ ${behaviorMixSummary(report)}
 
 统计解读：
 ${statsInsight(report)}
+
+统计画像：
+${profile.label || "统计画像"}：${profile.summary || ""}
+${profileSignals ? `关键数字：${profileSignals}` : ""}
+${profile.ratingUse || "统计画像用于解释置信度、封顶和下一步，不直接升品。"}
 
 关键门槛：
 ${rankGateSummary(report)}
@@ -946,6 +1079,8 @@ function buildJudgePrompt(report) {
     .slice(0, 8)
     .map((item, index) => `${index + 1}. ${item.label || item.signal || "证据"}｜${item.dimension || ""}｜${item.strength || ""}｜${item.reason || item.summary || ""}`)
     .join("\n");
+  const profile = statProfile(report);
+  const profileSignals = Array.isArray(profile.signals) ? profile.signals.join("；") : "";
 
   return `
 你是 Airank Vibe Coding 九品体系的 AI 深度判定官。请基于下面这份已脱敏报告做最终复核。
@@ -979,6 +1114,16 @@ ${metricRows || "- 暂无统计仪表盘"}
 - ${evidenceStructureSummary(report)}
 - ${behaviorMixSummary(report)}
 - 统计解读：${statsInsight(report)}
+
+统计画像：
+- 类型：${profile.label || "统计画像"}（${profile.id || "unknown"}，风险=${profile.riskLevel || "unknown"}）
+- 结论：${profile.summary || ""}
+- 控制力：${profile.controlReading || ""}
+- 验证：${profile.validationReading || ""}
+- 投入：${profile.investmentReading || ""}
+- 证据：${profile.evidenceReading || ""}
+- 关键数字：${profileSignals || "暂无"}
+- 使用边界：${profile.ratingUse || "统计画像用于解释置信度、封顶和下一步，不直接升品。"}
 
 六维画像：
 ${dimensions || "- 暂无六维画像"}
