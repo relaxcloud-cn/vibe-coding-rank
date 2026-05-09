@@ -219,6 +219,33 @@ assert.equal(
   shortDom.window.document.querySelector("#share-note").textContent,
   "当前是本地完整报告；只从本机服务读取，未上传公网。",
 );
+
+const duplicateEvidenceText = "我已经定位到关键模块，下一步会逐段读心跳认证、节点在线判定、订阅刷新与重连。";
+const duplicateDom = await renderAt("share/dupe01", {
+  body: {
+    report: {
+      reportId: "dupe01",
+      reportLinkMode: "public-share-link",
+      reportPayloadType: "public-summary",
+      rank: { level: 6, label: "六品 · 已有大成", score: 76, confidence: "high", systemOwnership: "strong" },
+      verdict: "重复证据测试",
+      strongestEvidence: [
+        { label: "架构判断证据", reason: "关注模块边界。", summary: duplicateEvidenceText },
+        { label: "系统归属证据", reason: "关注关键路径。", summary: duplicateEvidenceText },
+        { label: "工作流沉淀证据", reason: "沉淀 workflow。", summary: "把成功流程沉淀成 checklist。" },
+      ],
+      privacy: { rawLogsUploaded: false, localPathsRemoved: true, compactPublicReport: true },
+    },
+  },
+});
+const duplicateEvidenceCards = [...duplicateDom.window.document.querySelectorAll("#evidence-grid .evidence-card")];
+assert.equal(duplicateEvidenceCards.length, 2);
+assert.equal(
+  duplicateEvidenceCards.filter((card) => card.textContent.includes(duplicateEvidenceText)).length,
+  1,
+);
+assert.equal(duplicateDom.window.document.querySelector("#evidence-grid").textContent.includes("实现这个用户故事"), false);
+
 const unsafeDom = await renderAt("report/unsafe", {
   body: {
     report: {

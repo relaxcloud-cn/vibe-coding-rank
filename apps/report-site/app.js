@@ -394,10 +394,58 @@ function renderRail(level) {
   }
 }
 
+function isSampleReport() {
+  return currentReportContext.mode === "sample";
+}
+
+function sampleFallback(value, fallback) {
+  return isSampleReport() ? fallback : value;
+}
+
+function normalizeEvidenceText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function evidenceText(row) {
+  return normalizeEvidenceText(row?.snippet || row?.summary || row?.reason || row?.label || row?.signal);
+}
+
+function uniqueEvidenceRows(rows) {
+  const seen = new Set();
+  const unique = [];
+  for (const row of rows || []) {
+    const key = evidenceText(row);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(row);
+  }
+  return unique;
+}
+
+function evidenceRows(report, fallbackRows = []) {
+  const rows = report.strongestEvidence?.length ? report.strongestEvidence : report.evidence?.length ? report.evidence : fallbackRows;
+  return uniqueEvidenceRows(rows);
+}
+
+function dimensionRows(report) {
+  return report.dimensionProfile?.length ? report.dimensionProfile : sampleFallback([], SAMPLE.dimensionProfile);
+}
+
 function renderEvidence(report) {
   const grid = document.querySelector("#evidence-grid");
   grid.replaceChildren();
-  const rows = (report.strongestEvidence?.length ? report.strongestEvidence : report.evidence?.length ? report.evidence : SAMPLE.evidence).slice(0, 6);
+  const rows = evidenceRows(report, isSampleReport() ? SAMPLE.evidence : []).slice(0, 6);
+  if (!rows.length) {
+    const card = document.createElement("article");
+    card.className = "evidence-card";
+    const title = document.createElement("strong");
+    title.textContent = "暂无可展示证据";
+    const reason = document.createElement("em");
+    reason.textContent = "当前报告没有公开证据摘要。";
+    card.append(title, reason);
+    grid.append(card);
+    return;
+  }
   for (const row of rows) {
     const card = document.createElement("article");
     card.className = "evidence-card";
@@ -579,11 +627,11 @@ function renderReportMeta(report) {
 function render(report) {
   document.querySelector(".dashboard").classList.remove("error-state");
   currentReport = report;
-  const rank = report.rank || SAMPLE.rank;
+  const rank = report.rank || sampleFallback({ level: 0, label: "未知", score: 0, confidence: "low", systemOwnership: "weak" }, SAMPLE.rank);
   const level = Number(rank.level || 0);
   renderReportMeta(report);
   document.querySelector("#rank-label").textContent = rank.label || RANKS[level][1];
-  document.querySelector("#verdict").textContent = report.verdict || report.narrative?.oneLine || SAMPLE.verdict;
+  document.querySelector("#verdict").textContent = report.verdict || report.narrative?.oneLine || sampleFallback("当前报告缺少一句话判定。", SAMPLE.verdict);
   document.querySelector("#score-value").textContent = rank.score || 0;
   document.querySelector("#confidence").textContent = translateConfidence(rank.confidence || "low");
   document.querySelector("#ownership").textContent = translateOwnership(rank.systemOwnership || "weak");
@@ -592,7 +640,7 @@ function render(report) {
   document.querySelector("#user-control").textContent = report.userControlCount ?? 0;
   document.querySelector("#signals").textContent = report.signalCount || 0;
   document.querySelector("#records").textContent = report.analyzedRecordCount ?? report.recordCount ?? 0;
-  document.querySelector("#rank-cap").textContent = firstText(report.rankCaps) || SAMPLE.rankCaps[0];
+  document.querySelector("#rank-cap").textContent = firstText(report.rankCaps) || sampleFallback("当前报告没有段位上限说明。", SAMPLE.rankCaps[0]);
   document.querySelector("#upgrade-path").textContent = upgradePathSummary(report);
   document.querySelector("#unlock-status").textContent = unlockText(report);
   document.querySelector("#usage-summary").textContent = usageSummary(report);
@@ -609,8 +657,8 @@ function render(report) {
   document.querySelector("#rank-gate-summary").textContent = rankGateSummary(report);
   document.querySelector("#quality-flags").textContent = qualityFlagSummary(report);
   document.querySelector("#drag-factors").textContent = dragFactorSummary(report);
-  document.querySelector("#why-this-rank").textContent = report.whyThisRank || report.narrative?.rankReason || SAMPLE.whyThisRank;
-  document.querySelector("#why-not-next").textContent = report.whyNotNextRank || report.narrative?.nextRankGap || SAMPLE.whyNotNextRank;
+  document.querySelector("#why-this-rank").textContent = report.whyThisRank || report.narrative?.rankReason || sampleFallback("当前报告缺少段位原因。", SAMPLE.whyThisRank);
+  document.querySelector("#why-not-next").textContent = report.whyNotNextRank || report.narrative?.nextRankGap || sampleFallback("当前报告缺少下一品差距说明。", SAMPLE.whyNotNextRank);
   document.querySelector("#next-action-title").textContent = nextActionTitle(report);
   document.querySelector("#next-action-body").textContent = upgradePathSummary(report);
   document.querySelector("#next-action-gate").textContent = rankGateSummary(report);
@@ -689,8 +737,21 @@ function unlockText(report) {
 
 function renderDimensions(report) {
   const grid = document.querySelector("#dimension-grid");
-  const rows = report.dimensionProfile?.length ? report.dimensionProfile : SAMPLE.dimensionProfile;
+  const rows = dimensionRows(report);
   grid.replaceChildren();
+  if (!rows.length) {
+    const item = document.createElement("article");
+    item.className = "dimension-card";
+    const body = document.createElement("div");
+    const label = document.createElement("strong");
+    label.textContent = "暂无维度数据";
+    const status = document.createElement("span");
+    status.textContent = "缺失";
+    body.append(label, status);
+    item.append(body);
+    grid.append(item);
+    return;
+  }
   for (const row of rows) {
     const item = document.createElement("article");
     item.className = "dimension-card";
@@ -1157,7 +1218,7 @@ function upgradePathSummary(report) {
   const failed = firstFailedGate(report);
   if (failed?.id && GATE_UPGRADE_ADVICE[failed.id]) return GATE_UPGRADE_ADVICE[failed.id];
   if (failed?.reason) return `先补齐这个门槛：${failed.reason}`;
-  return firstText(report.upgradePath) || SAMPLE.gateUpgradeAdvice || SAMPLE.upgradePath[0];
+  return firstText(report.upgradePath) || sampleFallback("继续积累真实项目证据，并把成功做法沉淀成可复用工作流。", SAMPLE.gateUpgradeAdvice || SAMPLE.upgradePath[0]);
 }
 
 function qualityFlagSummary(report) {
@@ -1431,12 +1492,12 @@ function shareHardStatCards(cards) {
 }
 
 function buildSharePrompt(report) {
-  const rank = report.rank || SAMPLE.rank;
-  const evidenceRows = (report.strongestEvidence?.length ? report.strongestEvidence : report.evidence?.length ? report.evidence : SAMPLE.evidence)
+  const rank = report.rank || sampleFallback({}, SAMPLE.rank);
+  const promptEvidenceRows = evidenceRows(report, isSampleReport() ? SAMPLE.evidence : [])
     .slice(0, 3)
     .map((item) => `${item.label || item.signal || "证据"}：${shortText(item.reason || item.snippet || "", 36)}`);
-  while (evidenceRows.length < 3) evidenceRows.push("证据不足：继续积累真实 AI 工作记录");
-  const dimensions = (report.dimensionProfile?.length ? report.dimensionProfile : SAMPLE.dimensionProfile)
+  while (promptEvidenceRows.length < 3) promptEvidenceRows.push("证据不足：继续积累真实 AI 工作记录");
+  const dimensions = dimensionRows(report)
     .slice(0, 6)
     .map((item) => `${item.label || item.id} ${item.status || "缺失"} ${Number(item.score || 0)}/100`)
     .join("；");
@@ -1513,9 +1574,9 @@ ${dragFactorSummary(report)}
 ${dimensions}
 
 证据摘要：
-1. ${evidenceRows[0]}
-2. ${evidenceRows[1]}
-3. ${evidenceRows[2]}
+1. ${promptEvidenceRows[0]}
+2. ${promptEvidenceRows[1]}
+3. ${promptEvidenceRows[2]}
 
 评级限制：
 ${shortText(firstText(report.rankCaps) || "暂无明显封顶原因", 52)}
@@ -1545,7 +1606,7 @@ function rankGatePromptLine(item) {
 }
 
 function buildJudgePrompt(report) {
-  const rank = report.rank || SAMPLE.rank;
+  const rank = report.rank || sampleFallback({}, SAMPLE.rank);
   const nextRank = report.nextRank || {};
   const hardCards = shareHardStatCards(report.hardStatCards?.length ? report.hardStatCards : fallbackHardStatCards(report))
     .map((item) => `- ${item.label}：${item.value}；${item.detail || ""}；${item.interpretation || ""}`)
@@ -1554,14 +1615,14 @@ function buildJudgePrompt(report) {
     .slice(0, 5)
     .map((item) => `- ${item.label}：${item.value}；${item.signal || ""}；评级作用：${item.ratingImpact || ""}；风险：${item.risk || ""}`)
     .join("\n");
-  const dimensions = (report.dimensionProfile?.length ? report.dimensionProfile : SAMPLE.dimensionProfile)
+  const dimensions = dimensionRows(report)
     .slice(0, 6)
     .map((item) => `- ${item.label || item.id}：${item.status || "缺失"}，${Number(item.score || 0)}/100，证据 ${item.evidence_count ?? item.evidenceCount ?? "未知"} 条`)
     .join("\n");
   const gates = (report.rankGates || [])
     .map(rankGatePromptLine)
     .join("\n");
-  const evidenceRows = (report.strongestEvidence?.length ? report.strongestEvidence : report.evidence?.length ? report.evidence : SAMPLE.evidence)
+  const judgeEvidenceRows = evidenceRows(report, isSampleReport() ? SAMPLE.evidence : [])
     .slice(0, 8)
     .map((item, index) => `${index + 1}. ${item.label || item.signal || "证据"}｜${item.dimension || ""}｜${item.strength || ""}｜${item.reason || item.summary || ""}`)
     .join("\n");
@@ -1647,7 +1708,7 @@ ${dragFactorSummary(report)}
 ${(report.rankCaps || []).slice(0, 5).map((item) => `- ${item}`).join("\n") || "- 暂无明显封顶原因"}
 
 最强证据链：
-${evidenceRows || "1. 证据不足"}
+${judgeEvidenceRows || "1. 证据不足"}
 
 请输出中文最终报告，严格包含以下小节：
 1. 最终段位：是否维持、上调或下调自动初筛结果。

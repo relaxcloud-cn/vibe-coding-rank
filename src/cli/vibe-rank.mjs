@@ -936,7 +936,7 @@ function flattenLegacyEvidence(evidence) {
 
 function flattenEvidence(summary) {
   if (Array.isArray(summary.evidence_cards) && summary.evidence_cards.length) {
-    return summary.evidence_cards.slice(0, 16).map((item) => ({
+    return summary.evidence_cards.map((item) => ({
       signal: item.signal || "",
       label: item.evidence_type || SIGNAL_LABELS[item.signal] || item.signal || "证据",
       reason: item.proves || SIGNAL_REASONS[item.signal] || "这条证据支持当前段位判断。",
@@ -956,6 +956,30 @@ function flattenEvidence(summary) {
   return flattenLegacyEvidence(summary.evidence);
 }
 
+function normalizeEvidenceText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function evidenceIdentity(row) {
+  const text = normalizeEvidenceText(row.snippet || row.behavior || row.summary);
+  if (text) return `text:${text}`;
+  const source = normalizeEvidenceText(row.source);
+  if (source) return `source:${source}`;
+  return `meta:${normalizeEvidenceText(row.label || row.signal)}:${normalizeEvidenceText(row.reason || row.proves || row.dimension)}`;
+}
+
+function uniqueEvidenceRows(rows) {
+  const seen = new Set();
+  const unique = [];
+  for (const row of rows || []) {
+    const key = evidenceIdentity(row);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(row);
+  }
+  return unique;
+}
+
 function strongestEvidence(rows) {
   const priority = [
     "architecture",
@@ -970,13 +994,12 @@ function strongestEvidence(rows) {
     "bug_loop",
     "snippet_generation",
   ];
-  return [...rows]
-    .sort((a, b) => {
-      const ap = priority.indexOf(a.signal);
-      const bp = priority.indexOf(b.signal);
-      return (ap === -1 ? 99 : ap) - (bp === -1 ? 99 : bp);
-    })
-    .slice(0, 5);
+  const sorted = [...rows].sort((a, b) => {
+    const ap = priority.indexOf(a.signal);
+    const bp = priority.indexOf(b.signal);
+    return (ap === -1 ? 99 : ap) - (bp === -1 ? 99 : bp);
+  });
+  return uniqueEvidenceRows(sorted).slice(0, 5);
 }
 
 function flattenWeakSignals(summary) {
@@ -1551,7 +1574,7 @@ function buildAdvancedAnalysis(report) {
   const keyGate = firstFailedGate(report);
   const statEvidenceRow = report.statEvidence || statEvidence(report);
   const statImpact = statEvidenceRow.confidenceImpact || report.statsInsight || "硬统计只影响置信度，不直接升品。";
-  const accepted = (report.strongestEvidence?.length ? report.strongestEvidence : report.evidence || [])
+  const accepted = uniqueEvidenceRows(report.strongestEvidence?.length ? report.strongestEvidence : report.evidence || [])
     .slice(0, 8)
     .map(evidenceAuditRow);
   const downranked = qualityAuditRows(report);
@@ -2250,7 +2273,7 @@ function shareHardStatCards(cards) {
 
 function buildShareImagePrompt(report, url = "") {
   const rank = report.rank || {};
-  const evidence = (report.strongestEvidence || report.evidence || [])
+  const evidence = uniqueEvidenceRows(report.strongestEvidence || report.evidence || [])
     .slice(0, 3)
     .map((item) => `${item.label || item.signal || "证据"}：${shortText(item.reason || item.snippet || "", 36)}`);
   while (evidence.length < 3) evidence.push("证据不足：继续积累真实 AI 工作记录");
@@ -2388,7 +2411,7 @@ function buildJudgePrompt(report, url = "") {
   const gates = (report.rankGates || [])
     .map(rankGatePromptLine)
     .join("\n");
-  const evidence = (report.strongestEvidence || report.evidence || [])
+  const evidence = uniqueEvidenceRows(report.strongestEvidence || report.evidence || [])
     .slice(0, 8)
     .map((item, index) => `${index + 1}. ${item.label || item.signal || "证据"}｜${item.dimension || ""}｜${item.strength || ""}｜${item.usableForPromotion === false ? "不可升品" : "可升品"}｜${item.judgmentNote || item.reason || item.summary || ""}`)
     .join("\n");
@@ -2615,7 +2638,7 @@ function pickFields(source, fields) {
 }
 
 function publicReport(report) {
-  const evidence = (report.strongestEvidence?.length ? report.strongestEvidence : report.evidence || [])
+  const evidence = uniqueEvidenceRows(report.strongestEvidence?.length ? report.strongestEvidence : report.evidence || [])
     .slice(0, 3)
     .map(publicEvidence);
   const publicHardCards = shareHardStatCards(report.hardStatCards).slice(0, 6);

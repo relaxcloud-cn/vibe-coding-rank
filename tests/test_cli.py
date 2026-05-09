@@ -280,6 +280,40 @@ class CliTests(unittest.TestCase):
             self.assertIn("codex:", evidence_text)
             self.assertIn("claude:", evidence_text)
 
+    def test_strongest_evidence_deduplicates_one_record_matching_multiple_signals(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "codex-sessions"
+            write_session(
+                root,
+                "我已经定位到关键模块和架构边界，包含 auth 权限、数据模型、重构、系统设计、关键路径、上线、回滚和日志观测。",
+                role="assistant",
+            )
+
+            result = subprocess.run(
+                [
+                    "node",
+                    str(ROOT / "src" / "cli" / "vibe-rank.mjs"),
+                    "--source",
+                    "codex",
+                    "--root",
+                    str(root),
+                    "--print-json",
+                ],
+                cwd=tmp,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            payload = json.loads(result.stdout)
+            snippets = [
+                item.get("snippet", "")
+                for item in payload["report"]["strongestEvidence"]
+                if item.get("snippet")
+            ]
+            self.assertEqual(len(snippets), len(set(snippets)))
+            self.assertEqual(len(snippets), 1)
+
     def test_default_source_uses_single_detected_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp) / "home"
